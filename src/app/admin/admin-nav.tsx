@@ -6,6 +6,7 @@ import { signOut } from 'next-auth/react'
 import {
   LayoutDashboard,
   Package,
+  FolderTree,
   ShoppingCart,
   Tag,
   Star,
@@ -20,6 +21,7 @@ const LINKS = [
   { href: '/admin', label: '總覽', icon: LayoutDashboard, exact: true },
   { href: '/admin/orders', label: '訂單', icon: ShoppingCart },
   { href: '/admin/products', label: '商品', icon: Package },
+  { href: '/admin/taxonomy', label: '分類與品牌', icon: FolderTree },
   { href: '/admin/coupons', label: '優惠券', icon: Tag },
   { href: '/admin/reviews', label: '評論', icon: Star },
   { href: '/admin/members', label: '會員', icon: Users },

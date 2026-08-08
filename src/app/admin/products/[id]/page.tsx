@@ -1,9 +1,11 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, ExternalLink } from 'lucide-react'
 import { db } from '@/lib/db'
+import { MAX_FILES_PER_UPLOAD, MAX_UPLOAD_BYTES } from '@/lib/uploads'
 import { ProductEditor } from './product-editor'
+import { ImageManager } from './image-manager'
+import { DangerZone } from './danger-zone'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,19 +22,28 @@ export default async function AdminProductDetail({
 }) {
   const { id } = await params
 
-  const [product, brands] = await Promise.all([
+  const [product, brands, categories] = await Promise.all([
     db.product.findUnique({
       where: { id },
       include: {
         images: { orderBy: { sortOrder: 'asc' } },
         variants: { orderBy: { sortOrder: 'asc' } },
-        categories: { include: { category: { select: { name: true } } } },
+        categories: { select: { categoryId: true } },
       },
     }),
     db.brand.findMany({ orderBy: { sortOrder: 'asc' }, select: { id: true, name: true } }),
+    db.category.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      select: { id: true, name: true },
+    }),
   ])
 
   if (!product) notFound()
+
+  // 有銷售紀錄的商品不能真的刪除，先算出來讓 UI 能提前說明
+  const soldCount = await db.orderItem.count({
+    where: { variantId: { in: product.variants.map((v) => v.id) } },
+  })
 
   return (
     <>
@@ -67,6 +78,8 @@ export default async function AdminProductDetail({
           slug: product.slug,
         }}
         brands={brands}
+        allCategories={categories}
+        selectedCategoryIds={product.categories.map((c) => c.categoryId)}
         variants={product.variants.map((v) => ({
           id: v.id,
           sku: v.sku,
@@ -76,25 +89,25 @@ export default async function AdminProductDetail({
           reservedStock: v.reservedStock,
           isActive: v.isActive,
         }))}
-        categories={product.categories.map((c) => c.category.name)}
       />
 
-      <section className="mt-8 border border-cream-200 bg-white p-5">
-        <h2 className="mb-4 text-sm tracking-[0.1em]">商品圖片（{product.images.length}）</h2>
-        <div className="flex flex-wrap gap-2">
-          {product.images.map((image) => (
-            <div key={image.id} className="relative size-20 overflow-hidden bg-cream-100">
-              <Image src={image.url} alt="" fill sizes="80px" className="object-cover" />
-            </div>
-          ))}
-          {product.images.length === 0 && (
-            <p className="text-sm text-taupe-500">尚未上傳圖片</p>
-          )}
-        </div>
-        <p className="mt-3 text-xs text-taupe-500">
-          目前圖片來自 seed 資料。上傳與排序功能可在後續版本加入。
-        </p>
-      </section>
+      <div className="mt-6">
+        <ImageManager
+          productId={product.id}
+          images={product.images.map((i) => ({
+            id: i.id,
+            url: i.url,
+            width: i.width,
+            height: i.height,
+          }))}
+          maxFiles={MAX_FILES_PER_UPLOAD}
+          maxBytes={MAX_UPLOAD_BYTES}
+        />
+      </div>
+
+      <div className="mt-6">
+        <DangerZone productId={product.id} productName={product.name} soldCount={soldCount} />
+      </div>
     </>
   )
 }

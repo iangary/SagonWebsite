@@ -108,7 +108,8 @@ npx tsx --env-file-if-exists=.env --conditions=react-server scripts/simulate-ecp
 | 物流狀態回拋 → 更新貨態 | ✅ |
 | 超商取貨選店（ExpressMap） | ✅ 綠界電子地圖回傳真實門市（7-11 建盛門市）並寫入 |
 | 正式版 Docker 映像與 compose | ✅ 建置、migration、健康檢查、供頁皆正常 |
-| Vitest 40 項 / Playwright 9 項 | ✅ 全數通過 |
+| Vitest 55 項 / Playwright 12 項 | ✅ 全數通過 |
+| 後台商品維護（新增／圖片／規格／分類品牌） | ✅ 建立→上傳→上架→刪除全程實測 |
 | 電子發票開立 | ⚠️ **未完成** |
 
 **電子發票**：AES 加解密與電文往返都正常（綠界回傳的是可解密的業務錯誤訊息，
@@ -217,9 +218,20 @@ docker compose -f docker-compose.prod.yml up -d --build
 > Prisma CLI 有一整串傳遞相依，所以 migration 用有完整 `node_modules` 的
 > `migrate` 階段來跑，`runner` 映像只留 Next.js standalone 的產物保持精簡。
 
+### 商品圖片的儲存位置
+
+後台上傳的圖片存在 `public/uploads/products/{商品id}/`。
+`docker-compose.prod.yml` 已經把 `/app/public/uploads` 掛成 named volume（`uploads`），
+所以重建容器不會掉圖 —— 但**這個 volume 一定要進備份範圍**，
+它跟資料庫一樣是不可重生的資料。
+
+要改成物件儲存（S3／Cloudflare R2）只需改 `src/lib/uploads.ts` 這一個模組，
+其他地方都只認 `ProductImage.url` 這個字串。
+
 上線前務必確認：
 
 - [ ] `AUTH_SECRET` 換成 `openssl rand -base64 32` 產生的值
+- [ ] `uploads` volume 與資料庫都納入自動備份
 - [ ] `ECPAY_ENV=production`，並換上正式商店代號與金鑰
 - [ ] `APP_URL` 是正式網域（HTTPS），綠界後台的白名單也要設定
 - [ ] `SMS_PROVIDER=mitake` 並填入帳密（否則手機登入的驗證碼不會真的寄出）

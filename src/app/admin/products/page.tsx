@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import { Plus } from 'lucide-react'
 import type { Prisma, ProductStatus } from '@prisma/client'
 import { db } from '@/lib/db'
 import { formatTWD, cn } from '@/lib/utils'
@@ -52,7 +53,19 @@ export default async function AdminProductsPage({
 
   return (
     <>
-      <PageHeader title="商品" description={`共 ${total} 件`} />
+      <PageHeader
+        title="商品"
+        description={`共 ${total} 件`}
+        action={
+          <Link
+            href="/admin/products/new"
+            className="inline-flex items-center gap-2 bg-ink-900 px-5 py-2.5 text-sm text-cream-50 transition-colors hover:bg-ink-700"
+          >
+            <Plus size={15} />
+            新增商品
+          </Link>
+        }
+      />
 
       <div className="mb-5 flex flex-wrap gap-3">
         <form method="get" className="flex gap-2">

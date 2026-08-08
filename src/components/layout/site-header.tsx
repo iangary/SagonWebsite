@@ -1,5 +1,4 @@
 import { getTranslations } from 'next-intl/server'
-import { unstable_cache } from 'next/cache'
 import { Link } from '@/i18n/routing'
 import { db } from '@/lib/db'
 import { env } from '@/lib/env'
@@ -10,29 +9,25 @@ import { MobileNav } from './mobile-nav'
 /**
  * 導覽列要顯示的分類（只取頂層，依 sortOrder）。
  *
- * header 出現在每一頁，而前台是逐次請求渲染的（見 README 的「渲染方式」），
- * 所以這個查詢包一層快取，不要每次請求都打資料庫。
- * 後台改動分類後呼叫 revalidateTag('nav-categories') 就會立刻更新。
+ * 刻意不加快取。這是一個走索引、最多回 12 列的查詢，
+ * 在這個規模下省下來的時間可以忽略，但加了快取就得處理失效與陳舊 ——
+ * 後台改完分類卻要等幾分鐘才看到，對營運是很差的體驗。
  *
  * 資料庫連不上時回空陣列 —— 分類列少幾個連結，總比整頁 500 好。
  */
-const getNavCategories = unstable_cache(
-  async () => {
-    try {
-      return await db.category.findMany({
-        where: { parentId: null },
-        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-        select: { id: true, slug: true, name: true, nameEn: true },
-        take: 12,
-      })
-    } catch (error) {
-      console.error('[header] 取得分類失敗', error)
-      return []
-    }
-  },
-  ['nav-categories'],
-  { revalidate: 300, tags: ['nav-categories'] },
-)
+async function getNavCategories() {
+  try {
+    return await db.category.findMany({
+      where: { parentId: null },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      select: { id: true, slug: true, name: true, nameEn: true },
+      take: 12,
+    })
+  } catch (error) {
+    console.error('[header] 取得分類失敗', error)
+    return []
+  }
+}
 
 export async function SiteHeader() {
   const [t, categories] = await Promise.all([getTranslations('nav'), getNavCategories()])
