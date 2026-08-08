@@ -1,0 +1,83 @@
+# 正式環境。原始碼不掛載，web 跑 Next.js standalone server。
+name: sagon-prod
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: ${POSTGRES_DB:?required}
+      POSTGRES_INITDB_ARGS: '--auth-host=scram-sha-256'
+      TZ: Asia/Taipei
+    volumes:
+      # PG18 起掛 /var/lib/postgresql，見 dev compose 的說明
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    restart: always
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  # 一次性容器：套用 migration 後結束。web 與 worker 都等它成功才啟動，
+  # 確保程式碼跑起來時 schema 一定是最新的。
+  migrate:
+    build:
+      context: .
+      target: migrate
+    restart: 'no'
+    env_file: .env.production
+    depends_on:
+      db: { condition: service_healthy }
+
+  web:
+    build:
+      context: .
+      target: runner
+    restart: always
+    env_file: .env.production
+    ports:
+      - '3000:3000'
+    volumes:
+      - uploads:/app/public/uploads
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ['CMD-SHELL', 'node -e "fetch(\"http://127.0.0.1:3000/api/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  worker:
+    build:
+      context: .
+      target: worker
+    restart: always
+    env_file: .env.production
+    volumes:
+      - uploads:/app/public/uploads
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+
+volumes:
+  pgdata:
+  redisdata:
+  uploads:

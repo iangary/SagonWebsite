@@ -1,0 +1,13 @@
+node_modules
+.next
+out
+dist
+.git
+.env
+.env.local
+public/uploads
+prisma/seed-data
+coverage
+test-results
+playwright-report
+README.md

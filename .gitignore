@@ -1,0 +1,31 @@
+node_modules/
+.next/
+out/
+dist/
+.turbo/
+
+# env（.env.production 含正式金鑰，絕對不能進版控）
+.env
+.env.local
+.env.production
+.env.*.local
+
+# 爬蟲產出（他人著作權素材，僅供本機開發）
+public/uploads/
+prisma/seed-data/
+
+# 測試
+coverage/
+test-results/
+playwright-report/
+.playwright/
+
+# Claude Code 的本機工具設定。skills 下面是各自獨立的 git repo，
+# 提交進來會變成壞掉的 gitlink，clone 的人拿不到內容。
+.claude/skills/
+
+# 編輯器 / OS
+.DS_Store
+Thumbs.db
+*.tsbuildinfo
+next-env.d.ts

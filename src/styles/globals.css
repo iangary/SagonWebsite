@@ -1,0 +1,95 @@
+@import 'tailwindcss';
+
+/*
+  莎岡選品店的視覺基調：溫暖的米白底、深炭灰字、灰褐色點綴。
+  參考站是韓系睡衣選品，走柔和、留白多、襯線標題的路線。
+*/
+@theme {
+  --color-cream-50: #faf8f5;
+  --color-cream-100: #f4f0ea;
+  --color-cream-200: #e9e2d8;
+  --color-cream-300: #d9cec0;
+
+  --color-taupe-400: #b8a695;
+  --color-taupe-500: #a08d7d;
+  --color-taupe-600: #857263;
+
+  --color-ink-700: #4a423c;
+  --color-ink-800: #342e29;
+  --color-ink-900: #2b2724;
+
+  --color-rose-accent: #c98b7f;
+  --color-sale: #b4524a;
+
+  --font-serif-display: 'Noto Serif TC', 'Songti TC', 'Georgia', serif;
+  --font-sans-body: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', system-ui, sans-serif;
+
+  --radius-card: 0.25rem;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-cream-50);
+    color: var(--color-ink-900);
+    font-family: var(--font-sans-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-serif-display);
+    letter-spacing: 0.02em;
+  }
+
+  /* 中文字沒有詞邊界，段落用寬鬆行高才好讀 */
+  p {
+    line-height: 1.85;
+  }
+
+  ::selection {
+    background-color: var(--color-cream-300);
+  }
+
+  /* 鍵盤操作時才顯示 focus ring，滑鼠點擊不顯示 */
+  :focus-visible {
+    outline: 2px solid var(--color-taupe-500);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* 商品描述是從來源站帶過來的 HTML，統一給它一套排版 */
+  .prose-product {
+    line-height: 1.9;
+  }
+  .prose-product p {
+    margin-block: 0.75rem;
+  }
+  .prose-product img {
+    max-width: 100%;
+    height: auto;
+    margin-block: 1rem;
+  }
+  .prose-product ul {
+    list-style: disc;
+    padding-inline-start: 1.5rem;
+    margin-block: 0.75rem;
+  }
+  .prose-product strong {
+    font-weight: 600;
+  }
+}
+
+/* 隱藏水平捲軸但保留捲動能力（品牌列、圖片縮圖列用） */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

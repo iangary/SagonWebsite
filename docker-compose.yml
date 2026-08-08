@@ -1,0 +1,116 @@
+# 開發環境。正式環境請用 docker-compose.prod.yml。
+name: sagon
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sagon
+      POSTGRES_PASSWORD: sagon_dev_pw
+      POSTGRES_DB: sagon
+      # PG18 預設 scram-sha-256，明確寫出來避免不同 host 的預設差異
+      POSTGRES_INITDB_ARGS: '--auth-host=scram-sha-256'
+      TZ: Asia/Taipei
+    ports:
+      # host 用 5433，避開機器上其他既有的 PostgreSQL。容器之間仍走 db:5432。
+      - '5433:5432'
+    volumes:
+      # PG18 起，官方 image 要求掛在 /var/lib/postgresql（不是 .../data），
+      # 資料會放到版本專屬子目錄，日後 pg_upgrade --link 才不會跨掛載點。
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U sagon -d sagon']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  web:
+    build:
+      context: .
+      target: dev
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://sagon:sagon_dev_pw@db:5432/sagon?schema=public
+      REDIS_URL: redis://redis:6379
+      SMTP_HOST: mailpit
+      SMTP_PORT: '1025'
+      WATCHPACK_POLLING: 'true'
+    ports:
+      - '3000:3000'
+    volumes:
+      - .:/app
+      # 容器內的 node_modules 走 volume，避免被 host 的目錄蓋掉（原生模組平台不同）
+      - node_modules:/app/node_modules
+      - next_cache:/app/.next
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  worker:
+    build:
+      context: .
+      target: dev
+    restart: unless-stopped
+    command: ['npm', 'run', 'worker']
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://sagon:sagon_dev_pw@db:5432/sagon?schema=public
+      REDIS_URL: redis://redis:6379
+      SMTP_HOST: mailpit
+      SMTP_PORT: '1025'
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - '8025:8025' # Web UI
+      - '1025:1025' # SMTP
+
+  adminer:
+    image: adminer:latest
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+    depends_on:
+      db: { condition: service_healthy }
+
+  # 綠界的 callback 需要公開網址。啟用方式：
+  #   docker compose --profile tunnel up -d cloudflared
+  #   docker compose logs cloudflared   # 取得 trycloudflare 網址，填回 .env 的 APP_URL
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    profiles: ['tunnel']
+    restart: unless-stopped
+    command: ['tunnel', '--no-autoupdate', '--url', 'http://web:3000']
+    depends_on:
+      - web
+
+volumes:
+  pgdata:
+  redisdata:
+  node_modules:
+  next_cache:

@@ -1,0 +1,18 @@
+# 統一用 LF 存進 repo，避免 Windows/macOS/Linux 之間互丟換行差異，
+# 也讓 Docker 裡的 shell script 不會因為 CRLF 而執行失敗。
+* text=auto eol=lf
+
+# 二進位檔不要做換行轉換
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+
+# 產生出來的檔案在 diff 與語言統計上都不需要出現
+package-lock.json linguist-generated=true -diff
+prisma/migrations/**/*.sql linguist-generated=true

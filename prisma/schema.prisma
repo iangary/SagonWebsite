@@ -1,0 +1,785 @@
+// 莎岡選品店 — 資料模型
+//
+// 金額一律用 Int 存新台幣「元」（綠界 TotalAmount 只收整數元，不用小數）。
+// 所有與綠界往來的原始 payload 都留一份 Json，方便對帳與事後除錯。
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===========================================================================
+// 會員 / 認證（Auth.js v5 標準模型 + 自訂欄位）
+// ===========================================================================
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+
+  // 三種登入方式共用同一個 User：
+  //  - Google  → Account(provider=google)
+  //  - Email   → passwordHash
+  //  - 手機    → phone + phoneVerified
+  phone         String?   @unique
+  phoneVerified DateTime?
+  passwordHash  String?
+
+  role      UserRole @default(CUSTOMER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accounts     Account[]
+  sessions     Session[]
+  addresses    Address[]
+  carts        Cart[]
+  orders       Order[]
+  reviews      Review[]
+  redemptions  CouponRedemption[]
+  auditLogs    AuditLog[]
+
+  @@index([role])
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+/// 手機登入的一次性驗證碼。code 以 argon2 雜湊後存，明碼只出現在簡訊裡。
+model PhoneOtp {
+  id         String    @id @default(cuid())
+  phone      String
+  codeHash   String
+  purpose    String    @default("login") // login | bind
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  /// 只在 SMS_PROVIDER=console 時填入，供本機開發與 E2E 取碼；正式環境永遠是 null。
+  devCode String?
+
+  @@index([phone, createdAt])
+  @@index([expiresAt])
+  @@map("phone_otps")
+}
+
+model Address {
+  id        String  @id @default(cuid())
+  userId    String
+  recipient String
+  phone     String
+  zip       String
+  city      String
+  district  String
+  line1     String
+  isDefault Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+// ===========================================================================
+// 商品目錄
+// ===========================================================================
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+model Brand {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  name        String
+  description String? @db.Text
+  imageUrl    String?
+  sortOrder   Int     @default(0)
+
+  products Product[]
+
+  @@map("brands")
+}
+
+model Category {
+  id       String  @id @default(cuid())
+  slug     String  @unique
+  name     String
+  nameEn   String?
+  parentId String?
+
+  /// sagan.com.tw 的分類 id，供 seed 重跑時比對（正式營運可為 null）
+  sourceId  String? @unique
+  sortOrder Int     @default(0)
+  imageUrl  String?
+
+  parent   Category?         @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[]        @relation("CategoryTree")
+  products ProductCategory[]
+
+  @@index([parentId])
+  @@map("categories")
+}
+
+model Product {
+  id              String        @id @default(cuid())
+  slug            String        @unique
+  name            String
+  nameEn          String?
+  summary         String?       @db.Text
+  descriptionHtml String?       @db.Text
+  brandId         String?
+  status          ProductStatus @default(ACTIVE)
+
+  /// 顯示用的起始價（= 最低變體售價），寫入時由程式同步，避免列表頁還要 join 變體
+  basePrice        Int
+  compareAtPrice   Int?
+
+  /// 爬蟲來源，正式商品為 null
+  sourceUrl String?
+  sourceId  String? @unique
+
+  seoTitle       String?
+  seoDescription String? @db.Text
+
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  brand      Brand?            @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  categories ProductCategory[]
+  images     ProductImage[]
+  variants   ProductVariant[]
+  reviews    Review[]
+
+  @@index([status, publishedAt])
+  @@index([brandId])
+  @@map("products")
+}
+
+model ProductCategory {
+  productId  String
+  categoryId String
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([productId, categoryId])
+  @@index([categoryId])
+  @@map("product_categories")
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String
+  url       String
+  alt       String?
+  width     Int?
+  height    Int?
+  sortOrder Int     @default(0)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, sortOrder])
+  @@map("product_images")
+}
+
+model ProductVariant {
+  id        String @id @default(cuid())
+  productId String
+  sku       String @unique
+
+  /// 人類可讀的規格名，例如「米白 / M」
+  name String
+
+  /// 結構化選項，例如 { "顏色": "米白", "尺寸": "M" }
+  options Json @default("{}")
+
+  price          Int
+  compareAtPrice Int?
+
+  /// 實際在庫數。付款成功才扣這個。
+  stock Int @default(0)
+  /// 已被未付款訂單佔住的數量。可售 = stock - reservedStock。
+  reservedStock Int @default(0)
+
+  weightGram Int     @default(600)
+  isActive   Boolean @default(true)
+  sortOrder  Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product      Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+  reservations StockReservation[]
+
+  @@index([productId])
+  @@map("product_variants")
+}
+
+// ===========================================================================
+// 購物車
+// ===========================================================================
+
+model Cart {
+  id     String  @id @default(cuid())
+  userId String?
+  /// 未登入訪客的 cookie 識別碼
+  anonId String?
+
+  couponCode String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@unique([userId])
+  @@unique([anonId])
+  @@map("carts")
+}
+
+model CartItem {
+  id        String @id @default(cuid())
+  cartId    String
+  variantId String
+  qty       Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cart    Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, variantId])
+  @@index([cartId])
+  @@map("cart_items")
+}
+
+// ===========================================================================
+// 優惠券
+// ===========================================================================
+
+enum CouponType {
+  PERCENT
+  FIXED
+  FREE_SHIPPING
+}
+
+model Coupon {
+  id          String     @id @default(cuid())
+  code        String     @unique
+  description String?
+  type        CouponType
+  /// PERCENT 時是百分比（10 = 打九折折 10%）；FIXED 時是折抵元數；FREE_SHIPPING 時忽略
+  value       Int        @default(0)
+
+  minSubtotal  Int       @default(0)
+  startsAt     DateTime?
+  endsAt       DateTime?
+  usageLimit   Int? // 全站總使用次數上限
+  perUserLimit Int       @default(1)
+  usedCount    Int       @default(0)
+  isActive     Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  redemptions CouponRedemption[]
+  orders      Order[]
+
+  @@map("coupons")
+}
+
+model CouponRedemption {
+  id        String   @id @default(cuid())
+  couponId  String
+  userId    String?
+  orderId   String   @unique
+  createdAt DateTime @default(now())
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([couponId, userId])
+  @@map("coupon_redemptions")
+}
+
+// ===========================================================================
+// 訂單
+// ===========================================================================
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  PROCESSING
+  SHIPPED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum ShippingMethod {
+  CVS
+  HOME
+}
+
+model Order {
+  id String @id @default(cuid())
+
+  /// 綠界 MerchantTradeNo：僅英數，長度 <= 20，全站唯一且不可重複送單
+  orderNo String @unique
+
+  userId String?
+  email  String
+  phone  String
+
+  status OrderStatus @default(PENDING_PAYMENT)
+
+  subtotal      Int
+  discountTotal Int @default(0)
+  shippingFee   Int @default(0)
+  grandTotal    Int
+
+  couponId String?
+
+  shippingMethod ShippingMethod
+  note           String?        @db.Text
+
+  /// 收件資訊（下單當下的快照，不跟著地址簿變動）
+  recipientName  String
+  recipientPhone String
+  addressZip     String?
+  addressCity    String?
+  addressLine    String?
+
+  paidAt      DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user         User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  coupon       Coupon?           @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  items        OrderItem[]
+  payment      Payment?
+  shipment     Shipment?
+  invoice      Invoice?
+  reservations StockReservation[]
+  redemption   CouponRedemption?
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([email])
+  @@map("orders")
+}
+
+/// 下單當下把商品資訊整份快照進來，之後商品改名改價都不影響歷史訂單。
+model OrderItem {
+  id        String @id @default(cuid())
+  orderId   String
+  variantId String?
+
+  productName String
+  variantName String
+  sku         String
+  imageUrl    String?
+  unitPrice   Int
+  qty         Int
+  lineTotal   Int
+
+  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  reviews Review[]
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+/// 未付款期間先佔住庫存，逾期由 worker 釋放。
+model StockReservation {
+  id         String    @id @default(cuid())
+  variantId  String
+  orderId    String
+  qty        Int
+  expiresAt  DateTime
+  releasedAt DateTime?
+  /// 付款成功、已轉為實際扣減
+  committedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([expiresAt, releasedAt, committedAt])
+  @@map("stock_reservations")
+}
+
+// ===========================================================================
+// 金流
+// ===========================================================================
+
+enum PaymentStatus {
+  PENDING
+  AWAITING_TRANSFER // ATM/CVS 已取號，等待付款
+  PAID
+  FAILED
+  EXPIRED
+  REFUNDED
+}
+
+model Payment {
+  id      String @id @default(cuid())
+  orderId String @unique
+
+  provider        String @default("ECPAY")
+  merchantTradeNo String @unique
+  /// 綠界的交易編號，付款完成才會有
+  tradeNo String?
+
+  /// 綠界 ChoosePayment：Credit / ATM / CVS / BARCODE / ALL
+  choosePayment String
+  /// 綠界回傳的實際付款方式，例如 Credit_CreditCard、ATM_TAISHIN
+  paymentType String?
+
+  amount Int
+  status PaymentStatus @default(PENDING)
+
+  // ATM 虛擬帳號（PaymentInfoURL 回傳）
+  bankCode String?
+  vAccount String?
+  // CVS / BARCODE 繳費代碼
+  paymentNo  String?
+  barcode1   String?
+  barcode2   String?
+  barcode3   String?
+  expireDate String?
+
+  rawCallback Json?
+  failReason  String?
+
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("payments")
+}
+
+// ===========================================================================
+// 物流
+// ===========================================================================
+
+enum LogisticsType {
+  CVS
+  HOME
+}
+
+enum LogisticsSubType {
+  FAMIC2C
+  UNIMARTC2C
+  HILIFEC2C
+  OKMARTC2C
+  FAMI
+  UNIMART
+  HILIFE
+  TCAT
+  POST
+}
+
+enum ShipmentStatus {
+  PENDING // 尚未建立綠界物流單
+  CREATED // 已建單，等待出貨
+  IN_TRANSIT
+  ARRIVED // 已到店 / 配送中
+  PICKED_UP // 已取貨
+  RETURNED
+  FAILED
+}
+
+model Shipment {
+  id      String @id @default(cuid())
+  orderId String @unique
+
+  logisticsType    LogisticsType
+  logisticsSubType LogisticsSubType
+
+  /// 綠界物流交易編號
+  allPayLogisticsId String?
+  /// 一段標（C2C）或托運單號（宅配）
+  shipmentNo String?
+  /// C2C 才有：寄件用的驗證碼
+  cvsValidationNo String?
+
+  // 超商取貨門市（由電子地圖回傳）
+  cvsStoreId      String?
+  cvsStoreName    String?
+  cvsAddress      String?
+  cvsTelephone    String?
+  cvsOutSide      Boolean?
+
+  receiverName    String
+  receiverPhone   String?
+  receiverCell    String
+  receiverZip     String?
+  receiverAddress String?
+
+  status     ShipmentStatus @default(PENDING)
+  statusCode String?
+  statusMsg  String?
+
+  /// 是否為代收貨款
+  isCollection Boolean @default(false)
+  goodsAmount  Int
+
+  rawResponse Json?
+  failReason  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  logs  LogisticsStatusLog[]
+
+  @@index([status])
+  @@map("shipments")
+}
+
+model LogisticsStatusLog {
+  id         String   @id @default(cuid())
+  shipmentId String
+  statusCode String
+  message    String
+  occurredAt DateTime
+  raw        Json?
+  createdAt  DateTime @default(now())
+
+  shipment Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@index([shipmentId, occurredAt])
+  @@map("logistics_status_logs")
+}
+
+// ===========================================================================
+// 電子發票
+// ===========================================================================
+
+enum InvoiceCarrierType {
+  NONE // 不使用載具（索取紙本）
+  MEMBER // 會員載具
+  CITIZEN // 自然人憑證
+  MOBILE // 手機條碼
+}
+
+enum InvoiceStatus {
+  PENDING
+  ISSUED
+  VOIDED
+  FAILED
+}
+
+model Invoice {
+  id      String @id @default(cuid())
+  orderId String @unique
+
+  /// 綠界回傳的發票號碼
+  invoiceNumber String?  @unique
+  randomNumber  String?
+  invoiceDate   DateTime?
+
+  /// 個人 / 公司
+  isB2B       Boolean @default(false)
+  taxId       String?
+  companyName String?
+
+  carrierType InvoiceCarrierType @default(MEMBER)
+  carrierNum  String?
+
+  /// 捐贈：愛心碼
+  donation Boolean @default(false)
+  loveCode String?
+
+  amount Int
+  status InvoiceStatus @default(PENDING)
+
+  voidedAt   DateTime?
+  voidReason String?
+  failReason String?
+
+  rawResponse Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("invoices")
+}
+
+// ===========================================================================
+// 商品評論
+// ===========================================================================
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Review {
+  id          String @id @default(cuid())
+  productId   String
+  userId      String
+  /// 綁定已完成的訂單項目，確保只有買過的人能評論，且每筆只能評一次
+  orderItemId String @unique
+
+  rating Int
+  title  String?
+  body   String  @db.Text
+
+  status       ReviewStatus @default(PENDING)
+  moderatedAt  DateTime?
+  rejectReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@index([productId, status])
+  @@index([userId])
+  @@map("reviews")
+}
+
+// ===========================================================================
+// 維運
+// ===========================================================================
+
+/// 所有綠界回拋都先落地成一筆事件再處理。
+/// (provider, kind, externalId) 唯一，保證綠界重送時不會被處理兩次。
+model WebhookEvent {
+  id         String @id @default(cuid())
+  provider   String @default("ECPAY")
+  /// payment_return | payment_info | logistics_reply | logistics_map
+  kind       String
+  externalId String
+
+  merchantTradeNo String?
+  payload         Json
+  headers         Json?
+  signatureValid  Boolean  @default(false)
+
+  processedAt DateTime?
+  attempts    Int       @default(0)
+  error       String?   @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@unique([provider, kind, externalId])
+  @@index([processedAt])
+  @@index([merchantTradeNo])
+  @@map("webhook_events")
+}
+
+model AuditLog {
+  id       String  @id @default(cuid())
+  userId   String?
+  action   String
+  entity   String
+  entityId String?
+  before   Json?
+  after    Json?
+  ip       String?
+
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+/// 首頁輪播 / Hero 等可由後台維護的區塊
+model Banner {
+  id        String   @id @default(cuid())
+  title     String
+  subtitle  String?
+  imageUrl  String
+  linkUrl   String?
+  placement String   @default("hero") // hero | carousel
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([placement, isActive, sortOrder])
+  @@map("banners")
+}
