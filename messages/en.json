@@ -171,6 +171,20 @@
     "copyright": "© {year} Sagan Select. All rights reserved.",
     "disclaimer": "A Next.js + ECPay integration demo project"
   },
+  "chat": {
+    "open": "Contact support",
+    "title": "Customer support",
+    "subtitle": "We usually reply within 10 minutes during business hours",
+    "greeting": "Hi! Ask us anything about products, orders, or shipping and we'll get back to you shortly.",
+    "placeholder": "Type a message… (Enter to send, Shift + Enter for a new line)",
+    "send": "Send",
+    "close": "Close chat",
+    "sending": "Sending…",
+    "agentFallbackName": "Support",
+    "you": "You",
+    "systemName": "Sagon Select",
+    "failed": "Could not send your message. Please try again."
+  },
   "common": {
     "loading": "Loading…",
     "save": "Save",

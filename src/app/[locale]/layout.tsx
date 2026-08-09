@@ -9,6 +9,7 @@ import { SiteHeader } from '@/components/layout/site-header'
 import { SiteFooter } from '@/components/layout/site-footer'
 import { ToastProvider } from '@/components/ui/toast'
 import { CartCountProvider } from '@/components/cart/cart-count-provider'
+import { SupportChat } from '@/components/chat/support-chat'
 import '@/styles/globals.css'
 
 /**
@@ -72,6 +73,7 @@ export default async function LocaleLayout({
                 <SiteHeader />
                 <main className="flex-1">{children}</main>
                 <SiteFooter />
+                <SupportChat />
               </CartCountProvider>
             </ToastProvider>
           </SessionProvider>
