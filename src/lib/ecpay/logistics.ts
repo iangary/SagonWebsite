@@ -1,5 +1,6 @@
 import 'server-only'
-import type { LogisticsSubType } from '@prisma/client'
+import type { LogisticsSubType, ShipmentStatus } from '@prisma/client'
+import { tcatDistance } from '@/lib/tw-zip'
 import { generateCheckMacValue, verifyCheckMacValue, type EcpayCredentials } from './checkmac'
 import {
   callbackUrl,
@@ -60,6 +61,32 @@ export const LOGISTICS_SUBTYPE_LABEL: Record<LogisticsSubType, string> = {
   HILIFE: '萊爾富取貨',
   TCAT: '黑貓宅急便',
   POST: '中華郵政',
+}
+
+/**
+ * ShipmentStatus → 前台 i18n 的 key。
+ *
+ * ARRIVED 在兩種通路的意思完全不同：超商是「到店了，7 天內要來拿」（需要客戶動作），
+ * 宅配是「配送中」（不需要動作）。共用一個字會讓超商客戶錯過取貨期限。
+ */
+export function shipmentStatusKey(status: ShipmentStatus, subType: LogisticsSubType): string {
+  if (status === 'ARRIVED') return isC2C(subType) ? 'ARRIVED_CVS' : 'ARRIVED_HOME'
+  return status
+}
+
+/**
+ * 各通路的貨態查詢頁。這些頁面多半不吃 query string 帶單號，
+ * 所以前台是「顯示單號 + 外連查詢頁」，讓客戶自己貼上去。
+ *
+ * 全家、萊爾富、OK 刻意沒有列入 —— 查詢頁網址沒能實際確認過，
+ * 寧可少一個連結也不要把客戶送到 404。之後確認了再補進來即可，
+ * 前台已經處理沒有網址的情況（只顯示單號）。
+ */
+export const TRACKING_URL: Partial<Record<LogisticsSubType, string>> = {
+  UNIMARTC2C: 'https://eservice.7-11.com.tw/e-tracking/search.aspx',
+  UNIMART: 'https://eservice.7-11.com.tw/e-tracking/search.aspx',
+  TCAT: 'https://www.t-cat.com.tw/inquire/trace.aspx',
+  POST: 'https://postserv.post.gov.tw/pstmail/main_mail.html',
 }
 
 // ---------------------------------------------------------------------------
@@ -182,7 +209,9 @@ export function buildCreateShipmentParams(input: CreateShipmentInput): Record<st
     // 黑貓需要指定溫層與規格
     if (input.subType === 'TCAT') {
       params.Temperature = '0001' // 常溫
-      params.Distance = '00' // 同縣市
+      // 距離要照實申報。少報成同縣市會被綠界事後更正並補收差額，帳目就對不起來。
+      params.Distance = tcatDistance(senderConfig.zipCode, input.receiverZipCode ?? '')
+      // TODO: 商品還沒有尺寸／材積欄位，一律以 60cm 申報。超過的品項會被以較高規格計費。
       params.Specification = '0001' // 60cm
       params.ScheduledPickupTime = '4' // 不限時
     }

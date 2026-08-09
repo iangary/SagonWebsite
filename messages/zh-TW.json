@@ -111,7 +111,16 @@
     "expireDate": "繳費期限",
     "cvsPaymentNo": "超商繳費代碼",
     "viewOrder": "查看訂單",
-    "backHome": "回首頁"
+    "backHome": "回首頁",
+    "shipmentStatusLabel": "物流狀態",
+    "shipmentNo": "物流單號",
+    "invoiceNumber": "發票號碼",
+    "trackAt": "前往 {carrier} 查詢",
+    "paymentFailedTitle": "付款未完成",
+    "paymentFailedHint": "這筆訂單的付款沒有完成，商品仍為您保留中。您可以重新付款，或改用其他付款方式。",
+    "paymentExpiredTitle": "付款已逾期",
+    "paymentExpiredHint": "這筆訂單已超過付款期限。若仍想購買，請重新下單。",
+    "retryPayment": "重新付款"
   },
   "account": {
     "title": "會員中心",
@@ -163,6 +172,16 @@
     "COMPLETED": "已完成",
     "CANCELLED": "已取消",
     "REFUNDED": "已退款"
+  },
+  "shipmentStatus": {
+    "PENDING": "準備中",
+    "CREATED": "已建立物流單",
+    "IN_TRANSIT": "運送中",
+    "ARRIVED_CVS": "已到店，請於 7 日內取貨",
+    "ARRIVED_HOME": "配送中",
+    "PICKED_UP": "已取貨",
+    "RETURNED": "已退回",
+    "FAILED": "物流異常，請聯繫客服"
   },
   "footer": {
     "shopInfo": "商店資訊",

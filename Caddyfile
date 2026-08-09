@@ -1,0 +1,41 @@
+# TLS 由 Caddy 自動向 Let's Encrypt 申請與續期，不需要 certbot。
+#
+# 前提：
+#   1. SITE_DOMAIN 的 A 記錄已指向本機 IP（103.1.221.67）
+#   2. 80/443 對外開放 —— ACME 的 HTTP-01 挑戰走 80 埠
+#   3. 若要簽 www，www 的 A 記錄也要先建好；否則請把下面 www 那段註解掉，
+#      不然 Caddy 會反覆嘗試簽發失敗並洗版 log
+#
+# 網域從 compose 的環境變數帶進來，見 docker-compose.prod.yml 的 caddy 服務。
+
+# www 一律導回主網域，避免同一份內容有兩個網址（SEO 與 cookie scope 都會出問題）
+www.{$SITE_DOMAIN} {
+	redir https://{$SITE_DOMAIN}{uri} permanent
+}
+
+{$SITE_DOMAIN} {
+	encode zstd gzip
+
+	# Next.js 的靜態資源帶指紋檔名，可以放心長快取
+	@immutable path /_next/static/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	# 綠界的 callback 一律不快取。這些路徑會改訂單狀態，
+	# 被任何一層快取住都會造成付款成功卻沒更新的假象。
+	@ecpay path /api/ecpay/*
+	header @ecpay Cache-Control "no-store"
+
+	reverse_proxy web:3000 {
+		# 讓 Next.js 拿得到真實來源 IP 與協定，否則 Auth.js 產生的
+		# callback 網址會變成 http，綠界那邊會拒絕
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Real-IP {remote_host}
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

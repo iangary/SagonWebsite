@@ -111,7 +111,16 @@
     "expireDate": "Pay before",
     "cvsPaymentNo": "Store payment code",
     "viewOrder": "View order",
-    "backHome": "Back to home"
+    "backHome": "Back to home",
+    "shipmentStatusLabel": "Shipment status",
+    "shipmentNo": "Tracking number",
+    "invoiceNumber": "Invoice number",
+    "trackAt": "Track at {carrier}",
+    "paymentFailedTitle": "Payment not completed",
+    "paymentFailedHint": "Payment for this order did not go through. Your items are still reserved — you can retry the payment or choose another method.",
+    "paymentExpiredTitle": "Payment expired",
+    "paymentExpiredHint": "This order has passed its payment deadline. Please place a new order if you still wish to buy.",
+    "retryPayment": "Retry payment"
   },
   "account": {
     "title": "My Account",
@@ -163,6 +172,16 @@
     "COMPLETED": "Completed",
     "CANCELLED": "Cancelled",
     "REFUNDED": "Refunded"
+  },
+  "shipmentStatus": {
+    "PENDING": "Preparing",
+    "CREATED": "Label created",
+    "IN_TRANSIT": "In transit",
+    "ARRIVED_CVS": "Ready for pickup — collect within 7 days",
+    "ARRIVED_HOME": "Out for delivery",
+    "PICKED_UP": "Collected",
+    "RETURNED": "Returned",
+    "FAILED": "Delivery problem — please contact us"
   },
   "footer": {
     "shopInfo": "Shop info",

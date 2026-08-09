@@ -69,6 +69,8 @@ const schema = z.object({
 
   SHOP_NAME: z.string().default('莎岡選品店'),
   SHOP_TAX_ID: z.string().default('93124857'),
+  /** 通知信頁尾的客服信箱。要是收得到信的真信箱 —— 客戶會直接回信到這裡。 */
+  SHOP_SERVICE_EMAIL: z.string().email().default('service@sagon.local'),
   SHIPPING_FEE_CVS: intFromString(60),
   SHIPPING_FEE_HOME: intFromString(120),
   FREE_SHIPPING_THRESHOLD: intFromString(1500),
