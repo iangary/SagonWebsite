@@ -12,6 +12,7 @@ import {
   Star,
   Users,
   Webhook,
+  MessagesSquare,
   Store,
   LogOut,
 } from 'lucide-react'
@@ -20,6 +21,7 @@ import { cn } from '@/lib/utils'
 const LINKS = [
   { href: '/admin', label: '總覽', icon: LayoutDashboard, exact: true },
   { href: '/admin/orders', label: '訂單', icon: ShoppingCart },
+  { href: '/admin/chat', label: '客服訊息', icon: MessagesSquare, badge: 'chat' as const },
   { href: '/admin/products', label: '商品', icon: Package },
   { href: '/admin/taxonomy', label: '分類與品牌', icon: FolderTree },
   { href: '/admin/coupons', label: '優惠券', icon: Tag },
@@ -28,7 +30,11 @@ const LINKS = [
   { href: '/admin/webhooks', label: 'Webhook', icon: Webhook },
 ]
 
-export function AdminNav({ userName }: { userName: string }) {
+/**
+ * chatUnread 由 layout 在每次導覽時算好傳進來。
+ * 沒有做即時推播 —— 後台側邊欄的紅點差幾秒無所謂，不值得為它多開一條長連線。
+ */
+export function AdminNav({ userName, chatUnread }: { userName: string; chatUnread: number }) {
   const pathname = usePathname()
 
   return (
@@ -53,7 +59,12 @@ export function AdminNav({ userName }: { userName: string }) {
                 )}
               >
                 <link.icon size={16} strokeWidth={1.5} />
-                {link.label}
+                <span className="flex-1">{link.label}</span>
+                {link.badge === 'chat' && chatUnread > 0 && (
+                  <span className="flex min-w-5 items-center justify-center rounded-full bg-sale px-1.5 text-[11px] text-white tabular-nums">
+                    {chatUnread > 99 ? '99+' : chatUnread}
+                  </span>
+                )}
               </Link>
             </li>
           )

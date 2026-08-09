@@ -41,14 +41,16 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  accounts     Account[]
-  sessions     Session[]
-  addresses    Address[]
-  carts        Cart[]
-  orders       Order[]
-  reviews      Review[]
-  redemptions  CouponRedemption[]
-  auditLogs    AuditLog[]
+  accounts      Account[]
+  sessions      Session[]
+  addresses     Address[]
+  carts         Cart[]
+  orders        Order[]
+  reviews       Review[]
+  redemptions   CouponRedemption[]
+  auditLogs     AuditLog[]
+  conversations Conversation[]     @relation("UserConversations")
+  chatMessages  ChatMessage[]      @relation("UserChatMessages")
 
   @@index([role])
   @@map("users")
@@ -189,8 +191,8 @@ model Product {
   status          ProductStatus @default(ACTIVE)
 
   /// 顯示用的起始價（= 最低變體售價），寫入時由程式同步，避免列表頁還要 join 變體
-  basePrice        Int
-  compareAtPrice   Int?
+  basePrice      Int
+  compareAtPrice Int?
 
   /// 爬蟲來源，正式商品為 null
   sourceUrl String?
@@ -256,7 +258,7 @@ model ProductVariant {
   compareAtPrice Int?
 
   /// 實際在庫數。付款成功才扣這個。
-  stock Int @default(0)
+  stock         Int @default(0)
   /// 已被未付款訂單佔住的數量。可售 = stock - reservedStock。
   reservedStock Int @default(0)
 
@@ -419,8 +421,8 @@ model Order {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  user         User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
-  coupon       Coupon?           @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  user         User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  coupon       Coupon?            @relation(fields: [couponId], references: [id], onDelete: SetNull)
   items        OrderItem[]
   payment      Payment?
   shipment     Shipment?
@@ -436,7 +438,7 @@ model Order {
 
 /// 下單當下把商品資訊整份快照進來，之後商品改名改價都不影響歷史訂單。
 model OrderItem {
-  id        String @id @default(cuid())
+  id        String  @id @default(cuid())
   orderId   String
   variantId String?
 
@@ -458,12 +460,12 @@ model OrderItem {
 
 /// 未付款期間先佔住庫存，逾期由 worker 釋放。
 model StockReservation {
-  id         String    @id @default(cuid())
-  variantId  String
-  orderId    String
-  qty        Int
-  expiresAt  DateTime
-  releasedAt DateTime?
+  id          String    @id @default(cuid())
+  variantId   String
+  orderId     String
+  qty         Int
+  expiresAt   DateTime
+  releasedAt  DateTime?
   /// 付款成功、已轉為實際扣減
   committedAt DateTime?
 
@@ -494,22 +496,22 @@ model Payment {
   id      String @id @default(cuid())
   orderId String @unique
 
-  provider        String @default("ECPAY")
-  merchantTradeNo String @unique
+  provider        String  @default("ECPAY")
+  merchantTradeNo String  @unique
   /// 綠界的交易編號，付款完成才會有
-  tradeNo String?
+  tradeNo         String?
 
   /// 綠界 ChoosePayment：Credit / ATM / CVS / BARCODE / ALL
   choosePayment String
   /// 綠界回傳的實際付款方式，例如 Credit_CreditCard、ATM_TAISHIN
-  paymentType String?
+  paymentType   String?
 
   amount Int
   status PaymentStatus @default(PENDING)
 
   // ATM 虛擬帳號（PaymentInfoURL 回傳）
-  bankCode String?
-  vAccount String?
+  bankCode   String?
+  vAccount   String?
   // CVS / BARCODE 繳費代碼
   paymentNo  String?
   barcode1   String?
@@ -571,16 +573,16 @@ model Shipment {
   /// 綠界物流交易編號
   allPayLogisticsId String?
   /// 一段標（C2C）或托運單號（宅配）
-  shipmentNo String?
+  shipmentNo        String?
   /// C2C 才有：寄件用的驗證碼
-  cvsValidationNo String?
+  cvsValidationNo   String?
 
   // 超商取貨門市（由電子地圖回傳）
-  cvsStoreId      String?
-  cvsStoreName    String?
-  cvsAddress      String?
-  cvsTelephone    String?
-  cvsOutSide      Boolean?
+  cvsStoreId   String?
+  cvsStoreName String?
+  cvsAddress   String?
+  cvsTelephone String?
+  cvsOutSide   Boolean?
 
   receiverName    String
   receiverPhone   String?
@@ -647,7 +649,7 @@ model Invoice {
   orderId String @unique
 
   /// 綠界回傳的發票號碼
-  invoiceNumber String?  @unique
+  invoiceNumber String?   @unique
   randomNumber  String?
   invoiceDate   DateTime?
 
@@ -719,6 +721,82 @@ model Review {
 }
 
 // ===========================================================================
+// 客服聊天
+// ===========================================================================
+
+enum ChatSender {
+  CUSTOMER
+  AGENT
+  /// 系統訊息（歡迎詞、離線公告），不算任何一方的未讀
+  SYSTEM
+}
+
+enum ChatStatus {
+  /// 有客人的話還沒回
+  OPEN
+  /// 客服已回，等客人
+  ANSWERED
+  CLOSED
+}
+
+/// 一位訪客與客服的對話串。
+///
+/// 已登入的人綁 userId；未登入的用 proxy.ts 發的 sagon_chat cookie（anonId）。
+/// 刻意不共用購物車的 sagon_cart —— 那組 id 在登入合併購物車時會換發，
+/// 換掉之後訪客就找不回自己的對話了。
+model Conversation {
+  id     String  @id @default(cuid())
+  userId String?
+  anonId String?
+
+  status ChatStatus @default(OPEN)
+
+  /// 未登入訪客自己留的稱呼與聯絡方式，讓客服離線後也能回覆
+  guestName    String?
+  guestContact String?
+
+  /// 列表頁的預覽欄位。放在這裡是為了讓收件匣一次查詢就能排序＋顯示摘要，
+  /// 不用對每一列再 join 一次 chat_messages。
+  lastMessageAt   DateTime @default(now())
+  lastMessageText String?
+
+  /// 兩邊各自的未讀數，開啟對話時清零
+  unreadForAgent    Int @default(0)
+  unreadForCustomer Int @default(0)
+
+  closedAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user     User?         @relation("UserConversations", fields: [userId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@index([status, lastMessageAt])
+  @@index([userId, lastMessageAt])
+  @@index([anonId, lastMessageAt])
+  @@map("conversations")
+}
+
+model ChatMessage {
+  id             String     @id @default(cuid())
+  conversationId String
+  sender         ChatSender
+  /// AGENT 訊息記下是哪位管理員回的；CUSTOMER / SYSTEM 為 null
+  authorId       String?
+
+  body String @db.Text
+
+  createdAt DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  author       User?        @relation("UserChatMessages", fields: [authorId], references: [id], onDelete: SetNull)
+
+  /// SSE 以 (createdAt, id) 當游標往後拉，所以這組索引是熱路徑
+  @@index([conversationId, createdAt, id])
+  @@map("chat_messages")
+}
+
+// ===========================================================================
 // 維運
 // ===========================================================================
 
@@ -734,7 +812,7 @@ model WebhookEvent {
   merchantTradeNo String?
   payload         Json
   headers         Json?
-  signatureValid  Boolean  @default(false)
+  signatureValid  Boolean @default(false)
 
   processedAt DateTime?
   attempts    Int       @default(0)

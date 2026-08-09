@@ -24,20 +24,40 @@ const CART_COOKIE = 'sagon_cart'
 const CART_COOKIE_MAX_AGE = 60 * 60 * 24 * 30
 
 /**
- * 匿名購物車的識別碼在這裡發放。
+ * 客服聊天的訪客識別碼。
+ *
+ * 不共用 sagon_cart —— 那組 id 在登入合併購物車時會換發，換掉之後訪客
+ * 就找不回自己的客服對話了，所以聊天需要一組獨立、不輪替的識別碼。
+ */
+const CHAT_COOKIE = 'sagon_chat'
+const CHAT_COOKIE_MAX_AGE = 60 * 60 * 24 * 90
+
+/**
+ * 匿名訪客的識別碼都在這裡發放。
  *
  * Server Component 在 render 階段不能寫 cookie（Next.js 限制），
- * 所以由 proxy 保證每個訪客一進站就有一組 anonId，購物車頁只要讀就好。
+ * 所以由 proxy 保證每個訪客一進站就有 id，購物車頁與聊天視窗只要讀就好。
  */
-function ensureCartCookie(req: Parameters<Parameters<typeof auth>[0]>[0], res: NextResponse) {
-  if (req.cookies.has(CART_COOKIE)) return res
-  res.cookies.set(CART_COOKIE, crypto.randomUUID(), {
+function ensureVisitorCookies(req: Parameters<Parameters<typeof auth>[0]>[0], res: NextResponse) {
+  const options = {
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: 'lax' as const,
     secure: process.env.NODE_ENV === 'production',
     path: '/',
-    maxAge: CART_COOKIE_MAX_AGE,
-  })
+  }
+
+  if (!req.cookies.has(CART_COOKIE)) {
+    res.cookies.set(CART_COOKIE, crypto.randomUUID(), {
+      ...options,
+      maxAge: CART_COOKIE_MAX_AGE,
+    })
+  }
+  if (!req.cookies.has(CHAT_COOKIE)) {
+    res.cookies.set(CHAT_COOKIE, crypto.randomUUID(), {
+      ...options,
+      maxAge: CHAT_COOKIE_MAX_AGE,
+    })
+  }
   return res
 }
 
@@ -72,7 +92,7 @@ export default auth((req) => {
     return NextResponse.redirect(new URL('/account', req.nextUrl.origin))
   }
 
-  return ensureCartCookie(req, intlMiddleware(req))
+  return ensureVisitorCookies(req, intlMiddleware(req))
 })
 
 export const config = {

@@ -190,6 +190,20 @@
     "copyright": "© {year} 莎岡選品店. All rights reserved.",
     "disclaimer": "本站為 Next.js + 綠界串接的示範專案"
   },
+  "chat": {
+    "open": "聯絡客服",
+    "title": "客服訊息",
+    "subtitle": "營業時間內通常 10 分鐘內回覆",
+    "greeting": "您好，關於商品、訂單或運送有任何問題都可以在這裡留言，我們會盡快回覆。",
+    "placeholder": "輸入訊息…（Enter 送出、Shift + Enter 換行）",
+    "send": "送出",
+    "close": "關閉聊天視窗",
+    "sending": "送出中…",
+    "agentFallbackName": "客服",
+    "you": "您",
+    "systemName": "莎岡選品店",
+    "failed": "暫時無法送出訊息，請稍後再試"
+  },
   "common": {
     "loading": "載入中…",
     "save": "儲存",
