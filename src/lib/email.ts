@@ -44,7 +44,7 @@ function layout(title: string, body: string): string {
     </div>
     <div style="padding:18px 24px;border-top:1px solid #e9e2d8;font-size:11px;color:#857263;text-align:center;">
       本信件由系統自動發送，請勿直接回覆。<br>
-      客服信箱 service@sagon.local ｜ 統一編號 ${escapeHtml(env.SHOP_TAX_ID)}
+      客服信箱 ${escapeHtml(env.SHOP_SERVICE_EMAIL)} ｜ 統一編號 ${escapeHtml(env.SHOP_TAX_ID)}
     </div>
   </div>
 </body></html>`

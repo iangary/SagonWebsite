@@ -34,8 +34,6 @@ export default async function OrderQueryPage({
   setRequestLocale(locale)
   const sp = await searchParams
 
-  const tStatus = await getTranslations('orderStatus')
-
   let order = null
   let notFound = false
 
@@ -75,7 +73,7 @@ export default async function OrderQueryPage({
 
       {order && (
         <div className="mt-10">
-          <OrderSummaryCard order={order} statusLabel={tStatus(order.status)} />
+          <OrderSummaryCard order={order} />
         </div>
       )}
     </div>

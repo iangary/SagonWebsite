@@ -22,9 +22,8 @@ export async function generateMetadata({
 export default async function AccountOrdersPage() {
   const user = await requireUser()
 
-  const [t, tStatus, orders] = await Promise.all([
+  const [t, orders] = await Promise.all([
     getTranslations('account'),
-    getTranslations('orderStatus'),
     db.order.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: 'desc' },
@@ -47,12 +46,7 @@ export default async function AccountOrdersPage() {
   return (
     <div className="space-y-5">
       {orders.map((order) => (
-        <OrderSummaryCard
-          key={order.id}
-          order={order}
-          statusLabel={tStatus(order.status)}
-          showReviewLink
-        />
+        <OrderSummaryCard key={order.id} order={order} showReviewLink />
       ))}
     </div>
   )

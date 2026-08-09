@@ -158,6 +158,7 @@ POSTGRES_DB=sagon
 | `ECPAY_ENV` | `production`，且所有 `ECPAY_*` 換成正式商店代號與金鑰 |
 | `SMS_PROVIDER` | `mitake`，並填入 `MITAKE_USERNAME` / `MITAKE_PASSWORD` |
 | `SMTP_*` | 外部寄信服務（見下）|
+| `SHOP_SERVICE_EMAIL` | 收得到信的真信箱 —— 通知信頁尾會印出來，客戶會直接回信到這裡 |
 | `SEED_SOURCE` | 留空 |
 | `SEED_ADMIN_PASSWORD` | 改掉，別留 `admin1234` |
 
@@ -173,8 +174,18 @@ SMTP_PORT=465
 SMTP_SECURE=true
 SMTP_USER=resend
 SMTP_PASS=<API key>
-MAIL_FROM="莎岡選品店 <no-reply@chenkuanyi.com.tw>"
+MAIL_FROM="莎岡選品店 <no-reply@mail.chenkuanyi.com.tw>"
 ```
+
+寄件位址用子網域 `mail.` 是刻意的：日後若做 EDM，行銷信被檢舉不會拖累訂單信的網域信譽。
+
+DNS 要有三筆記錄才寄得進 Gmail／Yahoo —— Resend 會給 SPF 與 DKIM，**DMARC 要自己加**
+（`_dmarc.mail.chenkuanyi.com.tw`，先 `p=none` 觀察兩週再收緊到 `quarantine`）。三者缺一就進垃圾桶。
+
+⚠️ Resend 免費方案是 **100 封/日的硬上限**，不是超額計費。以每張訂單約 2.5 封計，
+日訂單超過 ~35 張就會撞頂；撞頂後 `send-email` job 會不斷重試並累積到死信佇列，
+而**訂單流程本身不會報錯**（金流／發票／物流都是獨立 job）。上線後要盯著這個數字，
+量起來就升級方案或換一家沒有日上限的服務。
 
 ## 7. GitHub Secrets 與首次部署
 

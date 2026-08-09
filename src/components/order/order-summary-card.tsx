@@ -1,9 +1,10 @@
 import Image from 'next/image'
+import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/routing'
 import type { Order, OrderItem, Payment, Shipment, Invoice } from '@prisma/client'
-import { Badge, ORDER_STATUS_TONE } from '@/components/ui/badge'
+import { Badge, ORDER_STATUS_TONE, SHIPMENT_STATUS_TONE } from '@/components/ui/badge'
 import { formatTWD } from '@/lib/utils'
-import { LOGISTICS_SUBTYPE_LABEL } from '@/lib/ecpay/logistics'
+import { LOGISTICS_SUBTYPE_LABEL, shipmentStatusKey } from '@/lib/ecpay/logistics'
 
 type OrderWithDetails = Order & {
   items: OrderItem[]
@@ -16,16 +17,24 @@ type OrderWithDetails = Order & {
  * 訂單卡片。會員中心與訪客訂單查詢共用同一個元件，
  * 兩邊看到的資訊格式才會一致。
  */
-export function OrderSummaryCard({
+export async function OrderSummaryCard({
   order,
-  statusLabel,
   showReviewLink = false,
 }: {
   order: OrderWithDetails
-  statusLabel: string
   showReviewLink?: boolean
 }) {
+  const [tStatus, tShipment, tResult] = await Promise.all([
+    getTranslations('orderStatus'),
+    getTranslations('shipmentStatus'),
+    getTranslations('result'),
+  ])
+
   const awaitingTransfer = order.payment?.status === 'AWAITING_TRANSFER'
+
+  // 已取號的 ATM／超商不給重新付款 —— 重送一次會產生新的虛擬帳號，
+  // 客戶手上就有兩組號碼了。訂單一旦離開 PENDING_PAYMENT，那支路由本身也會擋。
+  const canRetryPayment = order.status === 'PENDING_PAYMENT' && !awaitingTransfer
 
   return (
     <article className="border border-cream-200 bg-white">
@@ -36,7 +45,7 @@ export function OrderSummaryCard({
             {order.createdAt.toLocaleString('zh-TW', { hour12: false })}
           </p>
         </div>
-        <Badge tone={ORDER_STATUS_TONE[order.status]}>{statusLabel}</Badge>
+        <Badge tone={ORDER_STATUS_TONE[order.status]}>{tStatus(order.status)}</Badge>
       </header>
 
       <ul className="divide-y divide-cream-100 px-5">
@@ -62,11 +71,18 @@ export function OrderSummaryCard({
 
       <div className="space-y-1.5 border-t border-cream-200 px-5 py-3.5 text-xs text-taupe-600">
         {order.shipment && (
-          <p>
-            配送：{LOGISTICS_SUBTYPE_LABEL[order.shipment.logisticsSubType]}
-            {order.shipment.cvsStoreName && ` ・ ${order.shipment.cvsStoreName}`}
-            {order.shipment.shipmentNo && ` ・ 單號 ${order.shipment.shipmentNo}`}
-          </p>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+            <span>
+              配送：{LOGISTICS_SUBTYPE_LABEL[order.shipment.logisticsSubType]}
+              {order.shipment.cvsStoreName && ` ・ ${order.shipment.cvsStoreName}`}
+              {order.shipment.shipmentNo && ` ・ 單號 ${order.shipment.shipmentNo}`}
+            </span>
+            <Badge tone={SHIPMENT_STATUS_TONE[order.shipment.status]}>
+              {tShipment(
+                shipmentStatusKey(order.shipment.status, order.shipment.logisticsSubType),
+              )}
+            </Badge>
+          </div>
         )}
         {order.invoice?.invoiceNumber && <p>發票號碼：{order.invoice.invoiceNumber}</p>}
         {awaitingTransfer && order.payment?.vAccount && (
@@ -87,6 +103,15 @@ export function OrderSummaryCard({
           合計 <span className="text-base tabular-nums">{formatTWD(order.grandTotal)}</span>
         </span>
         <div className="flex gap-3 text-xs">
+          {canRetryPayment && (
+            // 原生 <a>：/api/* 在 locale 路由之外，用 next-intl 的 Link 會被加上語系前綴而 404
+            <a
+              href={`/api/ecpay/payment/checkout/${order.orderNo}`}
+              className="text-sale underline underline-offset-4"
+            >
+              {tResult('retryPayment')}
+            </a>
+          )}
           <Link
             href={`/checkout/result?orderNo=${order.orderNo}`}
             className="text-ink-900 underline underline-offset-4"

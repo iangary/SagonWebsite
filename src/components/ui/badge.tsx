@@ -36,3 +36,18 @@ export const ORDER_STATUS_TONE: Record<string, VariantProps<typeof badgeVariants
   CANCELLED: 'muted',
   REFUNDED: 'sale',
 }
+
+/**
+ * 物流狀態對應的顏色。
+ * ARRIVED 用 warning —— 這是唯一需要客戶採取行動的狀態（超商取貨逾期 7 天會退回），
+ * 要跟其他純資訊性的狀態拉開差距。
+ */
+export const SHIPMENT_STATUS_TONE: Record<string, VariantProps<typeof badgeVariants>['tone']> = {
+  PENDING: 'muted',
+  CREATED: 'neutral',
+  IN_TRANSIT: 'dark',
+  ARRIVED: 'warning',
+  PICKED_UP: 'success',
+  RETURNED: 'sale',
+  FAILED: 'sale',
+}
