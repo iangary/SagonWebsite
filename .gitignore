@@ -23,6 +23,8 @@ playwright-report/
 # Claude Code 的本機工具設定。skills 下面是各自獨立的 git repo，
 # 提交進來會變成壞掉的 gitlink，clone 的人拿不到內容。
 .claude/skills/
+# settings.local.json 是個人的權限設定，不共用（settings.json 才是團隊共用的那份）
+.claude/settings.local.json
 
 # 編輯器 / OS
 .DS_Store
