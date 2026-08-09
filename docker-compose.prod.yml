@@ -1,10 +1,50 @@
 # 正式環境。原始碼不掛載，web 跑 Next.js standalone server。
+#
+# image 由 CI 預先建好推到 registry，主機端只 pull 不 build ——
+# 4GB 的機器跑不動 next build 的尖峰（3-4GB），在這裡 build 會 OOM。
+#
+# 主機端需要兩個環境變數檔：
+#   .env             給 compose 本身做 ${VAR} 替換（IMAGE_*、POSTGRES_*、SITE_DOMAIN）
+#   .env.production  給容器內的應用程式（APP_URL、綠界金鑰等全部）
+# 兩者缺一不可 —— env_file 不會被拿來做 compose 的變數替換。
 name: sagon-prod
 
 services:
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    # 對外只開 80/443，其餘服務一律不發佈連接埠
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?required}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    mem_limit: 128m
+    depends_on:
+      web: { condition: service_healthy }
+
   db:
     image: postgres:18-alpine
     restart: always
+    # 預設值是給大機器的。這台 4GB 要同時養 web/worker/redis，收斂到這個量級。
+    command:
+      - postgres
+      - -c
+      - shared_buffers=384MB
+      - -c
+      - effective_cache_size=1GB
+      - -c
+      - maintenance_work_mem=96MB
+      - -c
+      - work_mem=8MB
+      # web 與 worker 各自開連線池，不設上限會在尖峰把記憶體吃光
+      - -c
+      - max_connections=50
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
@@ -14,6 +54,7 @@ services:
     volumes:
       # PG18 起掛 /var/lib/postgresql，見 dev compose 的說明
       - pgdata:/var/lib/postgresql
+    mem_limit: 1g
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
       interval: 10s
@@ -23,9 +64,21 @@ services:
   redis:
     image: redis:8-alpine
     restart: always
-    command: ['redis-server', '--appendonly', 'yes']
+    # maxmemory-policy 必須是 noeviction —— BullMQ 的硬性要求。
+    # 用 LRU 之類的淘汰策略時，記憶體滿了 Redis 會丟掉鍵值，而那些鍵值就是
+    # 待處理的工作：訂單付了款、webhook 也回了 200，但發票沒開、物流單沒建，
+    # 而且日誌上不會有任何錯誤。
+    command:
+      - redis-server
+      - --appendonly
+      - 'yes'
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - noeviction
     volumes:
       - redisdata:/data
+    mem_limit: 320m
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
@@ -35,24 +88,25 @@ services:
   # 一次性容器：套用 migration 後結束。web 與 worker 都等它成功才啟動，
   # 確保程式碼跑起來時 schema 一定是最新的。
   migrate:
-    build:
-      context: .
-      target: migrate
+    image: ${IMAGE_PREFIX:?required}-migrate:${IMAGE_TAG:-latest}
     restart: 'no'
     env_file: .env.production
+    mem_limit: 512m
     depends_on:
       db: { condition: service_healthy }
 
   web:
-    build:
-      context: .
-      target: runner
+    image: ${IMAGE_PREFIX:?required}-web:${IMAGE_TAG:-latest}
     restart: always
     env_file: .env.production
+    # 只綁本機供除錯用；對外流量一律經過 caddy。
+    # 注意 Docker 發佈連接埠會繞過 UFW（規則寫在 DOCKER-USER 鏈，順序在 ufw 前面），
+    # 所以這裡若寫成 0.0.0.0 等於整個站裸奔在 3000 埠。
     ports:
-      - '3000:3000'
+      - '127.0.0.1:3000:3000'
     volumes:
       - uploads:/app/public/uploads
+    mem_limit: 1g
     depends_on:
       db: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -65,13 +119,12 @@ services:
       start_period: 40s
 
   worker:
-    build:
-      context: .
-      target: worker
+    image: ${IMAGE_PREFIX:?required}-worker:${IMAGE_TAG:-latest}
     restart: always
     env_file: .env.production
-    volumes:
-      - uploads:/app/public/uploads
+    # 不掛 uploads：worker 的四個工作（建物流單、開發票、寄信、釋放逾期庫存）
+    # 都不碰檔案系統，src/lib/uploads.ts 只被 admin 的 server action 匯入。
+    mem_limit: 768m
     depends_on:
       db: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -81,3 +134,5 @@ volumes:
   pgdata:
   redisdata:
   uploads:
+  caddy_data:
+  caddy_config:
