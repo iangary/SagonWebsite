@@ -39,45 +39,44 @@ Caddy 申請憑證走 ACME HTTP-01 挑戰，**DNS 沒生效就簽不到憑證**�
 
 若要掛 Cloudflare，第一次簽憑證時請先關閉橘色雲（DNS only），簽發成功後再打開。
 
-## 2. 建立管理帳號與 SSH 金鑰
+## 2. SSH 金鑰登入
 
-用 VNC 主控台以 root 登入後：
-
-```bash
-adduser deploy
-usermod -aG sudo deploy
-```
+> **本文件全程以 root 操作**，所以指令都沒有 `sudo`，也不另建管理帳號。
+> 代價是少了 `sudo` 那層緩衝 —— 執行 `rm -rf` 之前多看一眼路徑。
 
 在**你自己的電腦**上產生金鑰並上傳：
 
 ```bash
 ssh-keygen -t ed25519 -C "sagon-deploy"
-ssh-copy-id deploy@103.1.221.67
+ssh-copy-id root@103.1.221.67
 ```
 
-確認金鑰能登入之後，關掉密碼登入與 root 直登。編輯 `/etc/ssh/sshd_config`：
+確認金鑰能登入之後，關掉密碼登入。編輯 `/etc/ssh/sshd_config`：
 
 ```
-PermitRootLogin no
+PermitRootLogin prohibit-password
 PasswordAuthentication no
 ```
 
+`prohibit-password` 的意思是「root 可以用金鑰登入，但不能用密碼」。
+**不要寫成 `PermitRootLogin no`** —— 這台沒有別的帳號，那樣寫等於封掉唯一的入口。
+
 ```bash
-sudo systemctl restart ssh
+systemctl restart ssh
 ```
 
-> 先確認新終端機能用金鑰登入，再關密碼登入。順序反了會把自己鎖在門外
+> 先開一個新終端機確認金鑰登得進去，再改 `sshd_config`。順序反了會把自己鎖在門外
 > （還好有 VNC 可以救，但別依賴它）。
 
 ## 3. 防火牆
 
 ```bash
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-sudo ufw allow 22/tcp
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw enable
+ufw default deny incoming
+ufw default allow outgoing
+ufw allow 22/tcp
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw enable
 ```
 
 > **注意 Docker 與 UFW 的交互作用**：Docker 發佈連接埠時會把 iptables 規則寫進
@@ -90,15 +89,15 @@ sudo ufw enable
 4GB 沒有 swap，尖峰時 OOM killer 會直接殺掉某個容器（通常是吃最多的 PostgreSQL）。
 
 ```bash
-sudo fallocate -l 4G /swapfile
-sudo chmod 600 /swapfile
-sudo mkswap /swapfile
-sudo swapon /swapfile
-echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+fallocate -l 4G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
 
 # 資料庫機器不該積極換出，降低 swappiness
-echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-swappiness.conf
-sudo sysctl --system
+echo 'vm.swappiness=10' > /etc/sysctl.d/99-swappiness.conf
+sysctl --system
 ```
 
 ## 5. 安裝 Docker
@@ -106,65 +105,152 @@ sudo sysctl --system
 用官方套件庫，不要用 Ubuntu 內建的舊版：
 
 ```bash
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker deploy
-newgrp docker
+curl -fsSL https://get.docker.com | sh
 docker compose version
 ```
+
+root 本來就在 docker 群組的權限範圍內，不需要 `usermod -aG docker`。
 
 限制 log 大小，否則 JSON log 會慢慢吃掉 50GB：
 
 ```bash
-sudo tee /etc/docker/daemon.json >/dev/null <<'EOF'
+tee /etc/docker/daemon.json >/dev/null <<'EOF'
 {
   "log-driver": "json-file",
   "log-opts": { "max-size": "10m", "max-file": "3" }
 }
 EOF
-sudo systemctl restart docker
+systemctl restart docker
 ```
 
 ## 6. 目錄與環境檔
 
+伺服器上**不需要原始碼** —— `src/` 那些已經被 CI 打進 image 了。這個目錄最後只有四個檔案：
+兩個從 repo 複製過來的設定檔，兩個在主機上手寫的環境變數檔（含密碼，不進 git）。
+
+### 6.1 建目錄
+
 ```bash
-sudo mkdir -p /srv/sagon && sudo chown deploy:deploy /srv/sagon
-cd /srv/sagon
+mkdir -p /srv/sagon
 ```
 
-把 `docker-compose.prod.yml` 與 `Caddyfile` 放進來（`scp` 或 `git clone` 皆可）。
+`/srv/sagon` 是絕對路徑，跟你在哪個目錄下執行無關。
 
-**需要兩個環境變數檔，缺一不可：**
+### 6.2 把兩個設定檔傳上來
 
-`/srv/sagon/.env` —— 給 compose 做 `${VAR}` 替換。`env_file:` 不會被拿來做替換，這是最常踩的坑：
+在**你自己的電腦**上，於 repo 根目錄執行：
 
 ```bash
+scp docker-compose.prod.yml Caddyfile root@103.1.221.67:/srv/sagon/
+```
+
+順手把環境變數的範本也傳上去，等下直接改它比從頭打快：
+
+```bash
+scp .env.production.example root@103.1.221.67:/srv/sagon/.env.production
+```
+
+> 不建議用 `git clone`：會把整份原始碼與歷史搬上主機（用不到），而且私有 repo
+> 得在主機上放金鑰或 token，多開一個沒必要的權限缺口。
+
+### 6.3 建 `/srv/sagon/.env`
+
+這個檔給 **compose 本身**做 `${VAR}` 替換。`env_file:` 指定的檔案不會被拿來做替換，
+這是最常踩的坑 —— 少了這個檔，`docker compose` 會直接噴 `required` 而不是啟動。
+
+先產生資料庫密碼並存進 shell 變數，等下兩個檔都要用到同一組：
+
+```bash
+PGPASS=$(openssl rand -hex 24)
+```
+
+> 用 `-hex` 而不是 `-base64`：base64 會產生 `+` `/` `=`，這些字元在
+> `DATABASE_URL` 這種 URL 裡有特殊意義，不做百分號編碼的話連線會失敗，
+> 而且錯誤訊息完全看不出是密碼的問題。hex 只有 0-9a-f，貼到哪裡都安全。
+
+接著寫檔（`EOF` 不加引號，`$PGPASS` 才會被展開成實際密碼）：
+
+```bash
+cat > /srv/sagon/.env <<EOF
 IMAGE_PREFIX=ghcr.io/ian890711/sagonwebsite
 IMAGE_TAG=latest
 SITE_DOMAIN=chenkuanyi.com.tw
 POSTGRES_USER=sagon
-POSTGRES_PASSWORD=<openssl rand -base64 24>
+POSTGRES_PASSWORD=$PGPASS
 POSTGRES_DB=sagon
+EOF
 ```
 
-`/srv/sagon/.env.production` —— 給容器內的應用程式。**直接複製 repo 的 `.env.production.example`**，把所有 `__CHANGE_ME__` 填掉即可（網域與運費已預先填好）。重點欄位：
+把密碼印出來，6.4 要貼進 `DATABASE_URL`：
+
+```bash
+echo "$PGPASS"
+```
+
+### 6.4 填 `/srv/sagon/.env.production`
+
+這個檔給**容器內的應用程式**。6.2 已經把範本傳成這個檔名了，現在把裡面所有
+`__CHANGE_ME__` 換成真實值（網域、運費、商店名稱已經預先填好，不用動）：
+
+```bash
+nano /srv/sagon/.env.production
+```
+
+先產生 Auth.js 的簽章金鑰（開另一個終端機或先跑再編輯）：
+
+```bash
+openssl rand -base64 32
+```
+
+重點欄位：
 
 | 變數 | 正式站要設成 |
 |---|---|
-| `APP_URL` | `https://chenkuanyi.com.tw`（綠界所有 callback 由此組出，**必須是 https**）|
-| `NODE_ENV` | `production` |
-| `DATABASE_URL` | `postgresql://sagon:<密碼>@db:5432/sagon?schema=public` |
-| `REDIS_URL` | `redis://redis:6379` |
-| `AUTH_SECRET` | 重新產生：`openssl rand -base64 32` |
-| `ECPAY_ENV` | `production`，且所有 `ECPAY_*` 換成正式商店代號與金鑰 |
-| `SMS_PROVIDER` | `mitake`，並填入 `MITAKE_USERNAME` / `MITAKE_PASSWORD` |
-| `SMTP_*` | 外部寄信服務（見下）|
+| `DATABASE_URL` | `postgresql://sagon:<6.3 印出的密碼>@db:5432/sagon?schema=public` |
+| `AUTH_SECRET` | 上面 `openssl rand -base64 32` 的輸出 |
+| `SEED_ADMIN_EMAIL` | 你的信箱（會用它建第一個管理員帳號）|
+| `SEED_ADMIN_PASSWORD` | 自己想一組，至少 6 碼；登入後立刻從後台改掉 |
 | `SHOP_SERVICE_EMAIL` | 收得到信的真信箱 —— 通知信頁尾會印出來，客戶會直接回信到這裡 |
-| `SEED_SOURCE` | 留空 |
-| `SEED_ADMIN_PASSWORD` | 改掉，別留 `admin1234` |
+| `SHOP_TAX_ID` | 公司統一編號 |
+| `ECPAY_*` | 綠界後台核發的**正式**商店代號與金鑰（三組：金流／物流／發票）|
+| `ECPAY_SENDER_*` | 寄件人資訊，要和綠界後台登記的一致 |
+| `MITAKE_*` | 三竹簡訊的帳號密碼（OTP 用）|
+| `SMTP_PASS` | 寄信服務的 API key（見下）|
+
+主機名稱用 compose 的服務名 `db` / `redis`，**不是 `localhost`** —— 容器之間走的是
+compose 建的內部網路，`localhost` 會指到容器自己。
+
+**哪些 placeholder 會讓容器起不來，哪些不會**（[src/lib/env.ts](../src/lib/env.ts) 啟動時強驗證）：
+
+- **會直接 throw**：`AUTH_SECRET`（要 ≥16 字元，`__CHANGE_ME__` 只有 13）、
+  `SEED_ADMIN_EMAIL` 與 `SHOP_SERVICE_EMAIL`（要通得過 email 格式）。
+- **不會 throw 但會壞在執行時**：所有 `ECPAY_*` 與 `MITAKE_*` 只檢查「有沒有填」，
+  不檢查「填得對不對」。留著 `__CHANGE_ME__` 的話網站照常啟動，但客人一結帳就失敗。
+  綠界正式帳號還沒下來的話，先把 `ECPAY_ENV` 設成 `stage` 並填測試金鑰，
+  等正式金鑰到手再改 —— **不要讓正式站掛著 `production` + 假金鑰**。
+
+改完確認沒有漏掉的（沒有輸出才算過）：
+
+```bash
+grep -n __CHANGE_ME__ /srv/sagon/.env.production
+```
+
+### 6.5 收權限並檢查
+
+兩個檔都有密碼，不要讓其他人讀到：
 
 ```bash
 chmod 600 /srv/sagon/.env /srv/sagon/.env.production
 ```
+
+最後確認四個檔案都在（`.env` 開頭是點，要 `-a` 才列得出來）：
+
+```bash
+ls -la /srv/sagon/
+```
+
+應該有 `docker-compose.prod.yml`、`Caddyfile`、`.env`、`.env.production`，
+後兩個的權限是 `-rw-------`。
 
 **SMTP**：機房幾乎都封鎖 25 埠，`nodemailer` 不能直接對外送信。用 Resend（免費 3,000 封/月）或 Amazon SES：
 
@@ -187,57 +273,123 @@ DNS 要有三筆記錄才寄得進 Gmail／Yahoo —— Resend 會給 SPF 與 DK
 而**訂單流程本身不會報錯**（金流／發票／物流都是獨立 job）。上線後要盯著這個數字，
 量起來就升級方案或換一家沒有日上限的服務。
 
-## 7. GitHub Secrets 與首次部署
+## 7. 首次部署（手動）
 
-在 repo 的 Settings → Secrets and variables → Actions 設定：
+主機端只 `pull` 不 `build`。**不要在這台跑 `docker compose build`** ——
+`next build` 尖峰要 3–4GB，這台總共 4GB 還要同時養 db／redis，會被 OOM killer 砍掉，
+而且失敗訊息通常只是 `exit code 137`，看不出是記憶體問題。
 
-| Secret | 值 |
-|---|---|
-| `SSH_HOST` | `103.1.221.67` |
-| `SSH_USER` | `deploy` |
-| `SSH_KEY` | 部署用私鑰（建議另外產一把，只給這台用）|
-| `GHCR_USER` | GitHub 帳號 |
-| `GHCR_TOKEN` | PAT，**只勾 `read:packages`** |
+所以 image 一定要在別的地方 build 好，推到 GHCR，主機再拉下來。兩種做法選一種：
 
-推上 master 後 Actions 會自動 build 三個 image（web / worker / migrate）並 SSH 觸發部署。
+### 7.1（選項 A，目前採用）讓 GitHub Actions 只負責 build
 
-手動跑第一次：
+推上 `main` 後 [.github/workflows/deploy.yml](../.github/workflows/deploy.yml)
+會建好三個 image（web / worker / migrate）推到 GHCR，然後就結束 ——
+**它不會碰你的主機**，自動 SSH 部署那個 job 已經移除了。
+
+**這個 workflow 不需要設定任何 secret**：它用的 `GITHUB_TOKEN` 是 Actions 自動提供的。
+`SSH_HOST` / `SSH_USER` / `SSH_KEY` / `GHCR_USER` / `GHCR_TOKEN` 這些 repo secret
+一個都不用建。
+
+好處是編譯在 GitHub 的機器上跑，不吃你的頻寬也不佔你電腦。
+Actions 跑完會在最後一步印出主機端要執行的指令，以及可以用來回退的 commit SHA tag。
+
+### 7.2（選項 B）完全不用 GitHub Actions
+
+在**你自己的電腦**上 build 並推上 GHCR（需要 Docker Desktop 開著）：
+
+```bash
+echo "<PAT>" | docker login ghcr.io -u ian890711 --password-stdin
+docker build -t ghcr.io/ian890711/sagonwebsite-web:latest     --target runner  .
+docker build -t ghcr.io/ian890711/sagonwebsite-worker:latest  --target worker  .
+docker build -t ghcr.io/ian890711/sagonwebsite-migrate:latest --target migrate .
+docker push ghcr.io/ian890711/sagonwebsite-web:latest
+docker push ghcr.io/ian890711/sagonwebsite-worker:latest
+docker push ghcr.io/ian890711/sagonwebsite-migrate:latest
+```
+
+這裡的 PAT 需要 `write:packages`（比主機用的那把權限大，別混用）。
+三個 image 是同一份 [Dockerfile](../Dockerfile) 的不同 stage，`--target` 決定建哪一個。
+
+### 7.3 主機登入 GHCR
+
+image 是私有的，沒登入 `pull` 會拿到 `denied`。在 GitHub 產一個 PAT，
+**只勾 `read:packages`**（主機只需要讀，別放有寫入權的）：
+
+```bash
+echo "<PAT>" | docker login ghcr.io -u ian890711 --password-stdin
+```
+
+登入資訊會存到 `/root/.docker/config.json`，只要做一次，之後 `pull` 都不用再登入。
+
+### 7.4 拉起來
 
 ```bash
 cd /srv/sagon
-echo "<GHCR_TOKEN>" | docker login ghcr.io -u <帳號> --password-stdin
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.prod.yml ps
 ```
 
-`migrate` 是一次性容器，會先跑完 `prisma migrate deploy` 才放行 web 與 worker。
+啟動有依賴順序，不是同時亮的，整段大約一兩分鐘：
 
-驗證：
+1. `db` 與 `redis` 先起來，等健康檢查通過
+2. `migrate` 跑 `prisma migrate deploy`，跑完就結束
+   —— **它顯示 `Exited (0)` 是正常的，不是掛掉**
+3. `web` 與 `worker` 啟動（web 的健康檢查有 40 秒寬限期）
+4. `web` 健康之後 `caddy` 才啟動，然後才開始向 Let's Encrypt 要憑證
+
+### 7.5 驗證
 
 ```bash
 curl -I https://chenkuanyi.com.tw          # 應該 200 且是有效憑證
 docker compose -f docker-compose.prod.yml logs -f worker   # 應看到「已就緒，concurrency=4」
 ```
 
+憑證沒簽出來就看 caddy 的日誌：
+
+```bash
+docker compose -f docker-compose.prod.yml logs caddy
+```
+
+### 7.6 之後要更新版本
+
+改完程式碼、image 重新建好推上 GHCR 之後，主機上跑：
+
+```bash
+cd /srv/sagon
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+docker image prune -af --filter "until=168h"
+```
+
+最後那行是必要的，不是選配 —— 舊 image 會累積，50GB 的磁碟撐不了幾十次部署。
+
+`.env` 裡的 `IMAGE_TAG=latest` 表示每次都拉最新。想要能明確回退的話，
+把 tag 改成 commit SHA（CI 會同時推 `latest` 和 `<sha>` 兩個 tag），
+出事就把 `IMAGE_TAG` 改回上一個 SHA 再 `up -d`。
+
 ## 8. 備份（必做）
 
 ```bash
-sudo install -m 755 scripts/backup.sh /usr/local/bin/sagon-backup
+install -m 755 scripts/backup.sh /usr/local/bin/sagon-backup
 ```
 
 設定 rclone 指向異地（Cloudflare R2 免費 10GB 夠用）：
 
 ```bash
-sudo apt install -y rclone
+apt install -y rclone
 rclone config          # 建一個 remote，例如 r2
-echo 'RCLONE_REMOTE=r2:sagon-backups' | sudo tee -a /etc/environment
+echo 'RCLONE_REMOTE=r2:sagon-backups' >> /etc/environment
 ```
 
-排程每天凌晨 4:15：
+> `rclone config` 存到 `/root/.config/rclone/rclone.conf`。因為備份也是用 root 跑的
+> crontab，兩邊一致沒問題 —— 但別在其他帳號下設定 rclone，那樣 cron 讀不到。
+
+排程每天凌晨 4:15（root 的 crontab）：
 
 ```bash
-sudo crontab -e
+crontab -e
 # 15 4 * * * RCLONE_REMOTE=r2:sagon-backups /usr/local/bin/sagon-backup >> /var/log/sagon-backup.log 2>&1
 ```
 
@@ -247,7 +399,7 @@ sudo crontab -e
 
 ```bash
 # 每週清 Docker 殘留（50GB 磁碟撐不了幾十次部署）
-sudo crontab -e
+crontab -e
 # 30 5 * * 0 docker system prune -af --filter "until=168h" >> /var/log/docker-prune.log 2>&1
 ```
 
