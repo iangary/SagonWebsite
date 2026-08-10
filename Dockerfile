@@ -48,6 +48,10 @@ ENV APP_URL=http://localhost:3000 \
     ECPAY_SENDER_ZIPCODE=000 ECPAY_SENDER_ADDRESS=build \
     ECPAY_INVOICE_MERCHANT_ID=0 ECPAY_INVOICE_HASH_KEY=0 ECPAY_INVOICE_HASH_IV=0
 COPY . .
+# public/ 目前只有 uploads（被 .dockerignore 排除）且沒有任何檔案進 git，
+# 所以 CI 上的 build context 根本沒有這個目錄，runner 的 COPY 會失敗。
+# 先建出來，日後放靜態資源進去也不影響。
+RUN mkdir -p /app/public
 RUN npx prisma generate && npm run build
 
 # ---------------------------------------------------------------------------

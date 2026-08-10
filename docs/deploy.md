@@ -172,7 +172,7 @@ PGPASS=$(openssl rand -hex 24)
 
 ```bash
 cat > /srv/sagon/.env <<EOF
-IMAGE_PREFIX=ghcr.io/ian890711/sagonwebsite
+IMAGE_PREFIX=ghcr.io/iangary/sagonwebsite
 IMAGE_TAG=latest
 SITE_DOMAIN=chenkuanyi.com.tw
 POSTGRES_USER=sagon
@@ -299,13 +299,13 @@ Actions 跑完會在最後一步印出主機端要執行的指令，以及可以
 在**你自己的電腦**上 build 並推上 GHCR（需要 Docker Desktop 開著）：
 
 ```bash
-echo "<PAT>" | docker login ghcr.io -u ian890711 --password-stdin
-docker build -t ghcr.io/ian890711/sagonwebsite-web:latest     --target runner  .
-docker build -t ghcr.io/ian890711/sagonwebsite-worker:latest  --target worker  .
-docker build -t ghcr.io/ian890711/sagonwebsite-migrate:latest --target migrate .
-docker push ghcr.io/ian890711/sagonwebsite-web:latest
-docker push ghcr.io/ian890711/sagonwebsite-worker:latest
-docker push ghcr.io/ian890711/sagonwebsite-migrate:latest
+echo "<PAT>" | docker login ghcr.io -u iangary --password-stdin
+docker build -t ghcr.io/iangary/sagonwebsite-web:latest     --target runner  .
+docker build -t ghcr.io/iangary/sagonwebsite-worker:latest  --target worker  .
+docker build -t ghcr.io/iangary/sagonwebsite-migrate:latest --target migrate .
+docker push ghcr.io/iangary/sagonwebsite-web:latest
+docker push ghcr.io/iangary/sagonwebsite-worker:latest
+docker push ghcr.io/iangary/sagonwebsite-migrate:latest
 ```
 
 這裡的 PAT 需要 `write:packages`（比主機用的那把權限大，別混用）。
@@ -317,7 +317,7 @@ image 是私有的，沒登入 `pull` 會拿到 `denied`。在 GitHub 產一個 
 **只勾 `read:packages`**（主機只需要讀，別放有寫入權的）：
 
 ```bash
-echo "<PAT>" | docker login ghcr.io -u ian890711 --password-stdin
+echo "<PAT>" | docker login ghcr.io -u iangary --password-stdin
 ```
 
 登入資訊會存到 `/root/.docker/config.json`，只要做一次，之後 `pull` 都不用再登入。
