@@ -1,0 +1,766 @@
+<title>莎岡選品店 — 功能與測試檢核表</title>
+<style>
+  :root {
+    --bg: #fbfaf8;
+    --surface: #ffffff;
+    --surface-2: #f4f2ee;
+    --border: #e2ddd4;
+    --text: #1f1b16;
+    --text-dim: #6b6459;
+    --accent: #8a5a2b;
+    --accent-soft: #f0e6d8;
+    --p0: #b3261e;
+    --p0-bg: #fdeceb;
+    --p1: #9a6700;
+    --p1-bg: #fdf6e3;
+    --p2: #57606a;
+    --p2-bg: #f0f2f4;
+    --done: #1a7f4b;
+    --done-bg: #e8f5ed;
+    --todo: #b3261e;
+    --todo-bg: #fdeceb;
+    --partial: #9a6700;
+    --partial-bg: #fdf6e3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16140f;
+      --surface: #1e1b16;
+      --surface-2: #262219;
+      --border: #3a342a;
+      --text: #ece7de;
+      --text-dim: #a09a8e;
+      --accent: #d9a86c;
+      --accent-soft: #2f2820;
+      --p0: #ff8a80;
+      --p0-bg: #3a1f1c;
+      --p1: #e5c07b;
+      --p1-bg: #332b18;
+      --p2: #a8b1bb;
+      --p2-bg: #2a2d31;
+      --done: #6ee7a8;
+      --done-bg: #17311f;
+      --todo: #ff8a80;
+      --todo-bg: #3a1f1c;
+      --partial: #e5c07b;
+      --partial-bg: #332b18;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #16140f; --surface: #1e1b16; --surface-2: #262219; --border: #3a342a;
+    --text: #ece7de; --text-dim: #a09a8e; --accent: #d9a86c; --accent-soft: #2f2820;
+    --p0: #ff8a80; --p0-bg: #3a1f1c; --p1: #e5c07b; --p1-bg: #332b18;
+    --p2: #a8b1bb; --p2-bg: #2a2d31; --done: #6ee7a8; --done-bg: #17311f;
+    --todo: #ff8a80; --todo-bg: #3a1f1c; --partial: #e5c07b; --partial-bg: #332b18;
+  }
+  :root[data-theme="light"] {
+    --bg: #fbfaf8; --surface: #ffffff; --surface-2: #f4f2ee; --border: #e2ddd4;
+    --text: #1f1b16; --text-dim: #6b6459; --accent: #8a5a2b; --accent-soft: #f0e6d8;
+    --p0: #b3261e; --p0-bg: #fdeceb; --p1: #9a6700; --p1-bg: #fdf6e3;
+    --p2: #57606a; --p2-bg: #f0f2f4; --done: #1a7f4b; --done-bg: #e8f5ed;
+    --todo: #b3261e; --todo-bg: #fdeceb; --partial: #9a6700; --partial-bg: #fdf6e3;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    line-height: 1.65;
+    margin: 0;
+    padding: 0 1.25rem 6rem;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+
+  header.page {
+    padding: 3rem 0 1.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2rem;
+  }
+  h1 { font-size: clamp(1.6rem, 4vw, 2.2rem); margin: 0 0 .5rem; letter-spacing: -.01em; }
+  .sub { color: var(--text-dim); font-size: .95rem; margin: 0; }
+
+  h2 {
+    font-size: 1.25rem;
+    margin: 3rem 0 .5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+    scroll-margin-top: 5rem;
+  }
+  h2:first-of-type { border-top: none; }
+  h3 { font-size: 1.02rem; margin: 2rem 0 .4rem; color: var(--accent); scroll-margin-top: 5rem; }
+  p { margin: .5rem 0 1rem; }
+  code {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .08em .35em;
+    font-size: .87em;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  a { color: var(--accent); }
+
+  /* ── 統計卡 ── */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .75rem; margin: 1.5rem 0 2rem; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: .85rem 1rem; }
+  .stat .n { font-size: 1.65rem; font-weight: 650; line-height: 1.15; display: block; }
+  .stat .l { font-size: .78rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: .06em; }
+
+  /* ── 工具列 ── */
+  .toolbar {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: .7rem 0;
+    margin: 0 -1.25rem 1.5rem;
+    padding-left: 1.25rem; padding-right: 1.25rem;
+    display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
+  }
+  .toolbar .grp { display: flex; gap: .3rem; flex-wrap: wrap; }
+  button.f {
+    font: inherit; font-size: .82rem;
+    background: var(--surface); color: var(--text-dim);
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: .22rem .7rem; cursor: pointer;
+  }
+  button.f[aria-pressed="true"] { background: var(--accent-soft); color: var(--text); border-color: var(--accent); font-weight: 600; }
+  input.search {
+    font: inherit; font-size: .85rem; flex: 1 1 180px; min-width: 140px;
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--border); border-radius: 999px; padding: .25rem .85rem;
+  }
+  .prog { flex: 0 0 100%; height: 5px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+  .prog > i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .25s; }
+  .prog-label { font-size: .78rem; color: var(--text-dim); flex: 0 0 100%; }
+
+  /* ── 表格 ── */
+  .tw { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); margin: .75rem 0 1.5rem; }
+  table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: .89rem; }
+  thead th {
+    text-align: left; font-size: .74rem; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--text-dim); font-weight: 600;
+    padding: .6rem .7rem; border-bottom: 1px solid var(--border); background: var(--surface-2);
+    white-space: nowrap;
+  }
+  tbody td { padding: .6rem .7rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr.hide { display: none; }
+  tbody tr.checked td:nth-child(3) { opacity: .5; text-decoration: line-through; text-decoration-thickness: 1px; }
+  td.id { font-family: ui-monospace, Consolas, monospace; font-size: .8rem; color: var(--text-dim); white-space: nowrap; }
+  td.chk { width: 1.6rem; }
+  td.chk input { width: 1.05rem; height: 1.05rem; accent-color: var(--accent); cursor: pointer; margin-top: .2rem; }
+  .note { display: block; color: var(--text-dim); font-size: .82rem; margin-top: .15rem; }
+
+  .tag { display: inline-block; font-size: .72rem; font-weight: 600; padding: .1rem .45rem; border-radius: 5px; white-space: nowrap; letter-spacing: .02em; }
+  .P0 { color: var(--p0); background: var(--p0-bg); }
+  .P1 { color: var(--p1); background: var(--p1-bg); }
+  .P2 { color: var(--p2); background: var(--p2-bg); }
+  .s-done { color: var(--done); background: var(--done-bg); }
+  .s-todo { color: var(--todo); background: var(--todo-bg); }
+  .s-partial { color: var(--partial); background: var(--partial-bg); }
+  .lv { color: var(--text-dim); background: var(--surface-2); }
+
+  .callout { border-left: 3px solid var(--accent); background: var(--surface); padding: .8rem 1rem; border-radius: 0 8px 8px 0; margin: 1rem 0 1.5rem; }
+  .callout.warn { border-left-color: var(--p0); }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout p:first-child { margin-top: 0; }
+
+  ol.q { padding-left: 1.3rem; }
+  ol.q > li { margin-bottom: .9rem; }
+  ol.q b { display: block; }
+
+  nav.toc { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 2rem; }
+  nav.toc ol { margin: 0; padding-left: 1.2rem; columns: 2; column-gap: 2rem; font-size: .9rem; }
+  @media (max-width: 620px) { nav.toc ol { columns: 1; } }
+
+  @media print {
+    .toolbar, nav.toc { display: none; }
+    body { background: #fff; color: #000; padding: 0; }
+    .tw { break-inside: auto; }
+    tbody tr { break-inside: avoid; }
+  }
+</style>
+
+<div class="wrap">
+
+<header class="page">
+  <h1>莎岡選品店 — 功能與測試檢核表</h1>
+  <p class="sub">產出日期 2026-08-11 ｜ 依據 <code>SPEC.md</code>、<code>README.md</code> 與實際原始碼盤點 ｜ 分支 <code>main</code> @ <code>5e5ef90</code></p>
+</header>
+
+<div class="stats" id="stats">
+  <div class="stat"><span class="n">85</span><span class="l">Vitest 已通過</span></div>
+  <div class="stat"><span class="n">15</span><span class="l">Playwright 已通過</span></div>
+  <div class="stat"><span class="n" id="n-total">—</span><span class="l">檢核項目總數</span></div>
+  <div class="stat"><span class="n" id="n-todo">—</span><span class="l">待開發</span></div>
+  <div class="stat"><span class="n" id="n-p0">—</span><span class="l">P0（上線前必補）</span></div>
+</div>
+
+<div class="callout warn">
+  <p><b>最要緊的三件事</b>（在補任何一條測試之前）</p>
+  <p>1. <b>CI 完全沒有跑測試。</b><code>.github/workflows/deploy.yml</code> 只 build Docker image，沒有 lint / typecheck / vitest / playwright。現在的 85 項單元測試等於只在你本機跑，任何人推 main 都能把壞掉的程式碼推上 GHCR。<br>
+     2. <b>沒有整合測試層。</b>金流、庫存、訂單這三個最不能出錯的模組（<code>orders/create.ts</code>、<code>orders/payment.ts</code>、<code>orders/stock.ts</code>、<code>ecpay/webhook.ts</code>，合計約 650 行）目前<b>零測試覆蓋</b>，因為它們都需要真實資料庫，而 vitest 目前是 <code>environment: node</code> + 假的 <code>DATABASE_URL</code>。<br>
+     3. <b>電子發票尚未真正開立成功。</b>這是唯一擋在上線路上的功能性驗證缺口，且卡在綠界後台的字軌設定（外部依賴，越早處理越好）。</p>
+</div>
+
+<nav class="toc">
+  <b style="font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim)">目錄</b>
+  <ol>
+    <li><a href="#s-now">現況盤點：已測與未測</a></li>
+    <li><a href="#s-feat">功能缺口清單</a></li>
+    <li><a href="#s-infra">A. 測試基礎設施</a></li>
+    <li><a href="#s-pay">B. 金流與付款回拋</a></li>
+    <li><a href="#s-order">C. 訂單建立與庫存</a></li>
+    <li><a href="#s-cart">D. 購物車</a></li>
+    <li><a href="#s-auth">E. 會員與登入</a></li>
+    <li><a href="#s-logi">F. 物流</a></li>
+    <li><a href="#s-inv">G. 電子發票</a></li>
+    <li><a href="#s-catalog">H. 商品目錄與後台維護</a></li>
+    <li><a href="#s-review">I. 商品評論</a></li>
+    <li><a href="#s-chat">J. 站內客服聊天</a></li>
+    <li><a href="#s-guest">K. 訪客訂單查詢</a></li>
+    <li><a href="#s-mail">L. 通知信與背景工作</a></li>
+    <li><a href="#s-front">M. 前台、SEO、i18n、無障礙</a></li>
+    <li><a href="#s-sec">N. 安全</a></li>
+    <li><a href="#s-ops">O. 上線與維運演練</a></li>
+    <li><a href="#s-need">我需要你提供的資訊</a></li>
+  </ol>
+</nav>
+
+<div class="toolbar">
+  <div class="grp">
+    <button class="f" data-filter="pri" data-val="P0" aria-pressed="false">P0</button>
+    <button class="f" data-filter="pri" data-val="P1" aria-pressed="false">P1</button>
+    <button class="f" data-filter="pri" data-val="P2" aria-pressed="false">P2</button>
+  </div>
+  <div class="grp">
+    <button class="f" data-filter="st" data-val="todo" aria-pressed="false">待開發</button>
+    <button class="f" data-filter="st" data-val="partial" aria-pressed="false">待補強</button>
+    <button class="f" data-filter="st" data-val="done" aria-pressed="false">已有</button>
+  </div>
+  <div class="grp">
+    <button class="f" data-filter="lv" data-val="單元" aria-pressed="false">單元</button>
+    <button class="f" data-filter="lv" data-val="整合" aria-pressed="false">整合</button>
+    <button class="f" data-filter="lv" data-val="E2E" aria-pressed="false">E2E</button>
+    <button class="f" data-filter="lv" data-val="手動" aria-pressed="false">手動</button>
+    <button class="f" data-filter="lv" data-val="基建" aria-pressed="false">基建</button>
+  </div>
+  <input class="search" id="q" type="search" placeholder="搜尋檢核項目…" aria-label="搜尋檢核項目">
+  <div class="prog"><i id="bar"></i></div>
+  <div class="prog-label" id="plabel">—</div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<h2 id="s-now">現況盤點：已測與未測</h2>
+
+<p>目前的測試分兩層：Vitest 只跑純函式（<code>environment: node</code>，不碰資料庫），Playwright 跑真實瀏覽器。中間<b>缺少「碰資料庫但不開瀏覽器」的整合層</b>，而電商最核心的邏輯全部住在那一層。</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>模組</th><th>行數</th><th>現有測試</th><th>風險</th></tr></thead>
+<tbody>
+<tr><td><code>lib/orders/pricing.ts</code></td><td>—</td><td class="s-ok"><span class="tag s-done">單元 22 項</span></td><td>低</td></tr>
+<tr><td><code>lib/ecpay/checkmac.ts</code></td><td>—</td><td><span class="tag s-done">單元 14 項</span></td><td>低</td></tr>
+<tr><td><code>lib/ecpay/logistics.ts</code>（對照表部分）</td><td>—</td><td><span class="tag s-partial">單元 11 項</span></td><td>中 — 狀態碼表只收錄常見碼</td></tr>
+<tr><td><code>lib/uploads.ts</code></td><td>—</td><td><span class="tag s-done">單元 15 項</span></td><td>低</td></tr>
+<tr><td><code>lib/tw-zip.ts</code> / <code>lib/chat/cursor.ts</code></td><td>—</td><td><span class="tag s-done">單元 23 項</span></td><td>低</td></tr>
+<tr><td><code>lib/orders/create.ts</code></td><td>267</td><td><span class="tag s-todo">無</span></td><td><b>極高</b> — 下單、庫存預扣、優惠券扣抵、快照</td></tr>
+<tr><td><code>lib/chat/index.ts</code></td><td>323</td><td><span class="tag s-partial">僅 E2E 3 項</span></td><td>中 — 對話歸屬與節流未測</td></tr>
+<tr><td><code>lib/ecpay/invoice.ts</code></td><td>198</td><td><span class="tag s-todo">無</span></td><td><b>高</b> — 明細加總、AES、載具驗證</td></tr>
+<tr><td><code>lib/orders/payment.ts</code></td><td>140</td><td><span class="tag s-todo">無</span></td><td><b>極高</b> — 金額驗證、狀態轉換、冪等</td></tr>
+<tr><td><code>lib/orders/stock.ts</code></td><td>135</td><td><span class="tag s-todo">無</span></td><td><b>極高</b> — 防超賣的條件式 UPDATE</td></tr>
+<tr><td><code>lib/auth/otp.ts</code></td><td>133</td><td><span class="tag s-todo">無</span></td><td>高 — 節流與次數上限是防濫發簡訊的唯一防線</td></tr>
+<tr><td><code>lib/ecpay/webhook.ts</code></td><td>111</td><td><span class="tag s-todo">無</span></td><td><b>極高</b> — 事件落地與冪等指紋</td></tr>
+<tr><td><code>lib/email.ts</code></td><td>185</td><td><span class="tag s-todo">無</span></td><td>中</td></tr>
+<tr><td><code>lib/cart/index.ts</code> + <code>actions.ts</code></td><td>298</td><td><span class="tag s-partial">僅 E2E 加購物車</span></td><td>高 — 匿名車合併邏輯未測</td></tr>
+<tr><td><code>lib/catalog/queries.ts</code> / <code>slug.ts</code></td><td>—</td><td><span class="tag s-partial">僅 E2E</span></td><td>中</td></tr>
+<tr><td><code>app/**/actions.ts</code>（14 個 Server Action 檔）</td><td>—</td><td><span class="tag s-todo">無</span></td><td><b>高</b> — 權限檢查全靠人工 review</td></tr>
+<tr><td><code>app/api/**/route.ts</code>（16 個端點）</td><td>—</td><td><span class="tag s-todo">無</span></td><td><b>高</b> — 綠界回拋端點無端到端測試</td></tr>
+<tr><td><code>proxy.ts</code>（i18n 路由）</td><td>101</td><td><span class="tag s-partial">僅 E2E en 語系</span></td><td>低</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="callout">
+<p><b>順便修一下文件</b>：<code>README.md</code> 第 111 行寫「Vitest 55 項 / Playwright 12 項」，實際是 <b>85 項 / 15 項</b>。數字過期會讓人以為測試沒增加。</p>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<h2 id="s-feat">功能缺口清單</h2>
+
+<p><code>SPEC.md</code> 第 5 節已經誠實記錄了大部分缺口。以下把它們跟我額外掃到的合併，並標上「上線前是否必要」。<b>P0 = 沒有它不能對外營業</b>（法規或金流完整性），P1 = 上線後一個月內會痛，P2 = 有空再做。</p>
+
+<div class="tw">
+<table>
+<thead><tr><th class="chk"></th><th>ID</th><th>功能缺口</th><th>類型</th><th>優先</th><th>現況</th></tr></thead>
+<tbody data-section="功能缺口">
+<tr data-pri="P0" data-st="todo" data-lv="功能"><td class="chk"><input type="checkbox" data-id="F-01"></td><td class="id">F-01</td><td><b>隱私權政策 / 服務條款 / 退換貨條款頁面</b><span class="note">目前只有 <code>/about</code>、<code>/faq</code>、<code>/contact</code>。台灣電商依個資法與消保法定型化契約規定必須有明確條文頁面並可從頁尾連到。FAQ 裡的「7 天鑑賞期」不等於法定條文。</span></td><td><span class="tag lv">法規</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P0" data-st="partial" data-lv="功能"><td class="chk"><input type="checkbox" data-id="F-02"></td><td class="id">F-02</td><td><b>電子發票實際開立驗證</b><span class="note">AES 與電文往返已通，但公用測試商店無發票字軌，回「查無可使用字軌或發票號碼」。需在 vendor-stage 綠界後台設定字軌後重測，正式站也要另設一次。</span></td><td><span class="tag lv">金流</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-partial">待補強</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="功能"><td class="chk"><input type="checkbox" data-id="F-03"></td><td class="id">F-03</td><td><b>綠界物流狀態碼對照表補齊</b><span class="note"><code>ecpay/logistics.ts</code> 的 <code>STATUS_CODES</code> 只收常見碼。認不得的碼不會亂改狀態（安全的預設），但代價是消費者看到的貨態會停在舊狀態不動。需對照綠界完整文件補齊四家超商 + 兩家宅配。</span></td><td><span class="tag lv">物流</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="功能"><td class="chk"><input type="checkbox" data-id="F-04"></td><td class="id">F-04</td><td><b>綠界退刷 API 串接</b><span class="note">SPEC 5.3：標記 <code>REFUNDED</code> 只是記帳，實際退款要人工到綠界後台操作。退刷端點已在設定裡定義但無程式使用。</span></td><td><span class="tag lv">金流</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="功能"><td class="chk"><input type="checkbox" data-id="F-05"></td><td class="id">F-05</td><td><b>優惠券取消後歸還使用次數</b><span class="note">SPEC 5.1：棄單會吃掉「每人限用一次」的額度。需決定 (a) 維持現狀 (b) 取消時回復 (c) 付款成功才計入。</span></td><td><span class="tag lv">決策</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待決策</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="功能"><td class="chk"><input type="checkbox" data-id="F-06"></td><td class="id">F-06</td><td><b>商品描述 HTML sanitize</b><span class="note">SPEC 5.4：目前存原始 HTML 直接輸出。只有管理員能編輯所以風險有限，但後台帳號一被盜就是全站 XSS，加白名單過濾成本很低。</span></td><td><span class="tag lv">安全</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="功能"><td class="chk"><input type="checkbox" data-id="F-07"></td><td class="id">F-07</td><td><b>錯誤監控與告警</b><span class="note">目前只有 <code>/api/health</code>。背景工作（寄信、建物流單、開發票）失敗時沒有任何人會被通知，只能靠後台 Webhook 頁面人工巡。建議接 Sentry 或至少把 worker 失敗發到 Email/LINE。</span></td><td><span class="tag lv">維運</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="功能"><td class="chk"><input type="checkbox" data-id="F-08"></td><td class="id">F-08</td><td><b>訂單匯出（CSV／Excel）</b><span class="note">後台可以查詢與檢視，但沒有匯出。對帳、寄倉、報稅都需要，營運上線第一週就會要。</span></td><td><span class="tag lv">營運</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="功能"><td class="chk"><input type="checkbox" data-id="F-09"></td><td class="id">F-09</td><td><b>商品重量／材積欄位</b><span class="note"><code>ecpay/logistics.ts:214</code> 的 TODO：一律以 60cm 申報，超過的品項會被綠界以較高規格計費（你吃掉價差）。</span></td><td><span class="tag lv">物流</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="功能"><td class="chk"><input type="checkbox" data-id="F-10"></td><td class="id">F-10</td><td><b>訪客的「每人限用 N 次」</b><span class="note">SPEC 5.2：未登入無身分可綁，對訪客等於無限制。</span></td><td><span class="tag lv">決策</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待決策</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="功能"><td class="chk"><input type="checkbox" data-id="F-11"></td><td class="id">F-11</td><td><b>分批出貨 / 部分退款</b><span class="note">一張訂單只有一張物流單、只有整筆狀態標記。</span></td><td><span class="tag lv">營運</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="功能"><td class="chk"><input type="checkbox" data-id="F-12"></td><td class="id">F-12</td><td><b>圖片改放物件儲存（S3／R2）+ CDN</b><span class="note">目前在本機磁碟 + docker volume，無備援無 CDN，單機故障就取不到圖。換掉只需改 <code>lib/uploads.ts</code> 一個模組。</span></td><td><span class="tag lv">維運</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="功能"><td class="chk"><input type="checkbox" data-id="F-13"></td><td class="id">F-13</td><td><b>庫存異動歷史帳</b><span class="note">只有稽核紀錄，沒有專門的庫存帳，盤點時對不出「這 3 件是什麼時候少的」。</span></td><td><span class="tag lv">營運</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="功能"><td class="chk"><input type="checkbox" data-id="F-14"></td><td class="id">F-14</td><td><b>網站分析追蹤 + Cookie 同意</b><span class="note">沒有 GA4／Meta Pixel。要裝的話同時需要 Cookie 同意元件（GDPR 對台灣站非強制，但投廣告會需要）。</span></td><td><span class="tag lv">行銷</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="功能"><td class="chk"><input type="checkbox" data-id="F-15"></td><td class="id">F-15</td><td><b>會員分級／紅利點數、電子報訂閱、願望清單、到貨通知</b><span class="note">全部沒有。都是提升回購的功能，不影響上線。</span></td><td><span class="tag lv">行銷</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<h2 id="s-infra">A. 測試基礎設施</h2>
+<p>這一節是所有其他節的前提。<b>先做 A-01 到 A-04，其他測試才有地方跑。</b></p>
+
+<div class="tw">
+<table>
+<thead><tr><th class="chk"></th><th>ID</th><th>檢核項目 / 判定標準</th><th>層級</th><th>優先</th><th>現況</th></tr></thead>
+<tbody data-section="A">
+<tr data-pri="P0" data-st="todo" data-lv="基建"><td class="chk"><input type="checkbox" data-id="A-01"></td><td class="id">A-01</td><td><b>CI 加上 <code>lint</code> + <code>typecheck</code> + <code>vitest</code></b><span class="note">判定：PR 與 push 到 main 時自動跑，任一失敗則 block 掉 build image 那個 job。目前完全沒有。</span></td><td><span class="tag lv">基建</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="基建"><td class="chk"><input type="checkbox" data-id="A-02"></td><td class="id">A-02</td><td><b>整合測試環境（真實 Postgres + Redis）</b><span class="note">判定：一個指令起 pg/redis、跑 migrate、載入固定 seed、跑測試、清乾淨。方案二選一：GitHub Actions <code>services:</code> 或 Testcontainers。每個測試在 transaction 內執行並 rollback，或每檔前 truncate。</span></td><td><span class="tag lv">基建</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="基建"><td class="chk"><input type="checkbox" data-id="A-03"></td><td class="id">A-03</td><td><b>Vitest 分成兩個 project：<code>unit</code> 與 <code>integration</code></b><span class="note">判定：<code>npm run test</code> 只跑 unit（快、無依賴，維持目前 3.7 秒）；<code>npm run test:integration</code> 跑需要 DB 的。目前 <code>vitest.config.ts</code> 的 <code>DATABASE_URL</code> 是假值，整合測試無法共用。</span></td><td><span class="tag lv">基建</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="基建"><td class="chk"><input type="checkbox" data-id="A-04"></td><td class="id">A-04</td><td><b>CI 跑 Playwright</b><span class="note">判定：CI 內起 DB + Redis + <code>next build</code> 後的 production server（不是 dev server，dev 太慢且行為不同），跑完上傳 HTML report 與失敗 trace 當 artifact。</span></td><td><span class="tag lv">基建</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="基建"><td class="chk"><input type="checkbox" data-id="A-05"></td><td class="id">A-05</td><td><b>E2E 測試資料隔離</b><span class="note">判定：E2E 不再依賴開發用資料庫的既有資料。目前 <code>fullyParallel: false</code> + <code>workers: 1</code> 是為了避免互相干擾——這是症狀不是解法。改成每個 spec 自己建立所需資料（帶測試前綴）並在 teardown 清掉，就能開平行。</span></td><td><span class="tag lv">基建</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-partial">待補強</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="基建"><td class="chk"><input type="checkbox" data-id="A-06"></td><td class="id">A-06</td><td><b>覆蓋率報告與門檻</b><span class="note">判定：裝 <code>@vitest/coverage-v8</code>，對 <code>src/lib/**</code> 設下限（建議先設在現值，只准往上）。不追求高數字，目的是「新增的核心邏輯不能沒測試」。</span></td><td><span class="tag lv">基建</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="基建"><td class="chk"><input type="checkbox" data-id="A-07"></td><td class="id">A-07</td><td><b>綠界回拋測試工具化</b><span class="note">判定：把 <code>scripts/simulate-ecpay-callback.ts</code> 抽成測試可直接呼叫的 helper（產生正確簽章的 payload），讓 B 節的每一條都能自動化，而不是每次手動跑 script。</span></td><td><span class="tag lv">基建</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-partial">待補強</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="基建"><td class="chk"><input type="checkbox" data-id="A-08"></td><td class="id">A-08</td><td><b>Dependabot / 套件稽核</b><span class="note">判定：<code>npm audit</code> 進 CI（至少 high 以上 fail），Dependabot 開啟。專案用了 <code>next-auth@5.0.0-beta</code>，beta 版更需要盯更新。</span></td><td><span class="tag lv">基建</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<h2 id="s-pay">B. 金流與付款回拋</h2>
+<p>風險最高的一節。SPEC 3.7 定義了五條安全規則，目前<b>只有第 2 條的簽章演算法本身有測試</b>，其餘四條的實際行為都沒有自動化驗證。</p>
+
+<div class="tw">
+<table>
+<thead><tr><th class="chk"></th><th>ID</th><th>檢核項目 / 判定標準</th><th>層級</th><th>優先</th><th>現況</th></tr></thead>
+<tbody data-section="B">
+<tr data-pri="P0" data-st="done" data-lv="單元"><td class="chk"><input type="checkbox" data-id="B-01"></td><td class="id">B-01</td><td>CheckMacValue 產生與驗證（含 .NET URL encode 差異、參數順序無關、竄改任一欄位即失敗、缺 CheckMacValue 視為失敗）</td><td><span class="tag lv">單元</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-done">已有 14 項</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="單元"><td class="chk"><input type="checkbox" data-id="B-02"></td><td class="id">B-02</td><td><b>AIO 送單參數組裝</b><span class="note">判定：金額為整數（無小數）、<code>ItemName</code> 以 <code>#</code> 分隔且長度不超限、<code>TradeDesc</code> 已編碼、<code>MerchantTradeNo</code> 不超過 20 字且唯一、<code>ExpireDate</code>／<code>StoreExpireDate</code> 與 <code>STOCK_RESERVATION_MINUTES</code> 對齊（SPEC 3.7 明說要對齊，這條沒測就可能出現「繳費成功但庫存已釋放」）。</span></td><td><span class="tag lv">單元</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="B-03"></td><td class="id">B-03</td><td><b>驗簽失敗的回拋不被處理</b><span class="note">判定：送出簽章錯誤的 ReturnURL 請求 → 訂單狀態不變、庫存不變、事件落地並標記簽章無效、<b>後台不允許重送</b>（SPEC 3.7 明確要求）。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="B-04"></td><td class="id">B-04</td><td><b>金額不符時付款標記失敗且不出貨</b><span class="note">判定：簽章正確但 <code>TradeAmt</code> 與訂單 <code>totalAmount</code> 不同 → 訂單不轉 PAID、庫存不轉實扣、記錄異常。這是防「竄改金額低價成交」的唯一防線。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="B-05"></td><td class="id">B-05</td><td><b>回拋冪等：同一筆重送不重複扣庫存</b><span class="note">判定：同一份 payload 送兩次 → 第二次直接回成功、庫存只扣一次、只寄一封信。同時測「事件指紋唯一約束」在併發送達時也成立（兩個請求同時進來）。README 說已驗證，但沒有自動化測試守著。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-partial">待補強</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="B-06"></td><td class="id">B-06</td><td><b>正式環境拒絕模擬付款</b><span class="note">判定：<code>ECPAY_ENV=production</code> 且回拋帶 <code>SimulatePaid=1</code> → 當作未付款並記錄異常。測試站則正常處理。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="B-07"></td><td class="id">B-07</td><td><b><code>RtnCode != 1</code> 不轉為已付款</b><span class="note">判定：簽章正確但回報付款失敗 → 訂單留在 PENDING_PAYMENT、庫存維持預扣、不寄付款成功信。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="B-08"></td><td class="id">B-08</td><td><b>前台導回（OrderResultURL）不能改變付款狀態</b><span class="note">判定：直接對 <code>/api/ecpay/payment/return</code> 送一份「看起來成功」的表單 → 訂單狀態<b>完全不變</b>。這條是 SPEC 3.7 第 1 條，也是最容易在重構時被誤傷的地方。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="B-09"></td><td class="id">B-09</td><td><b>ATM／超商取號回拋（PaymentInfoURL）</b><span class="note">判定：虛擬帳號／繳費代碼、銀行代碼、繳費期限寫入訂單，訂單<b>仍是未付款</b>，並寄出取號通知信。ATM 期限以天計、超商以分鐘計，兩種都要測。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-partial">已實測未自動化</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="B-10"></td><td class="id">B-10</td><td><b>處理失敗時回失敗碼讓綠界重送</b><span class="note">判定：模擬 DB 錯誤 → HTTP 回應為綠界認得的失敗字串（不是 200 OK）、錯誤訊息寫入事件、後台看得到未處理事件與原因。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="B-11"></td><td class="id">B-11</td><td><b>後台手動重送 Webhook</b><span class="note">判定：重送成功後事件轉為已處理、副作用（庫存、寄信）不重複發生；簽章無效的事件重送按鈕不可用。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="E2E"><td class="chk"><input type="checkbox" data-id="B-12"></td><td class="id">B-12</td><td><b>結果頁輪詢</b><span class="note">判定：結果頁在背景通知尚未到達時顯示「處理中」，輪詢約 30 秒；期間注入付款成功 → 畫面自動變為已付款，不需重整。<code>payment-poller.tsx</code> 目前無測試。</span></td><td><span class="tag lv">E2E</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="E2E"><td class="chk"><input type="checkbox" data-id="B-13"></td><td class="id">B-13</td><td><b>完整結帳 E2E（三種付款方式各一次）</b><span class="note">判定：加購物車 → 填收件 → 選配送 → 選發票 → 送出 → 導向綠界（驗證送出的表單欄位正確）。目前 E2E 只到「結帳頁可存取」。</span></td><td><span class="tag lv">E2E</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="手動"><td class="chk"><input type="checkbox" data-id="B-14"></td><td class="id">B-14</td><td><b>綠界測試站真卡刷卡</b><span class="note">判定：在收銀台輸入測試卡號完成 3D 驗證 → 收到真實 ReturnURL → 訂單轉 PAID、庫存實扣、寄信、發票開立。README 承認這段沒做過，只用 simulate script 驗過。</span></td><td><span class="tag lv">手動</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待執行</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="手動"><td class="chk"><input type="checkbox" data-id="B-15"></td><td class="id">B-15</td><td><b>正式環境金流冒煙測試</b><span class="note">判定：上線後用正式商店代號下一筆真實小額訂單走完全流程（含退刷或作廢），確認白名單、網域、憑證、發票字軌都對。</span></td><td><span class="tag lv">手動</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待執行</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<h2 id="s-order">C. 訂單建立與庫存</h2>
+<p>防超賣的條件式 <code>UPDATE</code>（SPEC 3.5）是這個系統最精巧的一段程式，而它<b>目前沒有任何測試</b>。這一節必須在真實 Postgres 上跑，不能用 mock——mock 掉的正好是要驗證的那個併發行為。</p>
+
+<div class="tw">
+<table>
+<thead><tr><th class="chk"></th><th>ID</th><th>檢核項目 / 判定標準</th><th>層級</th><th>優先</th><th>現況</th></tr></thead>
+<tbody data-section="C">
+<tr data-pri="P0" data-st="done" data-lv="單元"><td class="chk"><input type="checkbox" data-id="C-01"></td><td class="id">C-01</td><td>金額計算：小計、三種折扣碼、免運門檻看折扣後金額、空車、券條件驗證</td><td><span class="tag lv">單元</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-done">已有 22 項</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="C-02"></td><td class="id">C-02</td><td><b>兩人同時搶最後一件</b><span class="note">判定：庫存 1，兩個 <code>createOrder</code> 併發（真的併發，不是循序）→ <b>恰好一個</b>成功，另一個收到「庫存不足，最多可購買 N 件」，<code>reservedStock</code> 最終為 1 而非 2。這是整個系統最重要的一條測試。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="C-03"></td><td class="id">C-03</td><td><b>庫存不足時整筆交易回滾</b><span class="note">判定：多品項訂單中有一項庫存不足 → 沒有任何訂單被建立、其他品項的 <code>reservedStock</code> 也沒被佔用、優惠券使用次數沒被計入。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="C-04"></td><td class="id">C-04</td><td><b>庫存三段生命週期</b><span class="note">判定：成立 → <code>reservedStock +n</code>、<code>stock</code> 不變；付款 → <code>stock -n</code>、<code>reservedStock -n</code>；取消 → <code>reservedStock -n</code>、<code>stock</code> 不變。任一階段結束後 <code>stock ≥ reservedStock ≥ 0</code> 恆成立。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="C-05"></td><td class="id">C-05</td><td><b>逾期釋放與付款通知的競態</b><span class="note">判定：逾期 job 與付款回拋同時處理同一筆訂單 → 結果只有兩種（已付款＋實扣，或已取消＋釋放），<b>不會出現「已取消但庫存被實扣」</b>。SPEC 3.5 說釋放前會在交易內重讀狀態，這條就是驗證那個保護。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="C-06"></td><td class="id">C-06</td><td><b>逾期釋放排程</b><span class="note">判定：超過 <code>STOCK_RESERVATION_MINUTES</code> 未付款 → 轉 CANCELLED、釋放庫存、寄出取消通知；未逾期的訂單不受影響；已付款的訂單絕不會被掃到。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="C-07"></td><td class="id">C-07</td><td><b>訂單內容是快照</b><span class="note">判定：下單後改商品名稱／價格／下架／刪圖 → 訂單明細、後台訂單頁、通知信、發票內容<b>全部維持下單當時的值</b>。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="C-08"></td><td class="id">C-08</td><td><b>結帳前商品被下架</b><span class="note">判定：購物車有商品，管理員把它改成 DRAFT／ARCHIVED → 結帳被拒絕，錯誤訊息<b>指名是哪一件</b>，要求先移除。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="C-09"></td><td class="id">C-09</td><td><b>折扣碼在結帳瞬間被用完</b><span class="note">判定：總量剩 1 的折扣碼被兩人同時使用 → 一人成單、一人收到「請移除折扣碼後重試」，使用次數不會變成 2。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="C-10"></td><td class="id">C-10</td><td><b>訂單狀態機的合法／非法轉換</b><span class="note">判定：逐一驗證 SPEC 3.6 的表格——管理員只能設 PROCESSING／SHIPPED／COMPLETED／REFUNDED；PENDING_PAYMENT／PAID／CANCELLED 不開放手動；管理員取消<b>只限未付款訂單</b>；COMPLETED 不被物流回拋推回 SHIPPED。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="C-11"></td><td class="id">C-11</td><td><b>後台調整庫存不得低於 <code>reservedStock</code></b><span class="note">判定：有 3 件被預扣時把庫存改成 2 → 拒絕並提示，不會出現負的可售量。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="單元"><td class="chk"><input type="checkbox" data-id="C-12"></td><td class="id">C-12</td><td>訂單編號產生規則（唯一、長度符合綠界 20 字上限、物流單號為訂單號 + L）</td><td><span class="tag lv">單元</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<h2 id="s-cart">D. 購物車</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th class="chk"></th><th>ID</th><th>檢核項目 / 判定標準</th><th>層級</th><th>優先</th><th>現況</th></tr></thead>
+<tbody data-section="D">
+<tr data-pri="P0" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="D-01"></td><td class="id">D-01</td><td><b>登入時匿名購物車併入會員購物車</b><span class="note">判定：訪客車有 A×2，會員車已有 A×1 → 登入後是 A×3（<b>相加不是覆蓋</b>）。不同規格則各自保留。SPEC 3.3 的核心承諾，目前無測試。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="D-02"></td><td class="id">D-02</td><td><b>合併後 <code>sagon_chat</code> cookie 不受影響</b><span class="note">判定：登入合併購物車時 <code>sagon_cart</code> 換發，但客服對話仍找得回來。SPEC 3.13 特別說明這兩組 id 刻意分開，值得一條測試釘住它。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="D-03"></td><td class="id">D-03</td><td><b>加入數量超過可售量</b><span class="note">判定：可售 2 件時要求 5 件 → 拒絕並告知「最多可購買 2 件」。可售量 = <code>stock − reservedStock</code>，不是 <code>stock</code>。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="D-04"></td><td class="id">D-04</td><td>單一商品上限 99 件；數量為 0 或負數時的處理；移除品項；<code>/api/cart/count</code> 回傳與實際一致</td><td><span class="tag lv">整合</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="D-05"></td><td class="id">D-05</td><td>匿名 cookie 30 天有效期；cookie 屬性為 <code>httpOnly</code> + <code>sameSite=lax</code> + 正式環境 <code>secure</code></td><td><span class="tag lv">整合</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="done" data-lv="E2E"><td class="chk"><input type="checkbox" data-id="D-06"></td><td class="id">D-06</td><td>加入購物車後購物車頁看得到商品、未登入可進結帳頁</td><td><span class="tag lv">E2E</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-done">已有</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="E2E"><td class="chk"><input type="checkbox" data-id="D-07"></td><td class="id">D-07</td><td>購物車頁顯示「運費以結帳時選擇的配送方式為準」且估算用超商運費；差 N 元免運的提示金額正確</td><td><span class="tag lv">E2E</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<h2 id="s-auth">E. 會員與登入</h2>
+<p>三種登入方式共用一個帳號的合併規則（SPEC 3.2）目前完全依賴人工驗證。OTP 的節流是防止簡訊費被刷爆的唯一防線。</p>
+
+<div class="tw">
+<table>
+<thead><tr><th class="chk"></th><th>ID</th><th>檢核項目 / 判定標準</th><th>層級</th><th>優先</th><th>現況</th></tr></thead>
+<tbody data-section="E">
+<tr data-pri="P0" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="E-01"></td><td class="id">E-01</td><td><b>OTP 全部規則</b><span class="note">判定：6 位數且來自 CSPRNG；<b>資料庫只存雜湊</b>；5 分鐘後過期；錯 5 次即作廢；60 秒內不得重取；同號碼每小時上限 5 次；索取新碼時舊碼立即失效（同時只有一組有效）。七條各一個測試。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="E-02"></td><td class="id">E-02</td><td><b>正式供應商不留明碼</b><span class="note">判定：<code>SMS_PROVIDER=mitake</code> 時資料庫與 log 都<b>找不到</b>驗證碼明碼；<code>console</code> 時才寫入供測試讀取。這條寫錯就是把驗證碼洩在資料庫裡。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="E-03"></td><td class="id">E-03</td><td><b>Google 與 Email 密碼以 Email 合併</b><span class="note">判定：先用 Google 登入建立帳號，再用同 Email 註冊密碼 → 補上密碼到<b>同一個 <code>User.id</code></b>，不產生第二個會員，訂單歷史不分散。反向順序也要測。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="E-04"></td><td class="id">E-04</td><td><b>解除唯一登入方式被拒絕</b><span class="note">判定：只有密碼的帳號想移除密碼 → 拒絕；只有 Google 的帳號想解綁 Google → 拒絕；有兩種以上時可以解除其中一種。使用者不可能把自己鎖在門外。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="E-05"></td><td class="id">E-05</td><td><b>手機首次登入等同註冊</b><span class="note">判定：沒有這支號碼 → 建立會員、預設名稱「會員 + 末四碼」；已存在 → 登入同一帳號（號碼唯一性約束生效）。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="單元"><td class="chk"><input type="checkbox" data-id="E-06"></td><td class="id">E-06</td><td>argon2id 雜湊與驗證；相同密碼產生不同雜湊（salt）；錯誤密碼驗證失敗；雜湊參數符合現行建議</td><td><span class="tag lv">單元</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="E2E"><td class="chk"><input type="checkbox" data-id="E-07"></td><td class="id">E-07</td><td><b>三種登入方式各走通一次</b><span class="note">判定：Email 密碼登入／註冊、手機驗證碼登入（<code>SMS_PROVIDER=console</code> 從 DB 讀碼）、Google（可用 mock provider 或標記為手動）。目前 E2E 只測「未登入會導向登入頁」。</span></td><td><span class="tag lv">E2E</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="安全"><td class="chk"><input type="checkbox" data-id="E-08"></td><td class="id">E-08</td><td><b>登入節流</b><span class="note">判定：同一 Email／IP 連續失敗多次後被限制。<b>目前程式碼裡看不到密碼登入的節流</b>——如果確實沒有，這是要補的功能不只是測試。</span></td><td><span class="tag lv">安全</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待確認</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="E-09"></td><td class="id">E-09</td><td>Session cookie 屬性與 30 天有效期；登出後 session 失效；改密碼後既有 session 的處理</td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="E2E"><td class="chk"><input type="checkbox" data-id="E-10"></td><td class="id">E-10</td><td>地址簿：新增／編輯／刪除／設為預設；結帳時帶入預設地址；郵遞區號自動對應縣市（<code>tw-zip.ts</code> 已有單元測試，這裡測 UI 串接）</td><td><span class="tag lv">E2E</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="done" data-lv="E2E"><td class="chk"><input type="checkbox" data-id="E-11"></td><td class="id">E-11</td><td>未登入存取 <code>/account</code> 會導向登入頁</td><td><span class="tag lv">E2E</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-done">已有</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<h2 id="s-logi">F. 物流</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th class="chk"></th><th>ID</th><th>檢核項目 / 判定標準</th><th>層級</th><th>優先</th><th>現況</th></tr></thead>
+<tbody data-section="F">
+<tr data-pri="P0" data-st="partial" data-lv="單元"><td class="chk"><input type="checkbox" data-id="F2-01"></td><td class="id">F-01</td><td>狀態碼對照（300 是建單完成不是已出貨、退貨前綴碼、認不得回 <code>null</code>、同碼不落在兩個狀態）<span class="note">已有 11 項，但只覆蓋常見碼。補齊對照表（功能缺口 F-03）後需同步擴充測試。</span></td><td><span class="tag lv">單元</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-partial">已有 11 項</span></td></tr>
+<tr data-pri="P1" data-st="done" data-lv="單元"><td class="chk"><input type="checkbox" data-id="F2-02"></td><td class="id">F-02</td><td>商品名稱清洗與截斷（C2C 25 字、宅配 50 字、清空後回預設值）、<code>isC2C</code> 判定</td><td><span class="tag lv">單元</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-done">已有</span></td></tr>
+<tr data-pri="P1" data-st="done" data-lv="單元"><td class="chk"><input type="checkbox" data-id="F2-03"></td><td class="id">F-03</td><td>郵遞區號 → 縣市、離島判定、黑貓距離級別（連江縣夾在新北號段中間不誤判、認不出時保守回外縣市）</td><td><span class="tag lv">單元</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-done">已有 12 項</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="F2-04"></td><td class="id">F-04</td><td><b>建單成功後訂單轉 PROCESSING</b><span class="note">判定：物流單建立成功 → 訂單 PAID → PROCESSING、物流編號與托運單號寫入、寄出出貨通知。建單失敗 → 訂單留在 PAID、錯誤可見於後台、可重試。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="F2-05"></td><td class="id">F-05</td><td><b>回拋早於建單回應</b><span class="note">判定：物流狀態回拋先到（此時還沒有物流編號）→ 用訂單編號回推找到物流單並補上編號，不建立第二張物流單。SPEC 第 6 節列的邊界情況。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="F2-06"></td><td class="id">F-06</td><td><b>COMPLETED 不被回拋往回推</b><span class="note">判定：訂單已 COMPLETED，收到「運送中」回拋 → 狀態<b>不變</b>，只記錄原始代碼。綠界回拋順序不保證，這條必須釘住。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="F2-07"></td><td class="id">F-07</td><td><b>一張訂單只有一張物流單</b><span class="note">判定：重複呼叫建單 → 不會產生第二張；後台按鈕在已有物流單時不可用。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="F2-08"></td><td class="id">F-08</td><td><b>超商電子地圖選店回傳</b><span class="note">判定：<code>/api/ecpay/logistics/map-reply</code> 收到門市代號／名稱／地址 → 正確帶回結帳頁並存入訂單；偽造的回傳（無效門市代號）被拒絕。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-partial">已實測未自動化</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="E2E"><td class="chk"><input type="checkbox" data-id="F2-09"></td><td class="id">F-09</td><td>前台貨態時間軸（<code>shipment-timeline.tsx</code>）顯示正確里程碑與時間；未知狀態不顯示錯誤文案</td><td><span class="tag lv">E2E</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="手動"><td class="chk"><input type="checkbox" data-id="F2-10"></td><td class="id">F-10</td><td><b>C2C 超商建單實測（四家超商各一次）</b><span class="note">宅配 TCAT 已實測成功；超商取貨是<b>不同商店代號、不同簽章設定</b>，需分別驗證。列印單據也要一起確認。</span></td><td><span class="tag lv">手動</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待執行</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<h2 id="s-inv">G. 電子發票</h2>
+<p>唯一「還沒真正成功過一次」的功能。程式邏輯可以先用測試釘住，但最終驗證卡在綠界後台的字軌設定。</p>
+
+<div class="tw">
+<table>
+<thead><tr><th class="chk"></th><th>ID</th><th>檢核項目 / 判定標準</th><th>層級</th><th>優先</th><th>現況</th></tr></thead>
+<tbody data-section="G">
+<tr data-pri="P0" data-st="todo" data-lv="單元"><td class="chk"><input type="checkbox" data-id="G-01"></td><td class="id">G-01</td><td><b>發票明細加總 == 發票總額</b><span class="note">判定：明細包含運費（正數品項）與折扣（<b>負數品項</b>），<code>Σ(單價 × 數量) === TotalAmt === order.totalAmount</code>。金額對不起來會被綠界直接退件，這是最容易出錯也最好測的一條。含免運、含 FREE_SHIPPING 券、含 PERCENT 捨去尾數等組合。</span></td><td><span class="tag lv">單元</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="單元"><td class="chk"><input type="checkbox" data-id="G-02"></td><td class="id">G-02</td><td><b>AES-128-CBC 加解密往返</b><span class="note">判定：加密再解密得回原文；padding 與 URL encode 順序與綠界文件一致（發票用的簽章方式與 AIO 不同，README 已警告）。可用綠界文件範例值當黃金測試。</span></td><td><span class="tag lv">單元</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="單元"><td class="chk"><input type="checkbox" data-id="G-03"></td><td class="id">G-03</td><td><b>四種開立方式的格式驗證</b><span class="note">判定：手機條碼必須是斜線 + 7 碼（<code>/ABC1234</code> 通過、<code>ABC1234</code>／<code>/abc123</code> 拒絕）；愛心碼 3–7 位數字；統編 8 位數字；會員載具需登入。錯誤訊息要能指出哪個欄位不合。</span></td><td><span class="tag lv">單元</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="單元"><td class="chk"><input type="checkbox" data-id="G-04"></td><td class="id">G-04</td><td><b>有統編時強制紙本且不得併用載具／捐贈</b><span class="note">判定：統編 + 載具 → 拒絕；統編 + 捐贈 → 拒絕；統編 only → <code>Print=1</code>。</span></td><td><span class="tag lv">單元</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="G-05"></td><td class="id">G-05</td><td><b>一張訂單只開一次發票</b><span class="note">判定：重複觸發開立 → 第二次直接跳過，不產生第二張；併發觸發也只開一張。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="G-06"></td><td class="id">G-06</td><td><code>ECPAY_INVOICE_AUTO_ISSUE=false</code> 時付款成功<b>不</b>自動開立，後台可人工開立</td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="G-07"></td><td class="id">G-07</td><td>作廢：需填原因、原因超過 20 字被拒、作廢後狀態正確、未開立的不能作廢</td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="手動"><td class="chk"><input type="checkbox" data-id="G-08"></td><td class="id">G-08</td><td><b>測試站真實開立成功一次</b><span class="note">前置：登入 <a href="https://vendor-stage.ecpay.com.tw">vendor-stage.ecpay.com.tw</a> 為商店設定發票字軌。判定：四種開立方式各開一張成功、可在綠界後台查到、可作廢。<b>這是目前唯一的功能性阻塞點。</b></span></td><td><span class="tag lv">手動</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待執行</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="手動"><td class="chk"><input type="checkbox" data-id="G-09"></td><td class="id">G-09</td><td>正式站發票字軌申請與設定（每期都要配號，需列入營運月曆）</td><td><span class="tag lv">手動</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待執行</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<h2 id="s-catalog">H. 商品目錄與後台維護</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th class="chk"></th><th>ID</th><th>檢核項目 / 判定標準</th><th>層級</th><th>優先</th><th>現況</th></tr></thead>
+<tbody data-section="H">
+<tr data-pri="P1" data-st="done" data-lv="單元"><td class="chk"><input type="checkbox" data-id="H-01"></td><td class="id">H-01</td><td>圖片上傳：轉 WebP、縮到 1600px、小圖不放大、假副檔名拒絕、超大拒絕並說出實際大小、一張壞不影響同批、空檔案忽略、檔名不撞、路徑跳脫防護</td><td><span class="tag lv">單元</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-done">已有 15 項</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="單元"><td class="chk"><input type="checkbox" data-id="H-02"></td><td class="id">H-02</td><td><b>slug 產生與撞名</b><span class="note">判定：中文名稱產生可用 slug；撞名自動加 <code>-2</code>、<code>-3</code>；連續撞名不會無限迴圈；SKU 未填自動產生。</span></td><td><span class="tag lv">單元</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="H-03"></td><td class="id">H-03</td><td><b>刪除規則四種情況</b><span class="note">判定：賣過 → 改封存並先提示「已有 N 筆銷售紀錄」；沒賣過 → 真刪且圖片資料夾一併移除；有未付款訂單佔庫存 → 拒絕；只剩一個規格 → 拒絕刪規格。四條各一個測試。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="H-04"></td><td class="id">H-04</td><td><b>分類樹迴圈防護</b><span class="note">判定：把自己設為上層 → 拒絕；把自己的子孫設為上層 → 拒絕（要測到孫層，不只子層）。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="H-05"></td><td class="id">H-05</td><td><b><code>basePrice</code> 與最低啟用規格價同步</b><span class="note">判定：改規格價／停用規格／新增更便宜的規格 → <code>basePrice</code> 自動更新；停用的規格不列入計算。這個快取欄位不同步就是前台顯示錯價。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="H-06"></td><td class="id">H-06</td><td>前台只顯示 <code>ACTIVE</code>：DRAFT／ARCHIVED 商品在列表、搜尋、分類頁、sitemap、直接連結（應 404）都看不到</td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-partial">E2E 有部分</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="H-07"></td><td class="id">H-07</td><td>列表查詢：品牌／價格區間／關鍵字篩選、四種排序、每頁 24 筆、<b>改任何篩選條件回到第 1 頁</b>、超出範圍的頁碼處理</td><td><span class="tag lv">整合</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-partial">E2E 有部分</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="H-08"></td><td class="id">H-08</td><td>搜尋範圍是商品名稱＋摘要＋品牌名；中文子字串比對；空關鍵字與特殊字元（<code>%</code>、<code>_</code>）不造成錯誤結果</td><td><span class="tag lv">整合</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="done" data-lv="E2E"><td class="chk"><input type="checkbox" data-id="H-09"></td><td class="id">H-09</td><td>後台新增草稿商品 → 前台看不到 → 上架後看得到 → 刪除；分類有商品時不能刪；非管理員不能進入</td><td><span class="tag lv">E2E</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-done">已有 3 項</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="E2E"><td class="chk"><input type="checkbox" data-id="H-10"></td><td class="id">H-10</td><td>後台圖片管理：上傳多張、拖曳排序、刪除、第一張為主圖並反映到列表與 OG 預覽</td><td><span class="tag lv">E2E</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="E2E"><td class="chk"><input type="checkbox" data-id="H-11"></td><td class="id">H-11</td><td>後台其餘頁面各一條冒煙測試：訂單列表／詳情、優惠券、評論審核、會員、Webhook、總覽數字正確</td><td><span class="tag lv">E2E</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<h2 id="s-review">I. 商品評論</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th class="chk"></th><th>ID</th><th>檢核項目 / 判定標準</th><th>層級</th><th>優先</th><th>現況</th></tr></thead>
+<tbody data-section="I">
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="I-01"></td><td class="id">I-01</td><td><b>只有買過且訂單已完成的人能評論</b><span class="note">判定：沒買過 → 拒絕；買過但訂單只到 SHIPPED → 拒絕；別人的訂單項目 id → 拒絕（<b>IDOR</b>）；自己的已完成項目 → 通過。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="I-02"></td><td class="id">I-02</td><td>每個購買項目只能評論一次（DB 唯一約束真的生效，含併發送出兩次）</td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="I-03"></td><td class="id">I-03</td><td>待審核評論不出現在商品頁；核可後才出現；退回時記錄原因；星等平均只計已核可的</td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="單元"><td class="chk"><input type="checkbox" data-id="I-04"></td><td class="id">I-04</td><td>評論者名稱遮罩（只顯示姓氏 + 星號）；單字名、英文名、空白名稱都不會洩漏全名或炸掉</td><td><span class="tag lv">單元</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="E2E"><td class="chk"><input type="checkbox" data-id="I-05"></td><td class="id">I-05</td><td>完整流程：完成訂單 → 會員撰寫評論 → 商品頁看不到 → 後台核可 → 商品頁看得到</td><td><span class="tag lv">E2E</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<h2 id="s-chat">J. 站內客服聊天</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th class="chk"></th><th>ID</th><th>檢核項目 / 判定標準</th><th>層級</th><th>優先</th><th>現況</th></tr></thead>
+<tbody data-section="J">
+<tr data-pri="P1" data-st="done" data-lv="單元"><td class="chk"><input type="checkbox" data-id="J-01"></td><td class="id">J-01</td><td>游標序列化往返、訊息內容清洗（CRLF 收斂、控制字元移除、保留 tab、截到上限）、預覽字串（換行壓單行、80 字刪節號）</td><td><span class="tag lv">單元</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-done">已有 12 項</span></td></tr>
+<tr data-pri="P1" data-st="done" data-lv="E2E"><td class="chk"><input type="checkbox" data-id="J-02"></td><td class="id">J-02</td><td>訪客發問 → 客服回覆 → 訪客不重整就收到（SSE）→ 結案；另一位訪客看不到別人的對話；非管理員不能進收件匣</td><td><span class="tag lv">E2E</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-done">已有 3 項</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="安全"><td class="chk"><input type="checkbox" data-id="J-03"></td><td class="id">J-03</td><td><b>對話 id 一律由伺服器決定</b><span class="note">判定：直接對 <code>/api/chat/messages</code> 與 <code>/api/chat/stream</code> 帶別人的 <code>conversationId</code> → 拒絕或回自己的對話，<b>絕不回傳他人內容</b>。E2E 已測 UI 層，但要有一條直打 API 的測試。</span></td><td><span class="tag lv">安全</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-partial">待補強</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="J-04"></td><td class="id">J-04</td><td><b>登入後自動接續匿名對話</b><span class="note">判定：未登入問過 → 登入 → 對話歸入該會員名下，會員端與客服端都查得到同一串。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="J-05"></td><td class="id">J-05</td><td>每位訪客同時只有一串未結案對話；結案後再發言自動重新開啟（不另開一串）並轉回「待回覆」</td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="J-06"></td><td class="id">J-06</td><td><b>節流</b><span class="note">判定：同一串對話每分鐘第 21 則訪客訊息被拒；單則超過 2000 字被拒或截斷（依實作）；客服端不受訪客節流限制。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="J-07"></td><td class="id">J-07</td><td><b>Redis 掛掉時聊天不中斷</b><span class="note">判定：關掉 Redis → SSE 仍可用，即時性退化成約 15 秒補查，訊息不遺失。這是 SPEC 3.13 的明確承諾，值得一條測試。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="J-08"></td><td class="id">J-08</td><td>兩端未讀數各自獨立；打開對話即清零；後台側邊欄紅點每次導覽重算</td><td><span class="tag lv">整合</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<h2 id="s-guest">K. 訪客訂單查詢</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th class="chk"></th><th>ID</th><th>檢核項目 / 判定標準</th><th>層級</th><th>優先</th><th>現況</th></tr></thead>
+<tbody data-section="K">
+<tr data-pri="P0" data-st="todo" data-lv="安全"><td class="chk"><input type="checkbox" data-id="K-01"></td><td class="id">K-01</td><td><b>雙條件比對，缺一不可</b><span class="note">判定：訂單編號 + 正確手機 → 查得到；訂單編號 + 錯誤手機 → 查不到；<b>只有訂單編號 → 查不到</b>；Email 也同樣有效。錯誤訊息不可洩漏「這個訂單編號存在但手機錯了」。</span></td><td><span class="tag lv">安全</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="安全"><td class="chk"><input type="checkbox" data-id="K-02"></td><td class="id">K-02</td><td><b>查詢節流</b><span class="note">判定：同一 IP 短時間大量嘗試 → 被限制。否則訂單編號若有規律（連號）就能暴力枚舉配對手機。<b>需先確認目前有沒有做</b>。</span></td><td><span class="tag lv">安全</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待確認</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="安全"><td class="chk"><input type="checkbox" data-id="K-03"></td><td class="id">K-03</td><td>訂單編號不可預測（不是可枚舉的連號）；查詢結果不顯示完整信用卡／完整地址以外的多餘個資</td><td><span class="tag lv">安全</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="E2E"><td class="chk"><input type="checkbox" data-id="K-04"></td><td class="id">K-04</td><td>訪客查詢頁完整流程與貨態顯示</td><td><span class="tag lv">E2E</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<h2 id="s-mail">L. 通知信與背景工作</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th class="chk"></th><th>ID</th><th>檢核項目 / 判定標準</th><th>層級</th><th>優先</th><th>現況</th></tr></thead>
+<tbody data-section="L">
+<tr data-pri="P1" data-st="todo" data-lv="單元"><td class="chk"><input type="checkbox" data-id="L-01"></td><td class="id">L-01</td><td><b>四種通知信的內容組裝</b><span class="note">判定：付款成功（明細／金額／配送與門市或地址）、取號完成（虛擬帳號或代碼／期限）、已出貨（物流方式／單號／門市）、逾期取消（告知庫存已釋放）。用 snapshot 測試釘住，避免改版時金額或門市漏掉。</span></td><td><span class="tag lv">單元</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="L-02"></td><td class="id">L-02</td><td><b>寄送當下即時組資料</b><span class="note">判定：排入佇列後改動訂單 → 實際寄出的內容是<b>最新</b>狀態，不是排入時的。SPEC 3.11 的明確設計。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="L-03"></td><td class="id">L-03</td><td>寄信失敗以指數退避重試最多 5 次；5 次後留在佇列可檢視；重試不會寄出重複信件</td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="L-04"></td><td class="id">L-04</td><td>Worker 四種 job（建物流單、開發票、寄信、釋放逾期庫存）各自成功與失敗路徑；worker 重啟後未完成的 job 仍會被處理</td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="手動"><td class="chk"><input type="checkbox" data-id="L-05"></td><td class="id">L-05</td><td>正式 SMTP 實測：四種信件都真的收到、不進垃圾信匣（SPF／DKIM／DMARC 設定正確）、寄件者名稱與回覆地址正確</td><td><span class="tag lv">手動</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待執行</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="整合"><td class="chk"><input type="checkbox" data-id="L-06"></td><td class="id">L-06</td><td><b>稽核紀錄</b><span class="note">判定：每一個會改到訂單／商品／優惠券的後台操作都寫入誰、何時、改了什麼、來源 IP。逐一比對 14 個 Server Action 檔案，確認沒有漏寫的。</span></td><td><span class="tag lv">整合</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<h2 id="s-front">M. 前台、SEO、i18n、無障礙</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th class="chk"></th><th>ID</th><th>檢核項目 / 判定標準</th><th>層級</th><th>優先</th><th>現況</th></tr></thead>
+<tbody data-section="M">
+<tr data-pri="P2" data-st="done" data-lv="E2E"><td class="chk"><input type="checkbox" data-id="M-01"></td><td class="id">M-01</td><td>首頁商店名稱／品牌／精選商品；列表品牌篩選改變結果數；搜尋帶入網址；商品頁價格＋加入購物車＋結構化資料；en 語系導覽翻譯；sitemap 與 robots 可存取</td><td><span class="tag lv">E2E</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-done">已有 9 項</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="E2E"><td class="chk"><input type="checkbox" data-id="M-02"></td><td class="id">M-02</td><td><b>行動版</b><span class="note">判定：375px 寬下漢堡選單可開合、商品列表可瀏覽、結帳表單可填、聊天視窗不擋住結帳按鈕、無水平滾動。<code>mobile-nav.tsx</code> 目前完全沒測。</span></td><td><span class="tag lv">E2E</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="E2E"><td class="chk"><input type="checkbox" data-id="M-03"></td><td class="id">M-03</td><td>錯誤頁：不存在的商品 slug → 404 頁；<code>/403</code> 頁面文案正確；伺服器錯誤頁不洩漏堆疊</td><td><span class="tag lv">E2E</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="E2E"><td class="chk"><input type="checkbox" data-id="M-04"></td><td class="id">M-04</td><td>i18n 完整性：<code>messages/*.json</code> 兩個語系的 key 完全對齊（缺 key 直接測試失敗）；語系切換保留當前頁面；<code>hreflang</code> 正確</td><td><span class="tag lv">單元</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="E2E"><td class="chk"><input type="checkbox" data-id="M-05"></td><td class="id">M-05</td><td>SEO：每頁有唯一 title／description；商品頁 OG 圖為主圖；<code>Product</code> 與 <code>BreadcrumbList</code> 結構化資料通過 Google Rich Results 驗證；sitemap 只含 ACTIVE 商品</td><td><span class="tag lv">E2E</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-partial">待補強</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="E2E"><td class="chk"><input type="checkbox" data-id="M-06"></td><td class="id">M-06</td><td><b>無障礙掃描</b><span class="note">判定：用 <code>@axe-core/playwright</code> 對首頁／列表／商品／購物車／結帳做自動掃描，無 critical 違規；表單欄位都有 label；鍵盤可完成整個結帳流程。</span></td><td><span class="tag lv">E2E</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="效能"><td class="chk"><input type="checkbox" data-id="M-07"></td><td class="id">M-07</td><td>效能基準：商品列表與商品頁的 LCP／TTFB 基準值；圖片確實輸出 WebP 且尺寸合理；Lighthouse 分數列入上線前記錄</td><td><span class="tag lv">效能</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="手動"><td class="chk"><input type="checkbox" data-id="M-08"></td><td class="id">M-08</td><td>瀏覽器矩陣手動確認：iOS Safari、Android Chrome、桌機 Chrome／Safari／Edge。<b>需要你確認要支援到哪些版本。</b></td><td><span class="tag lv">手動</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待執行</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<h2 id="s-sec">N. 安全</h2>
+<p>部分安全行為已有測試（上傳防護、後台權限、聊天隔離），但缺少一次系統性的橫向檢查。</p>
+
+<div class="tw">
+<table>
+<thead><tr><th class="chk"></th><th>ID</th><th>檢核項目 / 判定標準</th><th>層級</th><th>優先</th><th>現況</th></tr></thead>
+<tbody data-section="N">
+<tr data-pri="P0" data-st="todo" data-lv="安全"><td class="chk"><input type="checkbox" data-id="N-01"></td><td class="id">N-01</td><td><b>所有 Server Action 的權限檢查</b><span class="note">判定：14 個 <code>actions.ts</code> 逐一測試「未登入呼叫」與「以一般會員身分呼叫」都被拒絕。目前 <code>src/app/admin/*/actions.ts</code> 都有管理員檢查（已人工確認），但沒有測試守著——新增一個 action 忘記加檢查不會有任何警告。</span></td><td><span class="tag lv">安全</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="安全"><td class="chk"><input type="checkbox" data-id="N-02"></td><td class="id">N-02</td><td><b>跨帳號存取（IDOR）橫向掃描</b><span class="note">判定：以 A 會員身分帶 B 會員的資源 id 存取——訂單詳情、地址、評論表單、聊天對話、<code>/api/orders/[orderNo]/status</code> 與 <code>/amount</code>——全部應拒絕。API 端點特別容易漏。</span></td><td><span class="tag lv">安全</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="done" data-lv="安全"><td class="chk"><input type="checkbox" data-id="N-03"></td><td class="id">N-03</td><td>上傳防護：內容非圖片的假副檔名拒絕、<code>../</code> 路徑跳脫拒絕、商品 id 含跳脫字元不刪到別的目錄</td><td><span class="tag lv">安全</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-done">已有</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="安全"><td class="chk"><input type="checkbox" data-id="N-04"></td><td class="id">N-04</td><td><b>XSS</b><span class="note">判定：商品名稱／摘要／評論內容／聊天訊息／收件人姓名塞入 <code>&lt;script&gt;</code> 與 <code>&lt;img onerror&gt;</code> → 都不執行。商品描述（原始 HTML，見功能缺口 F-06）要單獨標記為已知風險或先修掉。</span></td><td><span class="tag lv">安全</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="安全"><td class="chk"><input type="checkbox" data-id="N-05"></td><td class="id">N-05</td><td>安全標頭：HSTS、<code>X-Content-Type-Options</code>、<code>Referrer-Policy</code>、CSP（至少 <code>frame-ancestors</code> 與 <code>object-src</code>）。<code>Caddyfile</code> 目前只設了 cache 相關標頭。</span></td><td><span class="tag lv">安全</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="安全"><td class="chk"><input type="checkbox" data-id="N-06"></td><td class="id">N-06</td><td>Log 與錯誤訊息不含敏感資料：OTP 明碼、卡號、<code>AUTH_SECRET</code>、綠界 HashKey／HashIV、完整 Cookie</td><td><span class="tag lv">安全</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="安全"><td class="chk"><input type="checkbox" data-id="N-07"></td><td class="id">N-07</td><td>綠界回拋端點只接受預期的 HTTP 方法與 content-type；<code>/api/ecpay/*</code> 不需要也不接受 session（不能被 CSRF 利用）</td><td><span class="tag lv">安全</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="安全"><td class="chk"><input type="checkbox" data-id="N-08"></td><td class="id">N-08</td><td>環境變數驗證：缺少必要變數時<b>啟動即失敗</b>（<code>lib/env.ts</code> 的 zod schema），不會帶著空金鑰跑起來</td><td><span class="tag lv">單元</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<h2 id="s-ops">O. 上線與維運演練</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th class="chk"></th><th>ID</th><th>檢核項目 / 判定標準</th><th>層級</th><th>優先</th><th>現況</th></tr></thead>
+<tbody data-section="O">
+<tr data-pri="P0" data-st="todo" data-lv="手動"><td class="chk"><input type="checkbox" data-id="O-01"></td><td class="id">O-01</td><td><b>備份還原演練</b><span class="note">判定：拿一份真的備份，在乾淨環境還原資料庫 + uploads volume，站台能正常運作。<code>scripts/backup.sh</code> 存在，但「備份跑得起來」與「還原得回來」是兩件事。</span></td><td><span class="tag lv">手動</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待執行</span></td></tr>
+<tr data-pri="P0" data-st="todo" data-lv="手動"><td class="chk"><input type="checkbox" data-id="O-02"></td><td class="id">O-02</td><td>正式環境檢查清單逐項確認（README 第 233–241 行）：<code>AUTH_SECRET</code> 重新產生、<code>ECPAY_ENV=production</code> 與正式金鑰、<code>APP_URL</code> 與綠界白名單、<code>SMS_PROVIDER=mitake</code>、正式 SMTP、Google OAuth redirect URI、素材換成自有</td><td><span class="tag lv">手動</span></td><td><span class="tag P0">P0</span></td><td><span class="tag s-todo">待執行</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="手動"><td class="chk"><input type="checkbox" data-id="O-03"></td><td class="id">O-03</td><td>Migration 演練：在有資料的資料庫上跑 <code>db:deploy</code>，確認不鎖表過久、失敗可回退；rollback 步驟寫進 <code>docs/deploy.md</code></td><td><span class="tag lv">手動</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待執行</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="手動"><td class="chk"><input type="checkbox" data-id="O-04"></td><td class="id">O-04</td><td>回退演練：用前一個 commit SHA 的 image 重新 <code>up -d</code>，確認站台恢復（deploy.yml 已印出 SHA tag，但沒演練過）</td><td><span class="tag lv">手動</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待執行</span></td></tr>
+<tr data-pri="P1" data-st="todo" data-lv="手動"><td class="chk"><input type="checkbox" data-id="O-05"></td><td class="id">O-05</td><td>Worker 掛掉的影響範圍演練：停掉 worker 一小時後重啟，確認積壓的物流單／發票／信件／逾期釋放都補上，沒有永久遺失</td><td><span class="tag lv">手動</span></td><td><span class="tag P1">P1</span></td><td><span class="tag s-todo">待執行</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="效能"><td class="chk"><input type="checkbox" data-id="O-06"></td><td class="id">O-06</td><td>負載測試：以預估尖峰流量壓商品列表與結帳，確認 4GB 主機撐得住；同時觀察 DB 連線數是否耗盡</td><td><span class="tag lv">效能</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待執行</span></td></tr>
+<tr data-pri="P2" data-st="todo" data-lv="手動"><td class="chk"><input type="checkbox" data-id="O-07"></td><td class="id">O-07</td><td>健康檢查與告警：<code>/api/health</code> 接外部監控（UptimeRobot 等）；主機磁碟／記憶體告警（4GB 主機 + 本機圖片儲存，磁碟滿是真實風險）</td><td><span class="tag lv">手動</span></td><td><span class="tag P2">P2</span></td><td><span class="tag s-todo">待開發</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<h2 id="s-need">我需要你提供的資訊</h2>
+
+<p>以下分成三組。<b>第一組不回答我就無法動工</b>，第二組會改變我怎麼寫測試，第三組是商業決策，你可以晚一點決定但要記得決定。</p>
+
+<h3>第一組：擋住我的（請優先回答）</h3>
+<ol class="q">
+<li><b>綠界測試站（vendor-stage）的登入權限，或請你代為設定發票字軌。</b><br>
+G-08 是目前唯一「功能沒驗證過」的項目，而它 100% 卡在綠界後台。沒有字軌我只能把發票的單元測試寫完（G-01～G-04），無法確認真的開得出來。如果不方便給我帳號，請你登入後為測試商店設定發票字軌並告訴我完成了。</li>
+
+<li><b>要不要我直接動手改 CI？</b><br>
+A-01（CI 跑 lint／typecheck／test）是投報率最高的一項，大約半小時。但它會改動 <code>.github/workflows/</code>，並且從此之後測試失敗會 block 你的 build。確認一下你要的行為：測試失敗時是「不 build image」還是「照 build 但標紅」。</li>
+
+<li><b>整合測試的資料庫策略。</b><br>
+我需要一個可以隨意 truncate 的資料庫。三個選項：(a) 本機另開一個 <code>sagon_test</code> 資料庫 + <code>DATABASE_URL_TEST</code>；(b) 用 Testcontainers 每次跑起一個拋棄式 Postgres（乾淨但需要 Docker，CI 上比較慢）；(c) 只在 CI 用 GitHub Actions 的 <code>services:</code>，本機整合測試手動跑。<br>
+我的建議是 (a) + CI 用 <code>services:</code>，最快也最不容易壞。你同意的話請確認本機 Postgres 可以讓我建新資料庫。</li>
+
+<li><b>綠界物流狀態碼的完整文件。</b><br>
+F-03 需要對照綠界文件的完整狀態碼表（四家超商 + 黑貓 + 中華郵政各自一套）。請提供 PDF 或綠界文件連結；我手上只有程式碼裡已收錄的常見碼。</li>
+</ol>
+
+<h3>第二組：會改變測試怎麼寫的</h3>
+<ol class="q" start="5">
+<li><b>上線時程與範圍。</b>什麼時候要對外？我需要知道「哪些 P1 其實是 P0」。如果是一個月內上線，我會建議先做 A 節全部 + B、C 兩節的 P0，其他往後排。</li>
+
+<li><b>測試投入預算。</b>這份清單全部做完大約是 150–200 條測試。如果你要的是「先擋住最可能出事的地方」，我會壓縮到 40 條左右（A 節全部 + B-02～B-08 + C-02～C-05 + E-01～E-04 + G-01～G-04 + N-01～N-02），約兩到三天。你要哪個規模？</li>
+
+<li><b>密碼登入與訂單查詢目前有沒有節流？</b>（E-08、K-02）我在程式碼裡沒有找到，但可能是我漏看，也可能是刻意沒做。如果確實沒有，這兩條就從「補測試」變成「補功能」。</li>
+
+<li><b>支援的瀏覽器與裝置範圍。</b>（M-08）Playwright 目前只跑 Desktop Chrome。要不要加 WebKit（Safari）與行動裝置 viewport？加了 CI 時間大約三倍。</li>
+
+<li><b>三竹簡訊的測試帳密</b>（要驗證 E-02「正式供應商不留明碼」需要真的切到 mitake 跑一次）、<b>正式 SMTP 服務的資訊</b>（L-05）。這兩個沒有也能寫測試，只是留在「待執行」。</li>
+
+<li><b>預估尖峰流量。</b>（O-06）如果只有幾十人同時在線，負載測試可以直接跳過；如果會辦活動衝一波，我就需要知道量級才能設定壓測目標。</li>
+</ol>
+
+<h3>第三組：商業決策（SPEC 第 5 與第 7 節）</h3>
+<ol class="q" start="11">
+<li><b>優惠券缺口二選一</b>（F-05 / F-10）：訂單取消要不要歸還使用次數？訪客的「每人限用」要不要用 Email／手機統計？<br>
+我的建議：歸還次數改成「取消時回復」（選項 b，實作單純且對客人友善）；訪客限用維持現狀，等真的被濫用再處理。</li>
+
+<li><b>退款要不要串綠界退刷 API</b>（F-04）？如果營運人數少、退款件數不多，人工到綠界後台操作 + 寫進客服 SOP 是完全合理的選擇，這一項就直接關掉。</li>
+
+<li><b>法務條文</b>（F-01）：隱私權政策、服務條款、退換貨條款的實際文字。這是 P0 但不是我能寫的——需要你或法務提供，我只負責放上頁面並連到頁尾。目前 FAQ 寫的「7 天鑑賞期、貼身衣物拆封不退」需要確認符合消保法。</li>
+
+<li><b>要不要裝 GA4／Meta Pixel</b>（F-14）？要的話請提供追蹤 ID，並確認要不要 Cookie 同意元件。</li>
+
+<li><b>發票是付款成功就自動開，還是出貨時才開？</b>（SPEC 第 7 節）目前是自動開立。這會影響 G-06 的測試怎麼寫。</li>
+
+<li><b>評論審核由誰負責、多久處理一次？</b>影響要不要做「有待審評論就通知」的功能。</li>
+</ol>
+
+<div class="callout">
+<p><b>我的建議起手順序</b>（如果你只想聽一個答案）</p>
+<p>1. 你去處理綠界發票字軌（外部依賴，最慢，先啟動）。<br>
+2. 我做 A-01 到 A-03（CI + 整合測試環境），這是所有後續工作的地基。<br>
+3. 我做 C-02 到 C-05（庫存與併發）與 B-02 到 B-08（金流安全五規則）。<b>這 12 條測試守住的是「會賠錢」的那類 bug</b>，其他都可以晚點做。<br>
+4. 回頭補 E、G 兩節，然後才是 E2E 擴充。</p>
+</div>
+
+<p style="color:var(--text-dim);font-size:.85rem;border-top:1px solid var(--border);padding-top:1rem;margin-top:2.5rem">
+勾選狀態存在瀏覽器 localStorage，重新開啟這個檔案會保留。此頁可直接列印（工具列與目錄不會印出）。
+</p>
+
+</div>
+
+<script>
+(function () {
+  var KEY = 'sagon-test-checklist-v1';
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { saved = {}; }
+
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('td.chk input[type=checkbox]'));
+  var rows = boxes.map(function (b) { return b.closest('tr'); });
+
+  function persist() {
+    var out = {};
+    boxes.forEach(function (b) { if (b.checked) out[b.dataset.id] = 1; });
+    try { localStorage.setItem(KEY, JSON.stringify(out)); } catch (e) {}
+  }
+
+  function paint(b) {
+    var tr = b.closest('tr');
+    if (b.checked) tr.classList.add('checked'); else tr.classList.remove('checked');
+  }
+
+  function updateProgress() {
+    var visible = rows.filter(function (r) { return !r.classList.contains('hide'); });
+    var done = visible.filter(function (r) { return r.classList.contains('checked'); }).length;
+    var pct = visible.length ? Math.round(done / visible.length * 100) : 0;
+    document.getElementById('bar').style.width = pct + '%';
+    document.getElementById('plabel').textContent =
+      '目前顯示 ' + visible.length + ' 項，已勾選 ' + done + ' 項（' + pct + '%）';
+  }
+
+  boxes.forEach(function (b) {
+    if (saved[b.dataset.id]) b.checked = true;
+    paint(b);
+    b.addEventListener('change', function () { paint(b); persist(); updateProgress(); });
+  });
+
+  // 統計
+  var all = rows.filter(function (r) { return r.dataset.pri; });
+  document.getElementById('n-total').textContent = all.length;
+  document.getElementById('n-todo').textContent =
+    all.filter(function (r) { return r.dataset.st === 'todo'; }).length;
+  document.getElementById('n-p0').textContent =
+    all.filter(function (r) { return r.dataset.pri === 'P0'; }).length;
+
+  // 篩選
+  var active = { pri: null, st: null, lv: null };
+  var q = '';
+
+  function applyFilters() {
+    rows.forEach(function (r) {
+      var ok = true;
+      if (active.pri && r.dataset.pri !== active.pri) ok = false;
+      if (active.st && r.dataset.st !== active.st) ok = false;
+      if (active.lv && r.dataset.lv !== active.lv) ok = false;
+      if (ok && q) ok = r.textContent.toLowerCase().indexOf(q) !== -1;
+      if (ok) r.classList.remove('hide'); else r.classList.add('hide');
+    });
+    // 整個 tbody 都被藏起來時連帶收掉外框
+    document.querySelectorAll('tbody[data-section]').forEach(function (tb) {
+      var any = Array.prototype.some.call(tb.rows, function (r) { return !r.classList.contains('hide'); });
+      var box = tb.closest('.tw');
+      if (box) box.style.display = any ? '' : 'none';
+    });
+    updateProgress();
+  }
+
+  document.querySelectorAll('button.f').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var k = btn.dataset.filter, v = btn.dataset.val;
+      var turnOn = active[k] !== v;
+      document.querySelectorAll('button.f[data-filter="' + k + '"]').forEach(function (o) {
+        o.setAttribute('aria-pressed', 'false');
+      });
+      active[k] = turnOn ? v : null;
+      if (turnOn) btn.setAttribute('aria-pressed', 'true');
+      applyFilters();
+    });
+  });
+
+  var input = document.getElementById('q');
+  input.addEventListener('input', function () { q = input.value.trim().toLowerCase(); applyFilters(); });
+
+  applyFilters();
+})();
+</script>
