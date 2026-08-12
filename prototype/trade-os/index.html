@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One-Person Trade OS ｜ 一人貿易公司營運系統（原型 v0.1）</title>
+<style>
+/* ---------------------------------------------------------------
+   One-Person Trade OS — 單檔 HTML 原型
+   設計原則：安靜、留白、不像 ERP。專業留在底層，簡單留給老闆。
+   --------------------------------------------------------------- */
+:root{
+  --bg:#FAFAF8;
+  --panel:#FFFFFF;
+  --line:#E9E6E0;
+  --line-soft:#F2F0EB;
+  --ink:#23211E;
+  --ink-2:#55514B;
+  --muted:#918B82;
+  --accent:#3F6B5A;
+  --accent-soft:#EDF3F0;
+  --warn:#B4762F;
+  --warn-soft:#FBF3E8;
+  --alert:#A6483C;
+  --alert-soft:#FBEEEC;
+  --radius:10px;
+  --sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased;
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;font-size:inherit;color:inherit;background:none;border:0;cursor:pointer}
+h1,h2,h3,h4{margin:0;font-weight:600;letter-spacing:.01em}
+
+/* ---------- Layout ---------- */
+.app{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+.sidebar{
+  border-right:1px solid var(--line);background:var(--panel);
+  padding:28px 16px;position:sticky;top:0;height:100vh;overflow-y:auto;
+}
+.brand{padding:0 10px 26px}
+.brand .mark{font-size:11px;letter-spacing:.22em;color:var(--muted);text-transform:uppercase}
+.brand .name{font-size:17px;margin-top:6px}
+.brand .sub{font-size:12px;color:var(--muted);margin-top:2px}
+.nav{display:flex;flex-direction:column;gap:1px}
+.nav button{
+  display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  padding:9px 10px;border-radius:8px;color:var(--ink-2);font-size:14.5px;
+}
+.nav button:hover{background:var(--line-soft)}
+.nav button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.nav .dot{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.35;flex:none}
+.nav button.on .dot{opacity:1}
+.nav .group{font-size:11px;letter-spacing:.14em;color:var(--muted);padding:20px 10px 6px}
+.sidefoot{margin-top:26px;padding:12px 10px 0;border-top:1px solid var(--line-soft);font-size:12px;color:var(--muted)}
+
+.main{padding:44px 48px 96px;max-width:1180px}
+.page-head{margin-bottom:32px}
+.page-head h1{font-size:26px;letter-spacing:.02em}
+.page-head p{margin:8px 0 0;color:var(--muted);font-size:14px;max-width:62ch}
+.crumb{font-size:13px;color:var(--muted);margin-bottom:14px}
+.crumb button{color:var(--accent)}
+
+/* ---------- Building blocks ---------- */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+.card + .card{margin-top:16px}
+.section{margin-top:38px}
+.section > h2{font-size:15px;letter-spacing:.06em;color:var(--ink)}
+.section > .hint{margin:4px 0 16px;font-size:13px;color:var(--muted)}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(2,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px}
+.kpi .label{font-size:12.5px;color:var(--muted)}
+.kpi .value{font-size:24px;font-weight:600;margin-top:6px;letter-spacing:-.01em}
+.kpi .note{font-size:12px;color:var(--muted);margin-top:4px}
+
+.tag{display:inline-block;font-size:11.5px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--ink-2);background:var(--panel);white-space:nowrap}
+.tag.ok{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+.tag.warn{background:var(--warn-soft);border-color:transparent;color:var(--warn)}
+.tag.alert{background:var(--alert-soft);border-color:transparent;color:var(--alert)}
+
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{
+  text-align:left;font-weight:500;color:var(--muted);font-size:12.5px;
+  padding:0 12px 10px;border-bottom:1px solid var(--line);white-space:nowrap
+}
+td{padding:13px 12px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tbody tr.clickable{cursor:pointer}
+tbody tr.clickable:hover{background:#FCFCFA}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+th.num{text-align:right}
+.sku{font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+.strong{font-weight:600}
+
+/* 待辦 */
+.todo{display:flex;gap:14px;align-items:flex-start;padding:15px 0;border-bottom:1px solid var(--line-soft)}
+.todo:last-child{border-bottom:0}
+.todo .bar{width:3px;align-self:stretch;border-radius:2px;background:var(--line);flex:none}
+.todo.alert .bar{background:var(--alert)}
+.todo.warn .bar{background:var(--warn)}
+.todo.ok .bar{background:var(--accent)}
+.todo .body{flex:1;min-width:0}
+.todo .t{font-weight:600;font-size:15px}
+.todo .d{font-size:13.5px;color:var(--muted);margin-top:3px}
+.todo .go{font-size:13px;color:var(--accent);white-space:nowrap;align-self:center}
+.todo .go:hover{text-decoration:underline}
+
+/* 流程步驟 */
+.flow{display:flex;flex-wrap:wrap;gap:0;margin:4px 0 0}
+.flow .step{display:flex;align-items:center;gap:7px;padding-right:12px;font-size:12.5px;color:var(--muted)}
+.flow .step .pin{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--line);background:var(--panel);flex:none}
+.flow .step.done{color:var(--ink-2)}
+.flow .step.done .pin{background:var(--accent);border-color:var(--accent)}
+.flow .step.now{color:var(--warn);font-weight:600}
+.flow .step.now .pin{background:var(--warn);border-color:var(--warn)}
+.flow .step::after{content:"";width:14px;height:1px;background:var(--line);margin-left:2px}
+.flow .step:last-child::after{display:none}
+
+/* 條狀比例 */
+.bar-row{display:flex;align-items:center;gap:10px;margin:9px 0}
+.bar-row .nm{width:74px;font-size:13px;color:var(--ink-2);flex:none}
+.bar-track{flex:1;height:8px;background:var(--line-soft);border-radius:999px;overflow:hidden}
+.bar-fill{height:100%;border-radius:999px}
+.bar-row .vl{width:110px;text-align:right;font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink-2);flex:none}
+
+/* 庫存分配 */
+.stock-split{display:flex;height:10px;border-radius:999px;overflow:hidden;background:var(--line-soft)}
+.stock-split i{display:block;height:100%}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12.5px;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:8px;height:8px;border-radius:2px;display:block}
+
+/* 明細列 */
+.kv{display:flex;justify-content:space-between;gap:16px;padding:9px 0;border-bottom:1px solid var(--line-soft);font-size:14px}
+.kv:last-child{border-bottom:0}
+.kv .k{color:var(--muted)}
+.kv .v{font-variant-numeric:tabular-nums}
+.kv.total{border-top:1px solid var(--line);border-bottom:0;margin-top:6px;padding-top:12px;font-weight:600}
+
+/* AI */
+.ask{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.ask button{border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:13.5px;color:var(--ink-2);background:var(--panel)}
+.ask button:hover{border-color:var(--accent);color:var(--accent)}
+.chat{display:flex;flex-direction:column;gap:14px}
+.msg{max-width:76ch}
+.msg.me{align-self:flex-end;background:var(--accent-soft);color:var(--accent);border-radius:12px 12px 2px 12px;padding:10px 15px}
+.msg.ai{background:var(--panel);border:1px solid var(--line);border-radius:12px 12px 12px 2px;padding:16px 18px}
+.msg.ai .src{margin-top:12px;padding-top:10px;border-top:1px solid var(--line-soft);font-size:12px;color:var(--muted)}
+.msg.ai ul{margin:8px 0 0;padding-left:18px}
+.msg.ai li{margin:4px 0}
+.split-list li{margin:6px 0;font-size:14px;color:var(--ink-2)}
+
+.empty{color:var(--muted);font-size:14px;padding:26px 0;text-align:center}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px}
+.tabs button{padding:9px 14px;font-size:14px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+
+.banner{background:var(--accent-soft);border-radius:var(--radius);padding:16px 20px;font-size:13.5px;color:var(--accent);line-height:1.65}
+
+@media (max-width:900px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:18px 16px}
+  .brand{padding-bottom:14px}
+  .nav{flex-direction:row;overflow-x:auto;gap:6px;padding-bottom:4px}
+  .nav button{white-space:nowrap;padding:7px 12px}
+  .nav .group,.sidefoot{display:none}
+  .main{padding:26px 18px 72px}
+  .g2,.g3,.g4{grid-template-columns:1fr 1fr}
+  .table-wrap{overflow-x:auto}
+  table{min-width:640px}
+}
+@media (max-width:560px){
+  .g2,.g3,.g4{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="mark">One-Person Trade OS</div>
+      <div class="name">莎岡選品</div>
+      <div class="sub">2026 年 8 月　原型 v0.1</div>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="sidefoot">
+      這是假資料原型，<br>用來確認資訊架構與流程。
+    </div>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+
+<script>
+/* =====================================================================
+   1. 設定與假資料
+   ===================================================================== */
+
+const CH = [
+  { id:'web',    name:'官網',    platformFee:0,     payFee:0.028, ship:60, color:'#3F6B5A' },
+  { id:'shopee', name:'Shopee',  platformFee:0.055, payFee:0.020, ship:45, color:'#C4703A' },
+  { id:'pinkoi', name:'Pinkoi',  platformFee:0.120, payFee:0,     ship:70, color:'#6B5B8A' },
+];
+const LOW_STOCK = 15;
+
+// 進口批次：Supplier → PO → Invoice → Payment → Shipment → Customs → Arrival → Inventory
+const FLOW = ['供應商','PO','Invoice','付款','出貨','報關','到貨','入庫'];
+
+const BATCHES = [
+  {
+    id:'B-2026-03', supplier:'NUAGE Seoul Co., Ltd.', brand:'NUAGE', country:'韓國',
+    po:'PO-2026-0312', invoice:'INV-NG-2603', currency:'KRW', rate:0.0234,
+    step:8, statusText:'已入庫', eta:'2026-04-02', arrived:'2026-04-02',
+    items:[
+      { sku:'SG-KR-001', qtyPO:120, qtyInv:120, unit:8500 },
+      { sku:'SG-KR-004', qtyPO:60,  qtyInv:60,  unit:14000 },
+    ],
+    freight:6800, insurance:900, duty:2100, clearance:1800, other:600,
+    paid:true, dueDate:'2026-03-20',
+  },
+  {
+    id:'B-2026-05', supplier:'SODAM Living', brand:'SODAM', country:'韓國',
+    po:'PO-2026-0505', invoice:'INV-SD-2605', currency:'KRW', rate:0.0231,
+    step:6, statusText:'報關中 · DHL 明日到貨', eta:'2026-08-11', arrived:null,
+    items:[
+      { sku:'SG-KR-002', qtyPO:200, qtyInv:200, unit:4200 },
+      { sku:'SG-KR-005', qtyPO:80,  qtyInv:80,  unit:11000 },
+    ],
+    freight:5400, insurance:700, duty:1500, clearance:1800, other:400,
+    paid:false, dueDate:'2026-08-15',
+  },
+  {
+    id:'B-2026-07', supplier:'ONDO Craft', brand:'ONDO', country:'韓國',
+    po:'PO-2026-0701', invoice:'INV-OD-2607', currency:'USD', rate:31.2,
+    step:3, statusText:'Invoice 待確認', eta:'2026-09-05', arrived:null,
+    items:[
+      { sku:'SG-KR-003', qtyPO:150, qtyInv:144, unit:6.8 },
+      { sku:'SG-KR-006', qtyPO:300, qtyInv:300, unit:1.9 },
+    ],
+    freight:7200, insurance:1100, duty:3400, clearance:1800, other:800,
+    paid:false, dueDate:'2026-08-22',
+  },
+];
+
+const PRODUCTS = [
+  { sku:'SG-KR-001', name:'香氛蠟燭 100g（雪松）', brand:'NUAGE', cat:'香氛',
+    stock:{web:3, shopee:4, pinkoi:1},
+    sale:{ web:{price:890,sold:22}, shopee:{price:850,sold:31}, pinkoi:{price:920,sold:9} },
+    history:[ {batch:'B-2025-11', qty:80, cost:241}, {batch:'B-2026-03', qty:120, cost:null} ] },
+  { sku:'SG-KR-002', name:'亞麻方巾（米白）', brand:'SODAM', cat:'家飾',
+    stock:{web:30, shopee:50, pinkoi:16},
+    sale:{ web:{price:480,sold:14}, shopee:{price:450,sold:26}, pinkoi:{price:520,sold:6} },
+    history:[ {batch:'B-2025-12', qty:150, cost:126}, {batch:'B-2026-05', qty:200, cost:null} ] },
+  { sku:'SG-KR-003', name:'手作陶瓷馬克杯', brand:'ONDO', cat:'餐廚',
+    stock:{web:15, shopee:20, pinkoi:9},
+    sale:{ web:{price:620,sold:18}, shopee:{price:590,sold:12}, pinkoi:{price:650,sold:21} },
+    history:[ {batch:'B-2026-01', qty:120, cost:255}, {batch:'B-2026-07', qty:144, cost:null} ] },
+  { sku:'SG-KR-004', name:'香氛擴香瓶 200ml', brand:'NUAGE', cat:'香氛',
+    stock:{web:12, shopee:12, pinkoi:7},
+    sale:{ web:{price:1280,sold:9}, shopee:{price:1250,sold:6}, pinkoi:{price:1350,sold:11} },
+    history:[ {batch:'B-2026-03', qty:60, cost:null} ] },
+  { sku:'SG-KR-005', name:'針織收納籃（大）', brand:'SODAM', cat:'家飾',
+    stock:{web:10, shopee:20, pinkoi:8},
+    sale:{ web:{price:750,sold:7}, shopee:{price:720,sold:15}, pinkoi:{price:790,sold:4} },
+    history:[ {batch:'B-2026-05', qty:80, cost:null} ] },
+  { sku:'SG-KR-006', name:'黃銅書籤', brand:'ONDO', cat:'文具',
+    stock:{web:4, shopee:6, pinkoi:2},
+    sale:{ web:{price:180,sold:12}, shopee:{price:170,sold:34}, pinkoi:{price:200,sold:18} },
+    history:[ {batch:'B-2026-02', qty:200, cost:71}, {batch:'B-2026-07', qty:300, cost:null} ] },
+];
+
+/* =====================================================================
+   2. 計算層：成本、毛利、庫存
+   —— 這一層永遠是公式，不交給 AI 猜
+   ===================================================================== */
+
+// 進口費用依「商品貨值」比例分攤 → 單件 Landed Cost
+function calcBatch(b){
+  const extras = b.freight + b.insurance + b.duty + b.clearance + b.other;
+  const items = b.items.map(it=>{
+    const goods = it.qtyInv * it.unit * b.rate;         // 該 SKU 貨值（TWD）
+    return { ...it, goods };
+  });
+  const goodsTotal = items.reduce((s,i)=>s+i.goods,0);
+  const detailed = items.map(it=>{
+    const share = goodsTotal ? it.goods/goodsTotal : 0;
+    const alloc = extras * share;                       // 分攤到的進口費用
+    const landed = (it.goods + alloc) / it.qtyInv;      // 單件真正進口成本
+    return { ...it, share, alloc, landed };
+  });
+  return { ...b, extras, goodsTotal, total: goodsTotal + extras, items: detailed,
+           mismatch: b.items.some(i=>i.qtyPO !== i.qtyInv) };
+}
+const BATCH = BATCHES.map(calcBatch);
+const batchById = id => BATCH.find(b=>b.id===id);
+
+// SKU → 最新一批的 landed cost
+const LANDED = {};
+BATCH.forEach(b=>b.items.forEach(it=>{ LANDED[it.sku] = { cost: it.landed, batch: b.id }; }));
+
+const ch = id => CH.find(c=>c.id===id);
+const stockTotal = p => CH.reduce((s,c)=>s+p.stock[c.id],0);
+
+// 單一通路的實際毛利
+function margin(p, cid){
+  const c = ch(cid), s = p.sale[cid], cost = LANDED[p.sku].cost;
+  const platform = s.price * c.platformFee;
+  const pay = s.price * c.payFee;
+  const profit = s.price - cost - platform - pay - c.ship;
+  return { price:s.price, sold:s.sold, cost, platform, pay, ship:c.ship,
+           profit, rate: profit/s.price, revenue: s.price*s.sold, gross: profit*s.sold };
+}
+const allMargins = p => CH.map(c=>({ c, m: margin(p, c.id) }));
+const bestChannel = p => allMargins(p).slice().sort((a,b)=>b.m.rate-a.m.rate)[0];
+
+// 全站彙總
+function totals(){
+  let revenue=0, gross=0, invValue=0;
+  PRODUCTS.forEach(p=>{
+    CH.forEach(c=>{ const m = margin(p,c.id); revenue += m.revenue; gross += m.gross; });
+    invValue += stockTotal(p) * LANDED[p.sku].cost;
+  });
+  const purchased = BATCH.filter(b=>b.id!=='B-2026-03').reduce((s,b)=>s+b.total,0);
+  const unpaid = BATCH.filter(b=>!b.paid).reduce((s,b)=>s+b.total,0);
+  const inTransit = BATCH.filter(b=>b.step>=4 && b.step<8).reduce((s,b)=>s+b.total,0);
+  return { revenue, gross, rate: gross/revenue, invValue, purchased, unpaid, inTransit };
+}
+const lowStockList = () => PRODUCTS.filter(p=>stockTotal(p) < LOW_STOCK);
+
+/* =====================================================================
+   3. 小工具
+   ===================================================================== */
+const nt = n => 'NT$' + Math.round(n).toLocaleString('en-US');
+const nt1 = n => 'NT$' + (Math.round(n*10)/10).toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1});
+const pct = n => (n*100).toFixed(1) + '%';
+const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const productBySku = sku => PRODUCTS.find(p=>p.sku===sku);
+
+function flowHtml(step){
+  return `<div class="flow">` + FLOW.map((s,i)=>{
+    const cls = i+1 < step ? 'done' : (i+1 === step ? 'now' : '');
+    return `<div class="step ${cls}"><span class="pin"></span>${s}</div>`;
+  }).join('') + `</div>`;
+}
+function stockSplitHtml(p){
+  const t = stockTotal(p) || 1;
+  return `<div class="stock-split">` +
+    CH.map(c=>`<i style="width:${p.stock[c.id]/t*100}%;background:${c.color}"></i>`).join('') +
+    `</div>`;
+}
+function legendHtml(p){
+  return `<div class="legend">` + CH.map(c=>
+    `<span><i style="background:${c.color}"></i>${c.name} ${p ? p.stock[c.id]+' 件' : ''}</span>`
+  ).join('') + `</div>`;
+}
+
+/* =====================================================================
+   4. 頁面
+   ===================================================================== */
+
+/* ---- 待辦：首頁第一屏只回答「今天我要做什麼」 ---- */
+function todos(){
+  const list = [];
+  BATCH.forEach(b=>{
+    if(b.mismatch){
+      const bad = b.items.find(i=>i.qtyPO!==i.qtyInv);
+      list.push({ level:'alert', t:`${b.id} 的 Invoice 需要確認`,
+        d:`${bad.sku} 的 PO 數量 ${bad.qtyPO} 件，供應商 Invoice 只開 ${bad.qtyInv} 件，差 ${bad.qtyPO-bad.qtyInv} 件。`,
+        go:'去看這一批', nav:['batch', b.id] });
+    }
+  });
+  const arriving = BATCH.find(b=>b.step>=5 && b.step<8);
+  if(arriving) list.push({ level:'warn', t:`${arriving.id} 預計 ${arriving.eta} 到貨`,
+    d:`${arriving.supplier}，共 ${arriving.items.reduce((s,i)=>s+i.qtyInv,0)} 件，到貨後要入庫並分配到三個通路。`,
+    go:'準備入庫', nav:['batch', arriving.id] });
+  const low = lowStockList();
+  if(low.length) list.push({ level:'warn', t:`${low.length} 款商品庫存偏低`,
+    d: low.map(p=>`${p.name}（剩 ${stockTotal(p)} 件）`).join('、') + '。',
+    go:'去看庫存', nav:['inventory'] });
+  BATCH.filter(b=>!b.paid).forEach(b=>{
+    list.push({ level:'ok', t:`${b.invoice} 應付 ${nt(b.total)}`,
+      d:`付款期限 ${b.dueDate}，付款後才會安排出貨。`, go:'去看採購', nav:['purchase'] });
+  });
+  return list;
+}
+
+function pageDashboard(){
+  const t = totals(), td = todos();
+  return `
+  <div class="page-head">
+    <h1>今天</h1>
+    <p>這一頁只回答一件事：現在該做什麼。看完上面這幾件，再往下看數字就好。</p>
+  </div>
+
+  <div class="card">
+    <h2 style="font-size:15px;letter-spacing:.06em">今天我要做什麼</h2>
+    <p style="margin:4px 0 8px;font-size:13px;color:var(--muted)">共 ${td.length} 件，由上到下就是處理順序。</p>
+    ${td.map((x,i)=>`
+      <div class="todo ${x.level}">
+        <div class="bar"></div>
+        <div class="body">
+          <div class="t">${esc(x.t)}</div>
+          <div class="d">${esc(x.d)}</div>
+        </div>
+        <button class="go" data-nav='${JSON.stringify(x.nav)}'>${esc(x.go)} →</button>
+      </div>`).join('')}
+  </div>
+
+  <div class="section">
+    <h2>本月營運</h2>
+    <p class="hint">2026 年 8 月，含官網、Shopee、Pinkoi 三個通路。</p>
+    <div class="grid g4">
+      <div class="kpi"><div class="label">本月營收</div><div class="value">${nt(t.revenue)}</div><div class="note">三通路合計</div></div>
+      <div class="kpi"><div class="label">本月毛利</div><div class="value">${nt(t.gross)}</div><div class="note">毛利率 ${pct(t.rate)}（已扣平台費、金流費、物流）</div></div>
+      <div class="kpi"><div class="label">現有庫存總額</div><div class="value">${nt(t.invValue)}</div><div class="note">以真實進口成本計算</div></div>
+      <div class="kpi"><div class="label">本月已採購</div><div class="value">${nt(t.purchased)}</div><div class="note">2 個批次</div></div>
+      <div class="kpi"><div class="label">待付款</div><div class="value">${nt(t.unpaid)}</div><div class="note">最近期限 2026-08-15</div></div>
+      <div class="kpi"><div class="label">在途貨物</div><div class="value">${nt(t.inTransit)}</div><div class="note">已出貨、尚未入庫</div></div>
+      <div class="kpi"><div class="label">庫存偏低</div><div class="value">${lowStockList().length} 款</div><div class="note">低於 ${LOW_STOCK} 件</div></div>
+      <div class="kpi"><div class="label">在售 SKU</div><div class="value">${PRODUCTS.length}</div><div class="note">3 個品牌</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>三通路概況</h2>
+    <p class="hint">同樣的商品，在不同通路賺的錢不一樣。這裡先看整體。</p>
+    <div class="card">
+      ${CH.map(c=>{
+        let rev=0, gr=0;
+        PRODUCTS.forEach(p=>{ const m=margin(p,c.id); rev+=m.revenue; gr+=m.gross; });
+        const max = Math.max(...CH.map(cc=>PRODUCTS.reduce((s,p)=>s+margin(p,cc.id).revenue,0)));
+        return `<div class="bar-row">
+          <div class="nm">${c.name}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${rev/max*100}%;background:${c.color}"></div></div>
+          <div class="vl">${nt(rev)}</div>
+          <div class="vl" style="width:130px;color:var(--muted)">毛利 ${nt(gr)}／${pct(gr/rev)}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+/* ---- 採購 ---- */
+function pagePurchase(){
+  return `
+  <div class="page-head">
+    <h1>採購</h1>
+    <p>每一次跟供應商下單，都從這裡開始。一張 PO 對一張 Invoice，數量對不上系統會提醒你。</p>
+  </div>
+  <div class="card table-wrap">
+    <table>
+      <thead><tr>
+        <th>批次</th><th>供應商 / 品牌</th><th>PO</th><th>Invoice</th>
+        <th class="num">幣別 / 匯率</th><th class="num">貨款（TWD）</th><th>付款</th><th>目前狀態</th>
+      </tr></thead>
+      <tbody>
+      ${BATCH.map(b=>`
+        <tr class="clickable" data-nav='["batch","${b.id}"]'>
+          <td class="strong">${b.id}</td>
+          <td>${esc(b.supplier)}<div class="sku">${b.brand}・${b.country}</div></td>
+          <td class="sku">${b.po}</td>
+          <td class="sku">${b.invoice} ${b.mismatch?'<span class="tag alert">數量不符</span>':''}</td>
+          <td class="num">${b.currency}<div class="sku">${b.rate}</div></td>
+          <td class="num">${nt(b.goodsTotal)}</td>
+          <td>${b.paid?'<span class="tag ok">已付款</span>':`<span class="tag warn">${b.dueDate} 到期</span>`}</td>
+          <td>${esc(b.statusText)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>
+  <div class="section">
+    <h2>供應商</h2>
+    <div class="grid g3">
+      ${BATCH.map(b=>`<div class="card">
+        <div class="strong">${esc(b.supplier)}</div>
+        <div class="sku" style="margin:2px 0 12px">${b.brand}・${b.country}・${b.currency}</div>
+        <div class="kv"><span class="k">累計批次</span><span class="v">1</span></div>
+        <div class="kv"><span class="k">最近下單</span><span class="v">${b.po.replace('PO-','')}</span></div>
+        <div class="kv"><span class="k">付款狀態</span><span class="v">${b.paid?'已結清':'未結清'}</span></div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+/* ---- 進口批次列表 ---- */
+function pageBatches(){
+  return `
+  <div class="page-head">
+    <h1>進口批次</h1>
+    <p>每一批貨從下單到入庫走的是同一條路。點進去可以看到這一批「真正花了多少錢」。</p>
+  </div>
+  ${BATCH.map(b=>`
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:17px;font-weight:600">${b.id}　<span style="font-weight:400;color:var(--muted);font-size:14px">${esc(b.supplier)}</span></div>
+          <div class="sku" style="margin-top:4px">${b.po}　${b.invoice}　${b.items.reduce((s,i)=>s+i.qtyInv,0)} 件</div>
+        </div>
+        <div style="text-align:right">
+          <div class="strong">${nt(b.total)}</div>
+          <div class="sku">含所有進口費用</div>
+        </div>
+      </div>
+      <div style="margin:16px 0 12px">${flowHtml(b.step)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+        <div>${b.mismatch?'<span class="tag alert">Invoice 數量不符</span> ':''}<span class="tag">${esc(b.statusText)}</span></div>
+        <button class="go" style="color:var(--accent);font-size:13.5px" data-nav='["batch","${b.id}"]'>看這一批的成本 →</button>
+      </div>
+    </div>`).join('')}`;
+}
+
+/* ---- 批次明細：Landed Cost ---- */
+function pageBatchDetail(id){
+  const b = batchById(id);
+  if(!b) return `<div class="empty">找不到這個批次</div>`;
+  return `
+  <div class="crumb"><button data-nav='["batches"]'>進口批次</button> ／ ${b.id}</div>
+  <div class="page-head">
+    <h1>${b.id}</h1>
+    <p>${esc(b.supplier)}　${b.po}　${b.invoice}　目前：${esc(b.statusText)}</p>
+  </div>
+  <div class="card">${flowHtml(b.step)}</div>
+
+  ${b.mismatch ? `<div class="card" style="border-color:var(--alert);background:var(--alert-soft)">
+    <div class="strong" style="color:var(--alert)">Invoice 與 PO 數量不一致</div>
+    <div style="font-size:13.5px;color:var(--ink-2);margin-top:6px">
+      ${b.items.filter(i=>i.qtyPO!==i.qtyInv).map(i=>`${i.sku}：PO ${i.qtyPO} 件，Invoice ${i.qtyInv} 件，短少 ${i.qtyPO-i.qtyInv} 件。`).join('')}
+      建議先跟供應商確認，再付款。系統暫時以 Invoice 數量計算成本。
+    </div>
+  </div>` : ''}
+
+  <div class="section">
+    <h2>這一批的商品</h2>
+    <p class="hint">單價是外幣，系統用 1 ${b.currency} = ${b.rate} TWD 換算。</p>
+    <div class="card table-wrap">
+      <table>
+        <thead><tr>
+          <th>SKU</th><th>商品</th><th class="num">PO 數量</th><th class="num">Invoice 數量</th>
+          <th class="num">單價（${b.currency}）</th><th class="num">貨值（TWD）</th>
+          <th class="num">分攤進口費</th><th class="num">單件成本</th>
+        </tr></thead>
+        <tbody>
+        ${b.items.map(i=>{
+          const p = productBySku(i.sku);
+          return `<tr class="clickable" data-nav='["product","${i.sku}"]'>
+            <td class="sku">${i.sku}</td>
+            <td>${p?esc(p.name):'—'}</td>
+            <td class="num">${i.qtyPO}</td>
+            <td class="num">${i.qtyInv !== i.qtyPO ? `<span class="tag alert">${i.qtyInv}</span>` : i.qtyInv}</td>
+            <td class="num">${i.unit.toLocaleString()}</td>
+            <td class="num">${nt(i.goods)}</td>
+            <td class="num">${nt(i.alloc)}<div class="sku">${pct(i.share)}</div></td>
+            <td class="num strong">${nt1(i.landed)}</td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>這一批真正花了多少錢</h2>
+    <p class="hint">進口費用按「貨值比例」分攤到每個 SKU，算出單件真正的進口成本（Landed Cost）。</p>
+    <div class="grid g2">
+      <div class="card">
+        <div class="kv"><span class="k">商品總額</span><span class="v">${nt(b.goodsTotal)}</span></div>
+        <div class="kv"><span class="k">國際運費</span><span class="v">${nt(b.freight)}</span></div>
+        <div class="kv"><span class="k">保險</span><span class="v">${nt(b.insurance)}</span></div>
+        <div class="kv"><span class="k">關稅</span><span class="v">${nt(b.duty)}</span></div>
+        <div class="kv"><span class="k">報關費</span><span class="v">${nt(b.clearance)}</span></div>
+        <div class="kv"><span class="k">其他進口成本</span><span class="v">${nt(b.other)}</span></div>
+        <div class="kv total"><span>總進口成本</span><span>${nt(b.total)}</span></div>
+      </div>
+      <div class="card">
+        <div class="kv"><span class="k">幣別</span><span class="v">${b.currency}</span></div>
+        <div class="kv"><span class="k">匯率</span><span class="v">${b.rate}</span></div>
+        <div class="kv"><span class="k">總件數</span><span class="v">${b.items.reduce((s,i)=>s+i.qtyInv,0)} 件</span></div>
+        <div class="kv"><span class="k">進口費用佔貨值</span><span class="v">${pct(b.extras/b.goodsTotal)}</span></div>
+        <div class="kv"><span class="k">預計到貨</span><span class="v">${b.eta}</span></div>
+        <div class="kv"><span class="k">付款狀態</span><span class="v">${b.paid?'已付款':`未付款・${b.dueDate} 到期`}</span></div>
+        <div class="kv total"><span>平均單件成本</span><span>${nt1(b.total / b.items.reduce((s,i)=>s+i.qtyInv,0))}</span></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---- 商品列表 ---- */
+function pageProducts(){
+  return `
+  <div class="page-head">
+    <h1>商品</h1>
+    <p>一眼看到：還有幾件、賺多少、要不要補貨。</p>
+  </div>
+  <div class="card table-wrap">
+    <table>
+      <thead><tr>
+        <th>SKU</th><th>商品</th><th>品牌</th>
+        <th class="num">進口成本</th><th class="num">本月銷量</th>
+        <th class="num">總庫存</th><th>最適合的通路</th><th class="num">最佳毛利率</th>
+      </tr></thead>
+      <tbody>
+      ${PRODUCTS.map(p=>{
+        const sold = CH.reduce((s,c)=>s+p.sale[c.id].sold,0);
+        const st = stockTotal(p), best = bestChannel(p);
+        return `<tr class="clickable" data-nav='["product","${p.sku}"]'>
+          <td class="sku">${p.sku}</td>
+          <td>${esc(p.name)}</td>
+          <td>${p.brand}</td>
+          <td class="num">${nt1(LANDED[p.sku].cost)}</td>
+          <td class="num">${sold}</td>
+          <td class="num">${st < LOW_STOCK ? `<span class="tag alert">${st}</span>` : st}</td>
+          <td><span class="tag" style="border-color:${best.c.color};color:${best.c.color}">${best.c.name}</span></td>
+          <td class="num">${pct(best.m.rate)}</td>
+        </tr>`;
+      }).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+/* ---- 商品明細 ---- */
+function pageProductDetail(sku){
+  const p = productBySku(sku);
+  if(!p) return `<div class="empty">找不到這個商品</div>`;
+  const st = stockTotal(p), L = LANDED[sku], ms = allMargins(p), best = bestChannel(p);
+  const sold = CH.reduce((s,c)=>s+p.sale[c.id].sold,0);
+  const gross = ms.reduce((s,x)=>s+x.m.gross,0);
+  const weeks = sold ? (st / (sold/4)) : 99;   // 以本月銷量估算可賣週數
+  return `
+  <div class="crumb"><button data-nav='["products"]'>商品</button> ／ ${p.sku}</div>
+  <div class="page-head">
+    <h1>${esc(p.name)}</h1>
+    <p>${p.sku}　${p.brand}　${p.cat}</p>
+  </div>
+
+  <div class="grid g4">
+    <div class="kpi"><div class="label">目前還有幾件</div><div class="value">${st}</div><div class="note">${st<LOW_STOCK?'低於安全庫存':'庫存正常'}</div></div>
+    <div class="kpi"><div class="label">真正進口成本</div><div class="value">${nt1(L.cost)}</div><div class="note">來自 ${L.batch}</div></div>
+    <div class="kpi"><div class="label">本月毛利</div><div class="value">${nt(gross)}</div><div class="note">賣出 ${sold} 件</div></div>
+    <div class="kpi"><div class="label">預估可賣</div><div class="value">${weeks>50?'—':weeks.toFixed(1)+' 週'}</div><div class="note">${st<LOW_STOCK?'建議補貨':'暫時不用補'}</div></div>
+  </div>
+
+  <div class="section">
+    <h2>三通路庫存</h2>
+    <p class="hint">中央總庫存 ${st} 件，分配到三個通路。任何通路賣出，都會回到中央庫存。</p>
+    <div class="card">
+      ${stockSplitHtml(p)}
+      ${legendHtml(p)}
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>三通路實際毛利</h2>
+    <p class="hint">售價扣掉進口成本、平台費、金流費、物流之後，才是真的賺到的錢。</p>
+    <div class="card table-wrap">
+      <table>
+        <thead><tr>
+          <th>通路</th><th class="num">售價</th><th class="num">進口成本</th>
+          <th class="num">平台費</th><th class="num">金流費</th><th class="num">物流</th>
+          <th class="num">單件毛利</th><th class="num">毛利率</th><th class="num">本月銷量</th>
+        </tr></thead>
+        <tbody>
+        ${ms.map(({c,m})=>`
+          <tr>
+            <td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${c.color};margin-right:8px"></span>${c.name}${c.id===best.c.id?' <span class="tag ok">最佳</span>':''}</td>
+            <td class="num">${nt(m.price)}</td>
+            <td class="num">${nt1(m.cost)}</td>
+            <td class="num">${m.platform?nt(m.platform):'—'}</td>
+            <td class="num">${m.pay?nt(m.pay):'—'}</td>
+            <td class="num">${nt(m.ship)}</td>
+            <td class="num strong">${nt(m.profit)}</td>
+            <td class="num">${pct(m.rate)}</td>
+            <td class="num">${m.sold}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="banner" style="margin-top:14px">
+      這款商品在 <strong>${best.c.name}</strong> 的毛利率最高（${pct(best.m.rate)}）。
+      ${best.c.id!=='pinkoi' ? 'Pinkoi 的平台費 12%，低單價商品在這裡容易被吃掉毛利。' : '手作感商品在 Pinkoi 客單價撐得住，值得多分配庫存。'}
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>進貨紀錄</h2>
+    <div class="card table-wrap">
+      <table>
+        <thead><tr><th>批次</th><th class="num">數量</th><th class="num">單件成本</th><th>狀態</th></tr></thead>
+        <tbody>
+        ${p.history.map(h=>{
+          const b = batchById(h.batch);
+          const cost = b ? b.items.find(i=>i.sku===sku).landed : h.cost;
+          return `<tr class="${b?'clickable':''}" ${b?`data-nav='["batch","${h.batch}"]'`:''}>
+            <td class="sku">${h.batch}</td>
+            <td class="num">${h.qty}</td>
+            <td class="num">${cost?nt1(cost):'—'}</td>
+            <td>${b?esc(b.statusText):'已入庫（歷史）'}</td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* ---- 庫存 ---- */
+function pageInventory(){
+  const low = lowStockList();
+  return `
+  <div class="page-head">
+    <h1>庫存</h1>
+    <p>一個中央庫存，管理三個通路。實際只有幾件，就只能賣幾件。</p>
+  </div>
+
+  ${low.length?`<div class="card" style="border-color:var(--warn);background:var(--warn-soft)">
+    <div class="strong" style="color:var(--warn)">${low.length} 款商品庫存偏低（低於 ${LOW_STOCK} 件）</div>
+    <div style="font-size:13.5px;color:var(--ink-2);margin-top:6px">${low.map(p=>`${esc(p.name)}（${stockTotal(p)} 件）`).join('、')}</div>
+  </div>`:''}
+
+  <div class="card table-wrap" style="margin-top:16px">
+    <table>
+      <thead><tr>
+        <th>商品</th><th class="num">中央總庫存</th>
+        ${CH.map(c=>`<th class="num">${c.name}</th>`).join('')}
+        <th style="width:180px">分配</th><th class="num">庫存金額</th>
+      </tr></thead>
+      <tbody>
+      ${PRODUCTS.map(p=>{
+        const st = stockTotal(p);
+        return `<tr class="clickable" data-nav='["product","${p.sku}"]'>
+          <td>${esc(p.name)}<div class="sku">${p.sku}</div></td>
+          <td class="num strong">${st<LOW_STOCK?`<span class="tag alert">${st}</span>`:st}</td>
+          ${CH.map(c=>`<td class="num">${p.stock[c.id]}</td>`).join('')}
+          <td>${stockSplitHtml(p)}</td>
+          <td class="num">${nt(st*LANDED[p.sku].cost)}</td>
+        </tr>`;
+      }).join('')}
+      </tbody>
+    </table>
+    ${legendHtml(null)}
+  </div>
+
+  <div class="section">
+    <h2>庫存怎麼運作</h2>
+    <div class="card">
+      <p style="margin:0 0 10px;font-size:14px;color:var(--ink-2)">
+        以「香氛蠟燭 100g」為例，實際倉庫只有 8 件：
+      </p>
+      <div class="kv"><span class="k">中央總庫存</span><span class="v strong">8 件</span></div>
+      ${CH.map(c=>`<div class="kv"><span class="k">${c.name} 配置</span><span class="v">${productBySku('SG-KR-001').stock[c.id]} 件</span></div>`).join('')}
+      <p style="margin:14px 0 0;font-size:13.5px;color:var(--muted)">
+        任何一個通路成交，都會回到中央庫存扣減，避免三個通路一起超賣。
+        第一版先用人工分配，之後才做 API 自動同步。
+      </p>
+    </div>
+  </div>`;
+}
+
+/* ---- 三通路 ---- */
+function pageChannels(){
+  return `
+  <div class="page-head">
+    <h1>三通路</h1>
+    <p>同一個商品在三個通路的成本結構不一樣。這一頁幫你看出「這個商品最適合在哪裡賣」。</p>
+  </div>
+
+  <div class="grid g3">
+    ${CH.map(c=>{
+      let rev=0, gr=0, sold=0, stock=0;
+      PRODUCTS.forEach(p=>{ const m=margin(p,c.id); rev+=m.revenue; gr+=m.gross; sold+=m.sold; stock+=p.stock[c.id]; });
+      return `<div class="card">
+        <div style="display:flex;align-items:center;gap:8px"><i style="width:9px;height:9px;border-radius:2px;background:${c.color};display:block"></i><span class="strong">${c.name}</span></div>
+        <div class="kv" style="margin-top:10px"><span class="k">本月營收</span><span class="v">${nt(rev)}</span></div>
+        <div class="kv"><span class="k">本月毛利</span><span class="v">${nt(gr)}</span></div>
+        <div class="kv"><span class="k">毛利率</span><span class="v">${pct(gr/rev)}</span></div>
+        <div class="kv"><span class="k">銷量</span><span class="v">${sold} 件</span></div>
+        <div class="kv"><span class="k">配置庫存</span><span class="v">${stock} 件</span></div>
+        <div class="kv"><span class="k">平台費</span><span class="v">${c.platformFee?pct(c.platformFee):'無'}</span></div>
+        <div class="kv"><span class="k">金流費</span><span class="v">${c.payFee?pct(c.payFee):'含在平台費'}</span></div>
+        <div class="kv"><span class="k">每單物流</span><span class="v">${nt(c.ship)}</span></div>
+      </div>`;
+    }).join('')}
+  </div>
+
+  <div class="section">
+    <h2>每個商品在哪個通路最賺</h2>
+    <p class="hint">數字是「單件毛利率」。綠色底代表這個商品在該通路表現最好。</p>
+    <div class="card table-wrap">
+      <table>
+        <thead><tr><th>商品</th>${CH.map(c=>`<th class="num">${c.name}</th>`).join('')}<th>建議</th></tr></thead>
+        <tbody>
+        ${PRODUCTS.map(p=>{
+          const ms = allMargins(p), best = bestChannel(p);
+          return `<tr class="clickable" data-nav='["product","${p.sku}"]'>
+            <td>${esc(p.name)}<div class="sku">${p.sku}</div></td>
+            ${ms.map(({c,m})=>`<td class="num" ${c.id===best.c.id?'style="background:var(--accent-soft);color:var(--accent);font-weight:600"':''}>${pct(m.rate)}<div class="sku">${m.sold} 件</div></td>`).join('')}
+            <td style="font-size:13px;color:var(--ink-2)">主力放 ${best.c.name}</td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>週轉速度</h2>
+    <p class="hint">以本月銷量推估，目前庫存還可以賣多久。越短代表越該補貨。</p>
+    <div class="card">
+      ${PRODUCTS.map(p=>{
+        const sold = CH.reduce((s,c)=>s+p.sale[c.id].sold,0);
+        const weeks = sold ? stockTotal(p)/(sold/4) : 99;
+        const w = Math.min(weeks/12,1)*100;
+        const col = weeks<3 ? 'var(--alert)' : (weeks<6 ? 'var(--warn)' : 'var(--accent)');
+        return `<div class="bar-row">
+          <div class="nm" style="width:150px">${esc(p.name)}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${w}%;background:${col}"></div></div>
+          <div class="vl">${weeks.toFixed(1)} 週</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+/* ---- 成本／毛利 ---- */
+function pageMargin(){
+  const t = totals();
+  const rows = PRODUCTS.map(p=>{
+    const ms = allMargins(p);
+    return { p, revenue: ms.reduce((s,x)=>s+x.m.revenue,0), gross: ms.reduce((s,x)=>s+x.m.gross,0) };
+  }).sort((a,b)=>b.gross-a.gross);
+  const maxG = Math.max(...rows.map(r=>r.gross));
+  return `
+  <div class="page-head">
+    <h1>成本／毛利</h1>
+    <p>營收不是重點，真正賺到的錢才是。這裡的每一個數字都是算出來的，不是估的。</p>
+  </div>
+
+  <div class="grid g4">
+    <div class="kpi"><div class="label">本月營收</div><div class="value">${nt(t.revenue)}</div></div>
+    <div class="kpi"><div class="label">本月毛利</div><div class="value">${nt(t.gross)}</div></div>
+    <div class="kpi"><div class="label">整體毛利率</div><div class="value">${pct(t.rate)}</div></div>
+    <div class="kpi"><div class="label">庫存積壓金額</div><div class="value">${nt(t.invValue)}</div></div>
+  </div>
+
+  <div class="section">
+    <h2>誰在賺錢</h2>
+    <p class="hint">依本月毛利排序。</p>
+    <div class="card">
+      ${rows.map(r=>`<div class="bar-row">
+        <div class="nm" style="width:150px">${esc(r.p.name)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${r.gross/maxG*100}%;background:var(--accent)"></div></div>
+        <div class="vl">${nt(r.gross)}</div>
+        <div class="vl" style="width:120px;color:var(--muted)">營收 ${nt(r.revenue)}</div>
+      </div>`).join('')}
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>成本結構</h2>
+    <p class="hint">一件商品從進口到賣掉，錢花在哪裡。以 Shopee 為例。</p>
+    <div class="card table-wrap">
+      <table>
+        <thead><tr>
+          <th>商品</th><th class="num">售價</th><th class="num">進口成本</th>
+          <th class="num">平台費</th><th class="num">金流費</th><th class="num">物流</th>
+          <th class="num">毛利</th><th class="num">毛利率</th>
+        </tr></thead>
+        <tbody>
+        ${PRODUCTS.map(p=>{
+          const m = margin(p,'shopee');
+          return `<tr class="clickable" data-nav='["product","${p.sku}"]'>
+            <td>${esc(p.name)}</td>
+            <td class="num">${nt(m.price)}</td>
+            <td class="num">${nt1(m.cost)}</td>
+            <td class="num">${nt(m.platform)}</td>
+            <td class="num">${nt(m.pay)}</td>
+            <td class="num">${nt(m.ship)}</td>
+            <td class="num strong">${nt(m.profit)}</td>
+            <td class="num">${pct(m.rate)}</td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>批次之間的成本變化</h2>
+    <p class="hint">同一款商品，不同批次進口成本會不一樣。原因通常是匯率、運費或關稅。</p>
+    <div class="card">
+      ${(()=>{
+        const p = productBySku('SG-KR-001');
+        const old = p.history[0], now = batchById('B-2026-03').items.find(i=>i.sku==='SG-KR-001').landed;
+        const diff = (now-old.cost)/old.cost;
+        return `<div class="kv"><span class="k">${esc(p.name)}・${old.batch}</span><span class="v">${nt1(old.cost)}</span></div>
+                <div class="kv"><span class="k">${esc(p.name)}・B-2026-03</span><span class="v">${nt1(now)}</span></div>
+                <div class="kv total"><span>差異</span><span>${diff>0?'+':''}${pct(diff)}</span></div>
+                <p style="margin:12px 0 0;font-size:13.5px;color:var(--muted)">
+                  主要來自匯率（KRW 0.0228 → 0.0234）與國際運費上升。售價沒動，所以毛利率被壓縮。
+                </p>`;
+      })()}
+    </div>
+  </div>`;
+}
+
+/* ---- AI 助理 ---- */
+const AI_QA = [
+  { q:'今天有哪些事情一定要處理？', a: ()=>{
+      const td = todos();
+      return { text:`今天有 ${td.length} 件事，建議這個順序：`,
+        list: td.map((x,i)=>`<strong>${i+1}. ${esc(x.t)}</strong>　${esc(x.d)}`),
+        src:'資料來源：進口批次狀態、庫存水位、付款期限（皆由系統計算，非 AI 推測）' };
+    }},
+  { q:'我下個月只有 20 萬預算，哪些商品最值得補？', a: ()=>{
+      const cand = PRODUCTS.map(p=>{
+        const sold = CH.reduce((s,c)=>s+p.sale[c.id].sold,0);
+        const gross = allMargins(p).reduce((s,x)=>s+x.m.gross,0);
+        const weeks = sold ? stockTotal(p)/(sold/4) : 99;
+        return { p, sold, gross, weeks, cost: LANDED[p.sku].cost };
+      }).sort((a,b)=> (a.weeks-b.weeks) || (b.gross-a.gross)).slice(0,3);
+      let budget = 200000;
+      const plan = cand.map(c=>{
+        const qty = Math.min(Math.round(c.sold*3/10)*10, Math.floor(budget/c.cost));
+        budget -= qty*c.cost;
+        return `<strong>${esc(c.p.name)}</strong>　補 ${qty} 件（約 ${nt(qty*c.cost)}）－ 目前只夠賣 ${c.weeks.toFixed(1)} 週，本月毛利 ${nt(c.gross)}`;
+      });
+      return { text:'以「快賣完 + 毛利高」排序，這三款最值得優先補：', list: plan,
+        src:`剩餘預算約 ${nt(budget)}。數量與金額由系統用真實進口成本計算，AI 只負責排序與說明。` };
+    }},
+  { q:'為什麼這一批毛利比上一批低？', a: ()=>{
+      const p = productBySku('SG-KR-001');
+      const old = p.history[0].cost, now = LANDED['SG-KR-001'].cost;
+      return { text:`以「${esc(p.name)}」來說，單件進口成本從 ${nt1(old)} 上升到 ${nt1(now)}（+${pct((now-old)/old)}），售價沒有調整，所以毛利被吃掉。三個原因：`,
+        list:[
+          '匯率：KRW 從 0.0228 升到 0.0234，同樣的韓元報價換算成台幣變貴。',
+          '國際運費：這一批只進 180 件，運費分攤到每件變高。',
+          '關稅與報關費：固定成本沒變，但件數少，單件負擔加重。',
+        ],
+        src:'建議：下一批把 NUAGE 兩款合併下單，讓運費分攤下降；或官網售價微調 5%。' };
+    }},
+  { q:'這個月哪幾款賣得最好，但是庫存不足？', a: ()=>{
+      const hot = PRODUCTS.map(p=>({ p, sold: CH.reduce((s,c)=>s+p.sale[c.id].sold,0), st: stockTotal(p) }))
+        .filter(x=>x.st < LOW_STOCK).sort((a,b)=>b.sold-a.sold);
+      return { text: hot.length ? `有 ${hot.length} 款是「賣得動但快沒貨」，這是最該處理的狀況：` : '目前沒有這種情況。',
+        list: hot.map(x=>`<strong>${esc(x.p.name)}</strong>　本月賣 ${x.sold} 件，只剩 ${x.st} 件`),
+        src:'銷量與庫存皆為系統數字。補貨前建議先確認 ' + hot.map(x=>LANDED[x.p.sku].batch).join('、') + ' 的到貨時間。' };
+    }},
+  { q:'幫我看 B-2026-07 這批的文件有沒有問題', a: ()=>{
+      const b = batchById('B-2026-07');
+      const bad = b.items.find(i=>i.qtyPO!==i.qtyInv);
+      return { text:`我讀了 ${b.invoice} 和對應的 Packing List，有一個地方要確認：`,
+        list:[
+          `<strong>${bad.sku} 數量不符</strong>　PO 開 ${bad.qtyPO} 件，Invoice 只有 ${bad.qtyInv} 件，短少 ${bad.qtyPO-bad.qtyInv} 件。`,
+          `Packing List 的箱數（12 箱）與 Invoice 數量吻合，推測是供應商缺貨少出，不是打錯字。`,
+          `付款金額也要跟著調整，否則會多付 ${nt((bad.qtyPO-bad.qtyInv)*bad.unit*b.rate)}。`,
+        ],
+        src:'我已經幫你草擬一封確認信（韓文＋英文），可以直接寄給 ONDO Craft。' };
+    }},
+];
+
+function pageAI(){
+  return `
+  <div class="page-head">
+    <h1>AI 助理</h1>
+    <p>數字由系統算，AI 只負責讀文件、找異常、解釋原因、給建議。不會讓 AI 猜庫存跟成本。</p>
+  </div>
+
+  <div class="ask">
+    ${AI_QA.map((x,i)=>`<button data-ask="${i}">${esc(x.q)}</button>`).join('')}
+  </div>
+  <div class="chat" id="chat">
+    <div class="msg ai">
+      <div>你可以直接問我問題，也可以點上面的常用問題。例如：「今天有哪些事情一定要處理？」</div>
+      <div class="src">我看得到你的進口批次、庫存、三通路銷售與成本資料。</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>誰負責什麼</h2>
+    <p class="hint">這個分工是刻意的。錢的事情不能靠猜。</p>
+    <div class="grid g2">
+      <div class="card">
+        <div class="strong" style="margin-bottom:8px">系統負責（永遠用公式）</div>
+        <ul class="split-list" style="margin:0;padding-left:18px">
+          <li>庫存數量與三通路分配</li>
+          <li>匯率換算</li>
+          <li>進口成本 / Landed Cost</li>
+          <li>毛利與毛利率</li>
+          <li>PO 與 Invoice 數量比對</li>
+          <li>平台費率、金流費、物流成本</li>
+          <li>付款期限、低庫存警示</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="strong" style="margin-bottom:8px">AI 負責（理解與判斷）</div>
+        <ul class="split-list" style="margin:0;padding-left:18px">
+          <li>讀供應商 Email，整理韓文／英文內容</li>
+          <li>解讀 Invoice / Packing List</li>
+          <li>找出文件異常</li>
+          <li>分析銷售資料、解釋毛利變化</li>
+          <li>建議補貨順序</li>
+          <li>用自然語言回答老闆的問題</li>
+          <li>草擬給供應商的回信</li>
+        </ul>
+      </div>
+    </div>
+    <div class="banner" style="margin-top:14px">
+      未來方向：系統負責提供正確資料，ChatGPT 負責理解、分析與對話。
+      產品本身也會附一份「一人貿易公司的 ChatGPT 使用方法」，包含實際工作流程、Prompt 與文件整理方式。
+    </div>
+  </div>`;
+}
+
+/* =====================================================================
+   5. 路由
+   ===================================================================== */
+const NAV = [
+  { id:'dashboard', label:'今天', render: pageDashboard },
+  { id:'purchase',  label:'採購',  render: pagePurchase },
+  { id:'batches',   label:'進口批次', render: pageBatches },
+  { id:'products',  label:'商品',  render: pageProducts },
+  { id:'inventory', label:'庫存',  render: pageInventory },
+  { id:'channels',  label:'三通路', render: pageChannels },
+  { id:'margin',    label:'成本／毛利', render: pageMargin },
+  { id:'ai',        label:'AI 助理', render: pageAI },
+];
+const DETAIL = { batch: pageBatchDetail, product: pageProductDetail };
+const PARENT = { batch:'batches', product:'products' };
+
+let route = ['dashboard'];
+
+function renderNav(){
+  const active = PARENT[route[0]] || route[0];
+  document.getElementById('nav').innerHTML =
+    `<div class="group">營運</div>` +
+    NAV.slice(0,1).map(n=>navBtn(n,active)).join('') +
+    `<div class="group">進貨</div>` +
+    NAV.slice(1,3).map(n=>navBtn(n,active)).join('') +
+    `<div class="group">商品與庫存</div>` +
+    NAV.slice(3,6).map(n=>navBtn(n,active)).join('') +
+    `<div class="group">分析</div>` +
+    NAV.slice(6).map(n=>navBtn(n,active)).join('');
+}
+const navBtn = (n,active) =>
+  `<button data-nav='["${n.id}"]' class="${n.id===active?'on':''}"><span class="dot"></span>${n.label}</button>`;
+
+function render(){
+  const [key, arg] = route;
+  const main = document.getElementById('main');
+  main.innerHTML = DETAIL[key] ? DETAIL[key](arg) : NAV.find(n=>n.id===key).render();
+  renderNav();
+  window.scrollTo(0,0);
+}
+
+function go(r){ route = r; location.hash = r.join('/'); render(); }
+
+document.addEventListener('click', e=>{
+  const nav = e.target.closest('[data-nav]');
+  if(nav){ go(JSON.parse(nav.getAttribute('data-nav'))); return; }
+  const ask = e.target.closest('[data-ask]');
+  if(ask){ answer(AI_QA[+ask.getAttribute('data-ask')]); }
+});
+
+function answer(qa){
+  const chat = document.getElementById('chat');
+  if(!chat) return;
+  const a = qa.a();
+  chat.insertAdjacentHTML('beforeend', `<div class="msg me">${esc(qa.q)}</div>`);
+  chat.insertAdjacentHTML('beforeend', `<div class="msg ai">
+    <div>${a.text}</div>
+    ${a.list && a.list.length ? `<ul>${a.list.map(l=>`<li>${l}</li>`).join('')}</ul>` : ''}
+    ${a.src ? `<div class="src">${a.src}</div>` : ''}
+  </div>`);
+  chat.lastElementChild.scrollIntoView({behavior:'smooth', block:'end'});
+}
+
+window.addEventListener('hashchange', ()=>{
+  const h = location.hash.replace('#','').split('/').filter(Boolean);
+  if(h.length && (NAV.some(n=>n.id===h[0]) || DETAIL[h[0]])){ route = h; render(); }
+});
+
+(function init(){
+  const h = location.hash.replace('#','').split('/').filter(Boolean);
+  if(h.length && (NAV.some(n=>n.id===h[0]) || DETAIL[h[0]])) route = h;
+  render();
+})();
+</script>
+</body>
+</html>
