@@ -24,8 +24,30 @@ beforeAll(async () => {
 })
 
 beforeEach(async () => {
-  await db.$executeRawUnsafe(truncateSql)
+  await truncateWithRetry()
 })
+
+/**
+ * TRUNCATE 需要所有資料表的 AccessExclusiveLock，只要還有任何連線握著列鎖就會鎖死。
+ *
+ * 併發測試（搶庫存、重複回拋、重複評論）用 Promise.all 開多個交易，其中一個
+ * 失敗時 Promise.all 會立刻 reject —— 另一個交易還在背景跑完，於是下一條測試
+ * 的清庫就撞上它，隨機噴 40P01。與其要求每個測試都改用 allSettled，不如在這裡
+ * 退讓重試：殘留的交易幾十毫秒內就會結束。
+ */
+async function truncateWithRetry(attempts = 10): Promise<void> {
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      await db.$executeRawUnsafe(truncateSql)
+      return
+    } catch (error) {
+      const isDeadlock =
+        error instanceof Error && /40P01|deadlock detected/i.test(`${error.message}`)
+      if (!isDeadlock || i === attempts) throw error
+      await new Promise((resolve) => setTimeout(resolve, 50 * i))
+    }
+  }
+}
 
 afterAll(async () => {
   await db.$disconnect()

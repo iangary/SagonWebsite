@@ -8,13 +8,13 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, 'src'),
       // server-only 在 Next 的 bundler 外會直接拋錯，測試時換成空模組
       'server-only': path.resolve(import.meta.dirname, 'test/stubs/server-only.ts'),
+      // next-intl/server 的真實實作只存在於 react-server 條件下；vitest 解析到的
+      // client shim 一被呼叫就拋錯，換成用真 messages 建的預設語系 translator。
+      'next-intl/server': path.resolve(import.meta.dirname, 'test/stubs/next-intl-server.ts'),
     },
   },
   test: {
     environment: 'node',
-    // 整合測試每條前會 TRUNCATE 全部資料表，測試檔之間不能平行。
-    // （fileParallelism 只能設在頂層；單元測試很快，序列化沒有感覺。）
-    fileParallelism: false,
     projects: [
       {
         extends: true,
@@ -35,6 +35,11 @@ export default defineConfig({
           env: { ...FAKE_TEST_ENV, DATABASE_URL: integrationDatabaseUrl() },
           globalSetup: ['./test/integration/global-setup.ts'],
           setupFiles: ['./test/integration/setup.ts'],
+          // 每條測試前會 TRUNCATE 全部資料表（AccessExclusiveLock），
+          // 測試檔一旦平行跑就會和別檔的查詢鎖死（Postgres 40P01）。
+          // 全部塞進同一個 fork 依序執行 —— 注意 fileParallelism 放在
+          // 頂層對 project 不生效，一定要用 poolOptions 指定。
+          poolOptions: { forks: { singleFork: true } },
           testTimeout: 20_000,
           hookTimeout: 60_000,
         },

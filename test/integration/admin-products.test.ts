@@ -201,7 +201,7 @@ describe('updateProduct', () => {
     expect(log.entityId).toBe(product.id)
   })
 
-  it('已上架商品再存一次 → publishedAt 會被重新蓋成當下時間（記錄現狀）', async () => {
+  it('已上架商品再存一次 → publishedAt 維持第一次上架的時間', async () => {
     const { product } = await createTestProduct({ status: 'DRAFT' })
 
     await updateProduct(
@@ -217,8 +217,69 @@ describe('updateProduct', () => {
     )
     const second = await db.product.findUniqueOrThrow({ where: { id: product.id } })
 
-    // 現狀：每次以 ACTIVE 儲存都會重蓋 publishedAt，不會保留最早的上架時間
-    expect(second.publishedAt!.getTime()).toBeGreaterThan(first.publishedAt!.getTime())
+    // publishedAt 是前台「最新上架」的排序依據。每次存檔都重蓋的話，
+    // 改個錯字就會讓半年前的商品跳到新品第一位。
+    expect(second.publishedAt!.getTime()).toBe(first.publishedAt!.getTime())
+  })
+
+  it('英文名稱與商品描述可以在編輯頁改，也可以清空', async () => {
+    const { product } = await createTestProduct({ status: 'DRAFT' })
+
+    await updateProduct(
+      EMPTY_FORM_STATE,
+      formDataFrom({
+        id: product.id,
+        name: '睡衣',
+        status: 'DRAFT',
+        nameEn: 'Pajama Set',
+        descriptionHtml: '<p>材質：100% 純棉</p>',
+      }),
+    )
+    const filled = await db.product.findUniqueOrThrow({ where: { id: product.id } })
+    expect(filled.nameEn).toBe('Pajama Set')
+    expect(filled.descriptionHtml).toBe('<p>材質：100% 純棉</p>')
+
+    // 留白要真的清成 null，否則英文站會一直吃到舊翻譯
+    await updateProduct(
+      EMPTY_FORM_STATE,
+      formDataFrom({ id: product.id, name: '睡衣', status: 'DRAFT' }),
+    )
+    const cleared = await db.product.findUniqueOrThrow({ where: { id: product.id } })
+    expect(cleared.nameEn).toBeNull()
+    expect(cleared.descriptionHtml).toBeNull()
+  })
+
+  it('原價要高於售價才收，不合格回 fieldErrors 而不是靜靜丟掉', async () => {
+    const { product } = await createTestProduct({ status: 'DRAFT' })
+    const { basePrice } = await db.product.findUniqueOrThrow({
+      where: { id: product.id },
+      select: { basePrice: true },
+    })
+
+    const tooLow = await updateProduct(
+      EMPTY_FORM_STATE,
+      formDataFrom({
+        id: product.id,
+        name: '睡衣',
+        status: 'DRAFT',
+        compareAtPrice: String(basePrice),
+      }),
+    )
+    expect(tooLow.ok).toBe(false)
+    expect(tooLow.fieldErrors?.compareAtPrice).toContain(String(basePrice))
+
+    const ok = await updateProduct(
+      EMPTY_FORM_STATE,
+      formDataFrom({
+        id: product.id,
+        name: '睡衣',
+        status: 'DRAFT',
+        compareAtPrice: String(basePrice + 500),
+      }),
+    )
+    expect(ok.ok).toBe(true)
+    const fresh = await db.product.findUniqueOrThrow({ where: { id: product.id } })
+    expect(fresh.compareAtPrice).toBe(basePrice + 500)
   })
 })
 

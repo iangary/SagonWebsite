@@ -74,6 +74,29 @@ export function nextCacheMockModule() {
   }
 }
 
+// --- next-intl/server -------------------------------------------------------
+
+/**
+ * Server Action 用 getTranslations 產訊息。測試只在意「回了哪個 key」，
+ * 所以翻譯函式原樣回傳 key —— 斷言 `error === 'purchaseNotFound'` 比
+ * 斷言中文字串穩定，文案改了也不會誤報。
+ */
+export function nextIntlServerMockModule() {
+  const translate = Object.assign((key: string) => key, {
+    rich: (key: string) => key,
+    markup: (key: string) => key,
+    raw: (key: string) => key,
+    has: () => true,
+  })
+  return {
+    getTranslations: vi.fn(async () => translate),
+    getLocale: vi.fn(async () => 'zh-TW'),
+    getMessages: vi.fn(async () => ({})),
+    getFormatter: vi.fn(async () => ({})),
+    setRequestLocale: vi.fn(),
+  }
+}
+
 // --- next/headers -----------------------------------------------------------
 
 /**

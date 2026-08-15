@@ -191,7 +191,7 @@
 </header>
 
 <div class="stats" id="stats">
-  <div class="stat"><span class="n">333</span><span class="l">Vitest 已通過（單元 179＋整合 154）</span></div>
+  <div class="stat"><span class="n">491</span><span class="l">Vitest 已通過（單元 185＋整合 306）</span></div>
   <div class="stat"><span class="n">38</span><span class="l">Playwright 已通過</span></div>
   <div class="stat"><span class="n" id="n-total">—</span><span class="l">檢核項目總數</span></div>
   <div class="stat"><span class="n" id="n-todo">—</span><span class="l">待開發</span></div>
@@ -200,7 +200,7 @@
 
 <div class="callout warn">
   <p><b>最要緊的三件事</b>（在補任何一條測試之前）</p>
-  <p>1. <b>CI 完全沒有跑測試。</b><code>.github/workflows/deploy.yml</code> 只 build Docker image，沒有 lint / typecheck / vitest / playwright。現在的 333 項測試等於只在你本機跑，任何人推 main 都能把壞掉的程式碼推上 GHCR。<br>
+  <p>1. <b>CI 完全沒有跑測試。</b><code>.github/workflows/deploy.yml</code> 只 build Docker image，沒有 lint / typecheck / vitest / playwright。現在的 491 項測試等於只在你本機跑，任何人推 main 都能把壞掉的程式碼推上 GHCR。<br>
      2. <b>沒有整合測試層。</b>金流、庫存、訂單這三個最不能出錯的模組（<code>orders/create.ts</code>、<code>orders/payment.ts</code>、<code>orders/stock.ts</code>、<code>ecpay/webhook.ts</code>，合計約 650 行）目前<b>零測試覆蓋</b>，因為它們都需要真實資料庫，而 vitest 目前是 <code>environment: node</code> + 假的 <code>DATABASE_URL</code>。<br>
      3. <b>電子收據尚未真正開立成功。</b>這是唯一擋在上線路上的功能性驗證缺口，且卡在綠界後台的收據字軌設定（外部依賴，越早處理越好）。</p>
 </div>
@@ -284,7 +284,7 @@
 </div>
 
 <div class="callout">
-<p><b>文件數字</b>：README 已同步為單元 179＋整合 154（Vitest）與 38（Playwright），2026-08-15。</p>
+<p><b>文件數字</b>：README 已同步為單元 185＋整合 306（Vitest）與 38（Playwright），2026-08-16。</p>
 </div>
 
 <!-- ══════════════════════════════════════════ -->

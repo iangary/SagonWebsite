@@ -51,14 +51,14 @@ test.describe('全站品質 smoke', () => {
   })
 
   test('英文版介面骨架沒有殘留中文', async ({ page }) => {
-    // 已知問題（見 docs/site-review-findings.md R14）：/en 的公告列、footer 文案
-    // 寫死中文，導覽的分類名稱沒有用 Category.nameEn。修好後這條會轉綠，
-    // Playwright 會提示移除 test.fail 標記。
-    test.fail(true, '英文版 header/footer 仍殘留中文（R14）')
-    await page.goto('/en')
-    const chrome = `${await page.locator('header').first().textContent()}${await page.locator('footer').first().textContent()}`
-    const chinese = chrome.match(/[一-鿿]{2,}/g) ?? []
-    expect(chinese, `/en 的介面骨架殘留中文：${chinese.join('、')}`).toHaveLength(0)
+    // 公告列、頁尾、分類名稱（Category.nameEn）都要跟著語系走。
+    // 商品名稱是資料不算，所以只掃 header 與 footer 這兩塊介面骨架。
+    for (const route of ['/en', '/en/product/all', '/en/cart']) {
+      await page.goto(route)
+      const chrome = `${await page.locator('header').first().textContent()}${await page.locator('footer').first().textContent()}`
+      const chinese = chrome.match(/[一-鿿]{2,}/g) ?? []
+      expect(chinese, `${route} 的介面骨架殘留中文：${chinese.join('、')}`).toHaveLength(0)
+    }
   })
 
   test('每頁恰有一個 main 與一個 h1，商品圖有 alt 屬性', async ({ page }) => {

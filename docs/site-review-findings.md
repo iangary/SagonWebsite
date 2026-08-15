@@ -38,6 +38,36 @@
 | R12 | P2 | 前端 | 8 個元件踩到 React 19 的 `set-state-in-effect`（eslint 已降為警告）：toast、cart-count-provider、add-to-cart、checkout-form、image-manager、coupon-form、security-panel 等 | 逐一重構為事件回呼/衍生狀態 |
 | R13 | P2 | 文件 | 測試數字三處漂移（README「147」、檢核表「85」、實際值隨本次大增） | 本次收尾一併更新 |
 
+## 2026-08-16 補測試時新發現（由新增的測試揭露）
+
+寫 OTP／通知信／評論／權限測試的過程中挖出下列問題。**測試釘的是「目前的實際行為」**，
+修好之後對應測試會轉紅，屆時一併更新斷言即可。
+
+| ID | 嚴重度 | 模組 | 問題 | 建議 |
+|----|--------|------|------|------|
+| N1 | P1 | 商品評論 | **連按兩次送出評論會噴 500。**`submitReview` 是 check-then-create（先 `findUnique` 再 `create`），沒有 try/catch 也沒有交易；兩個並發請求中輸的那個會把未捕捉的 Prisma P2002 拋出去。資料不會壞（唯一鍵擋住了，只會有一筆），但使用者看到的是錯誤頁而不是「已經評論過了」。與先前修好的 F3（webhook P2002）是同一類問題 | `create` 包 try/catch 捕 P2002 → 回 `alreadyReviewed` |
+| N2 | P1 | 商品評論 | zod 的英文預設訊息會直接漏給使用者：schema 只給了 `ratingRequired`、`reviewBodyMin` 兩個訊息 key，`rating.max(5)`、`.int()`、`title.max(100)`、`body.max(2000)` 沒給，於是 `t(issue.message)` 拿 zod 的英文原文當 key，前台會顯示 `Too big: expected string to have <=100 characters` | 每條規則都補上訊息 key 與翻譯 |
+| N3 | P1 | 簡訊 OTP | 舊驗證碼在「簡訊送出之前」就被作廢：`updateMany` 先跑、`provider.send` 後跑。簡訊商拋錯時，使用者手上的舊碼已失效、新碼又沒建立，等於被鎖在冷卻期外面沒有任何可用的碼 | 送出成功後再作廢舊碼，或整段包起來失敗即回復 |
+| N4 | P2 | 簡訊 OTP | 每小時 5 次的額度沒有依 `purpose` 區隔（相鄰的冷卻查詢與作廢查詢都有帶 purpose，只有額度這條沒有）。連續 5 次登入 OTP 會把綁定手機的 OTP 一起擋掉 | 確認是刻意的「每支號碼簡訊總量」還是漏寫 |
+| N5 | P2 | 通知信 | `order.orderNo` 是模組裡唯一沒有經過 `escapeHtml` 的插值（含 `orderLink()` 的查詢字串）。目前不可利用（訂單編號是系統產生的英數字），但它是唯一的破口 | 一併走 escapeHtml |
+| N6 | P2 | 通知信 | 「訂單已取消」是四封信裡唯一沒有「查看訂單」按鈕的；「已出貨」信對宅配單不顯示收件地址（只有超商才顯示門市），客人拿到單號卻看不到寄到哪 | 補上連結與宅配地址 |
+| N7 | P2 | 評論 | `revalidatePath('/account/orders')` 與 `revalidatePath('/product/{slug}')` 都沒帶 `[locale]` 區段，可能沒真的失效到 i18n 路由的快取 | 確認 next-intl 路由下的正確路徑 |
+| N8 | P2 | 客服聊天 API | `/api/chat/admin/[conversationId]` 有做管理員檢查（已讀碼確認），但沒有任何權限測試涵蓋 —— 它不在後台 actions.ts 的掃描範圍內 | 納入權限掃描 |
+
+### 測試基礎設施的自身缺陷（本次一併修掉）
+
+整合測試單獨跑時會隨機失敗（每次 4～102 條不等），但在 `test:all` 裡卻常常全過 ——
+這種「換個跑法就變」的行為本身就是警訊，追下去發現兩層問題：
+
+1. `fileParallelism: false` 放在 vitest 頂層對 project **不生效**，整合測試檔實際上仍平行跑，
+   `TRUNCATE`（AccessExclusiveLock）和別的測試檔的查詢互鎖 → Postgres 40P01。
+   改用 project 內的 `poolOptions.forks.singleFork` 才真的序列化。
+2. 序列化後仍偶發：併發測試用 `Promise.all`，其中一個 promise reject 時
+   `Promise.all` 會**立刻**回傳，另一個交易還在背景跑完，於是下一條測試的清庫撞上它。
+   在 `beforeEach` 的 TRUNCATE 加上偵測 40P01 的退讓重試解決。
+
+修正後連續四次整合測試（306 條）與兩次完整套件（491 條）皆全綠。
+
 ## 逐頁走查結果
 
 前台以本機 dev 逐頁檢視 + `test/e2e/smoke-quality.spec.ts` 自動掃描（console 錯誤、
@@ -56,7 +86,7 @@ h1/main 結構、圖片 alt、i18n key）；後台互動流程由 `test/e2e/admi
 | ID | 嚴重度 | 頁面 | 問題 | 建議 |
 |----|--------|------|------|------|
 | W3 | ~~P0~~ | /faq、/contact、/about | ~~客服信箱是開發用占位網域~~ → 已於 2026-08-15 修復（見 F9）。剩餘提醒：寄件人位址 `MAIL_FROM` 仍是 `no-reply@sagon.local`，正式寄信需搭配可通過 SPF/DKIM 的網域 | 上線前設定寄件網域 |
-| W4 | P1 | /en 全站 | 英文版只有 UI 標籤有翻譯：首頁 hero 標語、About 段落、公告列（全站消費滿…）、footer 文案、分類名稱全是中文；Category 明明有 `nameEn` 欄位但導覽沒有使用 | 決定英文版的定位：要嘛補齊翻譯（含 nameEn 串接），要嘛先下線 /en 避免半吊子體驗；已加 `test.fail` 標記的 E2E 追蹤（smoke-quality.spec.ts） |
+| W4 | ~~P1~~ | /en 全站 | ~~英文版只有 UI 標籤有翻譯，hero 標語／公告列／footer／分類名稱全是中文~~ → 已於 2026-08-16 補齊（含 `Category.nameEn`、`SHOP_NAME_EN`）。E2E 已移除 `test.fail` 標記，現在掃 `/en`、`/en/product/all`、`/en/cart` 三個路由的 header 與 footer，回歸就會紅 | 已完成 |
 | W5 | P2 | / 首頁 | 「精選商品」與「新品上架」內容完全相同 —— `getFeaturedProducts` 就是 publishedAt 排序，沒有精選旗標，兩區塊放一樣的 8 件商品 | 加 `isFeatured` 欄位或改為隨機/銷量排序，否則區塊二選一 |
 | W6 | P2 | 整體 | 整合測試揭露：`releaseExpiredReservations` 與 `handlePaymentReturn` 併發時會互相死鎖（Postgres 40P01，鎖定順序相反：付款先鎖 payment→order→variant，釋放先鎖 variant→reservation→order）。資料不變量不會壞、綠界重送會自癒，但 worker 會有噪音錯誤 | 統一兩邊的鎖定順序（都先 update order row） |
 | W7 | P2 | 金流 | 併發重複回拋時，交易內判贏家、但交易外的 enqueue 不分輸贏都會執行 —— 極端情況 create-shipment/issue-receipt 會排兩次（兩者皆有冪等防護，實害為零，記錄現狀） | enqueue 移進「贏家」分支 |

@@ -110,7 +110,7 @@ npx tsx --env-file-if-exists=.env --conditions=react-server scripts/simulate-ecp
 | 物流狀態回拋 → 更新貨態 | ✅ |
 | 超商取貨選店（ExpressMap） | ✅ 綠界電子地圖回傳真實門市（7-11 建盛門市）並寫入 |
 | 正式版 Docker 映像與 compose | ✅ 建置、migration、健康檢查、供頁皆正常 |
-| Vitest 單元 179 項 + 整合 154 項（真實 Postgres） | ✅ 全數通過 |
+| Vitest 單元 185 項 + 整合 306 項（真實 Postgres） | ✅ 全數通過 |
 | 後台商品維護（新增／圖片／規格／分類品牌） | ✅ 建立→上傳→上架→刪除全程實測 |
 | 黑貓 `ParsingAddress`（地址換郵碼） | ✅ 測試站真實回應，憑證有效 |
 | 超商 C2C 建單 | ⚠️ **未實測**（先前實測的是宅配 TCAT，已改走黑貓） |
