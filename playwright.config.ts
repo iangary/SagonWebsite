@@ -1,5 +1,13 @@
 import { defineConfig, devices } from '@playwright/test'
 
+// 金流 E2E 需要 .env 裡的綠界測試金鑰來簽模擬回拋（Node 22 內建 loadEnvFile）。
+// 已存在的環境變數優先，.env 不存在就跳過。
+try {
+  process.loadEnvFile?.('.env')
+} catch {
+  // 沒有 .env（例如 CI 用環境變數注入）就照常執行
+}
+
 const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:3000'
 
 export default defineConfig({
