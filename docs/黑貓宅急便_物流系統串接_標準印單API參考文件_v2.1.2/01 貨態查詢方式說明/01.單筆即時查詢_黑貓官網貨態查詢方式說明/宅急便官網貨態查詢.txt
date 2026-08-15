@@ -1,0 +1,6 @@
+1.系統裡有單號
+http://www.t-cat.com.tw/Inquire/TraceDetail.aspx?BillID=單號
+
+2.系統裡只有訂單編號
+https://www.takkyubin.com.tw/ymtcontract/Status/Check.aspx?CustID=客戶代號&CustPW=契客密碼&OrderID=訂單編號
+

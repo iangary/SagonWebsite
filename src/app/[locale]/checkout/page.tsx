@@ -84,7 +84,6 @@ export default async function CheckoutPage({ params }: { params: Promise<{ local
         }
         shippingFees={shopConfig.shippingFee}
         freeShippingThreshold={shopConfig.freeShippingThreshold}
-        isMember={Boolean(session?.user)}
       />
     </div>
   )

@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { shopConfig } from '@/lib/shop-config'
 import { getOrCreateCart } from '@/lib/cart'
-import { generateMerchantTradeNo, type ChoosePayment } from '@/lib/ecpay/aio'
+import { actualExpireMinutes, generateMerchantTradeNo, type ChoosePayment } from '@/lib/ecpay/aio'
 import { calculatePricing, validateCoupon } from './pricing'
 import { reserveStock, releaseReservation } from './stock'
 
@@ -33,14 +33,11 @@ export interface CreateOrderInput {
   couponCode?: string
   note?: string
 
+  /** 紙本統一發票的抬頭資訊。發票由人工開立、隨包裹寄出。 */
   invoice: {
     isB2B: boolean
     taxId?: string
     companyName?: string
-    carrierType: 'NONE' | 'MEMBER' | 'CITIZEN' | 'MOBILE'
-    carrierNum?: string
-    donation: boolean
-    loveCode?: string
   }
 }
 
@@ -102,7 +99,14 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
   if (pricing.couponError) return { ok: false, error: pricing.couponError }
 
   const orderNo = generateMerchantTradeNo()
-  const expiresAt = new Date(Date.now() + shopConfig.stockReservationMinutes * 60 * 1000)
+  // 預扣有效期必須對齊「綠界實際給消費者的付款期限」：
+  // ATM 的期限單位是天、下限 1 天，若照 30 分鐘就取消訂單，
+  // 消費者隔天匯款會變成「錢收到了、訂單卻已取消」。
+  const reservationMinutes = actualExpireMinutes(
+    input.choosePayment,
+    shopConfig.stockReservationMinutes,
+  )
+  const expiresAt = new Date(Date.now() + reservationMinutes * 60 * 1000)
 
   try {
     const order = await db.$transaction(async (tx) => {
@@ -192,15 +196,20 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
             },
           },
 
+          // 紙本統一發票由人工開立隨包裹寄出，這裡只先建紀錄
           invoice: {
             create: {
               isB2B: input.invoice.isB2B,
               taxId: input.invoice.taxId ?? null,
               companyName: input.invoice.companyName ?? null,
-              carrierType: input.invoice.carrierType,
-              carrierNum: input.invoice.carrierNum ?? null,
-              donation: input.invoice.donation,
-              loveCode: input.invoice.loveCode ?? null,
+              amount: pricing.grandTotal,
+              status: 'PENDING',
+            },
+          },
+
+          // 綠界電子收據，付款成功後由 worker 開立
+          receipt: {
+            create: {
               amount: pricing.grandTotal,
               status: 'PENDING',
             },

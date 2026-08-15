@@ -54,6 +54,28 @@ export function generateMerchantTradeNo(prefix = 'SG'): string {
 }
 
 /**
+ * 綠界「實際生效」的付款期限（分鐘）。
+ *
+ * ATM 的 ExpireDate 單位是天、下限 1 天 —— 就算我們只要求 30 分鐘，
+ * 消費者實際上有一整天可以匯款。庫存預扣與訂單取消排程必須以這個
+ * 換算後的值為準，否則會發生「訂單 30 分鐘就被取消、隔天錢卻進來了」。
+ * CVS/BARCODE 單位是分鐘（1 ~ 43200），信用卡當場付款不受期限影響。
+ */
+export function actualExpireMinutes(
+  choosePayment: ChoosePayment,
+  requestedMinutes: number,
+): number {
+  if (choosePayment === 'ATM') {
+    const days = Math.max(1, Math.ceil(requestedMinutes / (60 * 24)))
+    return days * 60 * 24
+  }
+  if (choosePayment === 'CVS' || choosePayment === 'BARCODE') {
+    return Math.min(43200, Math.max(1, requestedMinutes))
+  }
+  return requestedMinutes
+}
+
+/**
  * 產生要 POST 給綠界的完整參數（含 CheckMacValue）。
  * 回傳的是純物件，由 route handler 轉成自動送出的 HTML 表單。
  */
@@ -85,12 +107,13 @@ export function buildAioCheckoutParams(input: AioOrderInput): Record<string, str
   }
 
   if (input.expireMinutes) {
+    const effective = actualExpireMinutes(input.choosePayment, input.expireMinutes)
     if (input.choosePayment === 'ATM') {
       // ATM 的單位是「天」，最少 1 天
-      params.ExpireDate = String(Math.max(1, Math.ceil(input.expireMinutes / (60 * 24))))
+      params.ExpireDate = String(effective / (60 * 24))
     } else if (input.choosePayment === 'CVS' || input.choosePayment === 'BARCODE') {
       // CVS 的單位是「分鐘」，綠界限制 1 分鐘 ~ 43200 分鐘
-      params.StoreExpireDate = String(Math.min(43200, Math.max(1, input.expireMinutes)))
+      params.StoreExpireDate = String(effective)
     }
   }
 

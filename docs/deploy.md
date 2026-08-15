@@ -212,10 +212,23 @@ openssl rand -base64 32
 | `SEED_ADMIN_PASSWORD` | 自己想一組，至少 6 碼；登入後立刻從後台改掉 |
 | `SHOP_SERVICE_EMAIL` | 收得到信的真信箱 —— 通知信頁尾會印出來，客戶會直接回信到這裡 |
 | `SHOP_TAX_ID` | 公司統一編號 |
-| `ECPAY_*` | 綠界後台核發的**正式**商店代號與金鑰（三組：金流／物流／發票）|
+| `ECPAY_*` | 綠界後台核發的**正式**商店代號與金鑰（三組：金流／物流／電子收據）|
 | `ECPAY_SENDER_*` | 寄件人資訊，要和綠界後台登記的一致 |
+| `TCAT_CUSTOMER_ID` | 黑貓契客代號 |
+| `TCAT_CUSTOMER_TOKEN` | 黑貓印單 API 授權碼，在[契客專區](https://www.takkyubin.com.tw/YMTContract/aspx/Login.aspx)選「正式站台」申請，會用簡訊發送 |
+| `TCAT_SENDER_ZIP` | ⚠️ 見下 |
 | `MITAKE_*` | 三竹簡訊的帳號密碼（OTP 用）|
 | `SMTP_PASS` | 寄信服務的 API key（見下）|
+
+**`TCAT_SENDER_ZIP` 不是郵遞區號**，是黑貓自己的六碼郵碼，一定要查出來：
+
+```bash
+npx tsx --env-file-if-exists=.env scripts/tcat-parse-address.ts "正式的出貨地址"
+```
+
+把輸出的 `TCAT_SENDER_ZIP=...` 整行貼進 `.env.production`。填錯或沿用測試站的值，
+宅配建單會被 E057「寄件人地址查到的郵號和寄件人郵碼不相同」退件。
+**改寄件地址時要重查一次。**
 
 主機名稱用 compose 的服務名 `db` / `redis`，**不是 `localhost`** —— 容器之間走的是
 compose 建的內部網路，`localhost` 會指到容器自己。
@@ -224,10 +237,13 @@ compose 建的內部網路，`localhost` 會指到容器自己。
 
 - **會直接 throw**：`AUTH_SECRET`（要 ≥16 字元，`__CHANGE_ME__` 只有 13）、
   `SEED_ADMIN_EMAIL` 與 `SHOP_SERVICE_EMAIL`（要通得過 email 格式）。
-- **不會 throw 但會壞在執行時**：所有 `ECPAY_*` 與 `MITAKE_*` 只檢查「有沒有填」，
-  不檢查「填得對不對」。留著 `__CHANGE_ME__` 的話網站照常啟動，但客人一結帳就失敗。
+- **會直接 throw**：`TCAT_SENDER_ZIP` 必須剛好 6 個字元，`__CHANGE_ME__` 過不了。
+- **不會 throw 但會壞在執行時**：所有 `ECPAY_*`、`TCAT_*` 與 `MITAKE_*` 只檢查
+  「有沒有填」，不檢查「填得對不對」。留著 `__CHANGE_ME__` 的話網站照常啟動，
+  但客人一結帳就失敗。
   綠界正式帳號還沒下來的話，先把 `ECPAY_ENV` 設成 `stage` 並填測試金鑰，
   等正式金鑰到手再改 —— **不要讓正式站掛著 `production` + 假金鑰**。
+  黑貓同理（`TCAT_ENV`），但注意黑貓測試站與正式站的授權碼**是分開申請的兩組**。
 
 改完確認沒有漏掉的（沒有輸出才算過）：
 
@@ -270,7 +286,7 @@ DNS 要有三筆記錄才寄得進 Gmail／Yahoo —— Resend 會給 SPF 與 DK
 
 ⚠️ Resend 免費方案是 **100 封/日的硬上限**，不是超額計費。以每張訂單約 2.5 封計，
 日訂單超過 ~35 張就會撞頂；撞頂後 `send-email` job 會不斷重試並累積到死信佇列，
-而**訂單流程本身不會報錯**（金流／發票／物流都是獨立 job）。上線後要盯著這個數字，
+而**訂單流程本身不會報錯**（金流／收據／物流都是獨立 job）。上線後要盯著這個數字，
 量起來就升級方案或換一家沒有日上限的服務。
 
 ## 7. 首次部署（手動）
@@ -375,6 +391,12 @@ docker image prune -af --filter "until=168h"
 install -m 755 scripts/backup.sh /usr/local/bin/sagon-backup
 ```
 
+> 備份涵蓋資料庫與 `uploads`（商品圖片）。**不含** `labels`（黑貓託運單 PDF）——
+> 託運單貼上包裹之後就沒有保存價值，而黑貓的下載連結只有 24 小時，
+> 過期本來就補印不回來。真的需要重印又逾期的話只能重新建單（會拿到新單號）。
+> 但 `labels` volume 本身**一定要掛**，且 web 與 worker 要掛同一個 —— 見
+> `docker-compose.prod.yml`，少掛的話 worker 寫的 PDF 後台永遠讀不到。
+
 設定 rclone 指向異地（Cloudflare R2 免費 10GB 夠用）：
 
 ```bash
@@ -423,5 +445,5 @@ df -h
 | web 反覆重啟 | `docker compose logs web`。多半是 `.env.production` 少了必填變數 —— `src/lib/env.ts` 啟動時強驗證，缺一個就 throw |
 | 憑證簽不到 | DNS 未生效、80 埠被擋、或 Cloudflare 橘色雲開著 |
 | 綠界回調沒反應 | `APP_URL` 是否為 https 正式網域；綠界後台的回調網址是否同步更新 |
-| 訂單付款成功但沒開發票 | `docker compose logs worker`；確認 Redis 活著、worker 沒掛 |
+| 訂單付款成功但沒開電子收據 | `docker compose logs worker`；確認 Redis 活著、worker 沒掛 |
 | 磁碟滿 | `docker system prune -af`；檢查 `/srv/sagon/backups` 是否堆積 |

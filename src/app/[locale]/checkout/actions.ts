@@ -6,7 +6,8 @@ import { createOrderFromCart } from '@/lib/orders/create'
 import { normalizeTwMobile } from '@/lib/sms/provider'
 
 const CVS_SUBTYPES = ['UNIMARTC2C', 'FAMIC2C', 'HILIFEC2C', 'OKMARTC2C'] as const
-const HOME_SUBTYPES = ['TCAT', 'POST'] as const
+/** 宅配只有黑貓（我們自己簽約的，不經綠界） */
+const HOME_SUBTYPES = ['TCAT'] as const
 
 const schema = z
   .object({
@@ -31,9 +32,8 @@ const schema = z
     couponCode: z.string().trim().optional().default(''),
     note: z.string().trim().max(500).optional().default(''),
 
-    invoiceType: z.enum(['MEMBER', 'MOBILE', 'DONATE', 'COMPANY']),
-    carrierNum: z.string().trim().optional().default(''),
-    loveCode: z.string().trim().optional().default(''),
+    // 發票是人工開立的紙本，隨包裹寄出 —— 沒有載具與捐贈這些電子發票專屬的機制
+    invoiceType: z.enum(['PERSONAL', 'COMPANY']),
     taxId: z.string().trim().optional().default(''),
     companyName: z.string().trim().optional().default(''),
   })
@@ -56,13 +56,6 @@ const schema = z
       if (!data.addressLine) issue('addressLine', '請輸入詳細地址')
     }
 
-    // 手機條碼載具格式：斜線加 7 碼大寫英數
-    if (data.invoiceType === 'MOBILE' && !/^\/[0-9A-Z.\-+]{7}$/.test(data.carrierNum)) {
-      issue('carrierNum', '手機條碼格式為斜線加 7 碼，例如 /ABC1234')
-    }
-    if (data.invoiceType === 'DONATE' && !/^\d{3,7}$/.test(data.loveCode)) {
-      issue('loveCode', '愛心碼為 3–7 位數字')
-    }
     if (data.invoiceType === 'COMPANY') {
       if (!/^\d{8}$/.test(data.taxId)) issue('taxId', '統一編號為 8 位數字')
       if (!data.companyName) issue('companyName', '請輸入公司抬頭')
@@ -122,11 +115,6 @@ export async function submitCheckout(
       isB2B: data.invoiceType === 'COMPANY',
       taxId: data.invoiceType === 'COMPANY' ? data.taxId : undefined,
       companyName: data.invoiceType === 'COMPANY' ? data.companyName : undefined,
-      carrierType:
-        data.invoiceType === 'MOBILE' ? 'MOBILE' : data.invoiceType === 'MEMBER' ? 'MEMBER' : 'NONE',
-      carrierNum: data.invoiceType === 'MOBILE' ? data.carrierNum : undefined,
-      donation: data.invoiceType === 'DONATE',
-      loveCode: data.invoiceType === 'DONATE' ? data.loveCode : undefined,
     },
   })
 

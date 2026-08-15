@@ -5,6 +5,9 @@ import type { EcpayCredentials } from './checkmac'
 /**
  * 綠界三個服務各有自己的商店代號與端點，測試站與正式站也不同。
  * 全部集中在這裡，程式其他地方不要出現任何硬編的網址或金鑰。
+ *
+ * 目前使用的服務：全方位金流 AIO、物流（僅超商 C2C）、電子收據。
+ * 宅配走黑貓自己的系統；電子發票沒有申請，紙本由人工開立隨包裹寄出。
  */
 
 const IS_STAGE = env.ECPAY_ENV === 'stage'
@@ -48,21 +51,17 @@ export const ecpayEndpoints = {
   logisticsPrintOkmartC2C: IS_STAGE
     ? 'https://logistics-stage.ecpay.com.tw/Express/PrintOKMARTC2COrderInfo'
     : 'https://logistics.ecpay.com.tw/Express/PrintOKMARTC2COrderInfo',
-  /** 列印宅配托運單 */
-  logisticsPrintTradeDoc: IS_STAGE
-    ? 'https://logistics-stage.ecpay.com.tw/helper/printTradeDocument'
-    : 'https://logistics.ecpay.com.tw/helper/printTradeDocument',
 
-  /** 電子發票 B2C v3（JSON + AES-128-CBC） */
-  invoiceIssue: IS_STAGE
-    ? 'https://einvoice-stage.ecpay.com.tw/B2CInvoice/Issue'
-    : 'https://einvoice.ecpay.com.tw/B2CInvoice/Issue',
-  invoiceVoid: IS_STAGE
-    ? 'https://einvoice-stage.ecpay.com.tw/B2CInvoice/Invalid'
-    : 'https://einvoice.ecpay.com.tw/B2CInvoice/Invalid',
-  invoiceQuery: IS_STAGE
-    ? 'https://einvoice-stage.ecpay.com.tw/B2CInvoice/GetIssue'
-    : 'https://einvoice.ecpay.com.tw/B2CInvoice/GetIssue',
+  /** 電子收據（JSON + AES-128-CBC）。注意 domain 與電子發票共用 einvoice。 */
+  receiptIssue: IS_STAGE
+    ? 'https://einvoice-stage.ecpay.com.tw/Receipt/Issue'
+    : 'https://einvoice.ecpay.com.tw/Receipt/Issue',
+  receiptInvalid: IS_STAGE
+    ? 'https://einvoice-stage.ecpay.com.tw/Receipt/Invalid'
+    : 'https://einvoice.ecpay.com.tw/Receipt/Invalid',
+  receiptQuery: IS_STAGE
+    ? 'https://einvoice-stage.ecpay.com.tw/Receipt/GetReceipt'
+    : 'https://einvoice.ecpay.com.tw/Receipt/GetReceipt',
 } as const
 
 export const paymentConfig = {
@@ -73,7 +72,10 @@ export const paymentConfig = {
   } satisfies EcpayCredentials,
 }
 
-/** 宅配（B2C）用的物流商店代號 */
+/**
+ * 物流商店代號。綠界的超商申請類型分 B2C 與 C2C，兩者不共用商店代號也不能混串，
+ * 我們申請的是 C2C，所以只有這一組。
+ */
 export const logisticsConfig = {
   merchantId: env.ECPAY_LOGISTICS_MERCHANT_ID,
   credentials: {
@@ -82,20 +84,11 @@ export const logisticsConfig = {
   } satisfies EcpayCredentials,
 }
 
-/** 超商取貨（C2C）用的物流商店代號，綠界規定與 B2C 分開申請 */
-export const logisticsC2CConfig = {
-  merchantId: env.ECPAY_LOGISTICS_C2C_MERCHANT_ID,
-  credentials: {
-    hashKey: env.ECPAY_LOGISTICS_C2C_HASH_KEY,
-    hashIV: env.ECPAY_LOGISTICS_C2C_HASH_IV,
-  } satisfies EcpayCredentials,
-}
-
-export const invoiceConfig = {
-  merchantId: env.ECPAY_INVOICE_MERCHANT_ID,
-  hashKey: env.ECPAY_INVOICE_HASH_KEY,
-  hashIV: env.ECPAY_INVOICE_HASH_IV,
-  autoIssue: env.ECPAY_INVOICE_AUTO_ISSUE,
+export const receiptConfig = {
+  merchantId: env.ECPAY_RECEIPT_MERCHANT_ID,
+  hashKey: env.ECPAY_RECEIPT_HASH_KEY,
+  hashIV: env.ECPAY_RECEIPT_HASH_IV,
+  autoIssue: env.ECPAY_RECEIPT_AUTO_ISSUE,
 }
 
 export const senderConfig = {

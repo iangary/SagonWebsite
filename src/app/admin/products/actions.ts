@@ -673,7 +673,7 @@ export async function setProductCategories(
     })
 
     await revalidateProduct(productId)
-    revalidatePath('/admin/categories')
+    revalidatePath('/admin/taxonomy')
     return { ok: true }
   } catch (error) {
     console.error('[admin] 設定商品分類失敗', error)

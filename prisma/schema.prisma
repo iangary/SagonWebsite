@@ -427,6 +427,7 @@ model Order {
   payment      Payment?
   shipment     Shipment?
   invoice      Invoice?
+  receipt      Receipt?
   reservations StockReservation[]
   redemption   CouponRedemption?
 
@@ -594,6 +595,14 @@ model Shipment {
   statusCode String?
   statusMsg  String?
 
+  /// 黑貓託運單 PDF 的存放路徑（相對於 storage/labels）。
+  /// 不放 public/ —— 託運單上有收件人姓名地址電話。
+  labelPath         String?
+  labelDownloadedAt DateTime?
+
+  /// 貨態最後查詢時間。黑貓限制同一託運單號每 2 小時只能查一次，靠這欄節流。
+  statusPolledAt DateTime?
+
   /// 是否為代收貨款
   isCollection Boolean @default(false)
   goodsAmount  Int
@@ -608,6 +617,8 @@ model Shipment {
   logs  LogisticsStatusLog[]
 
   @@index([status])
+  /// 貨態輪詢每半小時掃一次「還在路上且超過 2 小時沒查」的黑貓單
+  @@index([logisticsSubType, status, statusPolledAt])
   @@map("shipments")
 }
 
@@ -627,47 +638,69 @@ model LogisticsStatusLog {
 }
 
 // ===========================================================================
-// 電子發票
+// 統一發票（人工開立）與電子收據（綠界）
 // ===========================================================================
 
-enum InvoiceCarrierType {
-  NONE // 不使用載具（索取紙本）
-  MEMBER // 會員載具
-  CITIZEN // 自然人憑證
-  MOBILE // 手機條碼
+enum InvoiceStatus {
+  PENDING // 尚未開立
+  ISSUED // 已開立並隨包裹寄出
+  VOIDED
 }
 
-enum InvoiceStatus {
+/// 紙本統一發票的開立紀錄。
+///
+/// 我們沒有申請綠界電子發票 —— 發票是人工開立、隨包裹一起寄給客戶，
+/// 這張表只留存查詢用的紀錄（客服要能回答「我的發票號碼是多少」）。
+model Invoice {
+  id      String @id @default(cuid())
+  orderId String @unique
+
+  /// 人工開立後由後台填入
+  invoiceNumber String?   @unique
+  invoiceDate   DateTime?
+
+  /// 個人 / 公司。公司戶要開立含統編的發票。
+  isB2B       Boolean @default(false)
+  taxId       String?
+  companyName String?
+
+  amount Int
+  status InvoiceStatus @default(PENDING)
+
+  voidedAt   DateTime?
+  voidReason String?
+  note       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("invoices")
+}
+
+enum ReceiptStatus {
   PENDING
   ISSUED
   VOIDED
   FAILED
 }
 
-model Invoice {
+/// 綠界電子收據。
+///
+/// ⚠️ 不是統一發票，不能報稅抵扣 —— 只是客戶付款後立刻收到的電子憑證。
+model Receipt {
   id      String @id @default(cuid())
   orderId String @unique
 
-  /// 綠界回傳的發票號碼
-  invoiceNumber String?   @unique
-  randomNumber  String?
-  invoiceDate   DateTime?
-
-  /// 個人 / 公司
-  isB2B       Boolean @default(false)
-  taxId       String?
-  companyName String?
-
-  carrierType InvoiceCarrierType @default(MEMBER)
-  carrierNum  String?
-
-  /// 捐贈：愛心碼
-  donation Boolean @default(false)
-  loveCode String?
+  /// 綠界回傳的收據編號
+  receiptNo String? @unique
 
   amount Int
-  status InvoiceStatus @default(PENDING)
+  status ReceiptStatus @default(PENDING)
 
+  issuedAt   DateTime?
   voidedAt   DateTime?
   voidReason String?
   failReason String?
@@ -680,7 +713,7 @@ model Invoice {
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([status])
-  @@map("invoices")
+  @@map("receipts")
 }
 
 // ===========================================================================

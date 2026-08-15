@@ -8,8 +8,9 @@ import { Worker, type Job } from 'bullmq'
 import { QUEUE_NAME, getRedis, registerRepeatableJobs, type JobName, type JobPayload } from '@/lib/queue'
 import { db } from '@/lib/db'
 import { createShipmentForOrder } from '@/lib/orders/logistics'
-import { issueInvoiceForOrder } from '@/lib/orders/invoice'
+import { issueReceiptForOrder } from '@/lib/orders/receipt'
 import { releaseExpiredReservations } from '@/lib/orders/stock'
+import { pollTcatShipmentStatuses } from '@/lib/orders/tcat-status'
 import { sendOrderEmail } from '@/lib/email'
 
 const CONCURRENCY = 4
@@ -22,14 +23,24 @@ const handlers: {
     return { orderId }
   },
 
-  'issue-invoice': async ({ orderId }) => {
-    await issueInvoiceForOrder(orderId)
+  'issue-receipt': async ({ orderId }) => {
+    await issueReceiptForOrder(orderId)
     return { orderId }
   },
 
   'send-email': async ({ template, orderId }) => {
     await sendOrderEmail(template, orderId)
     return { template, orderId }
+  },
+
+  'poll-tcat-status': async () => {
+    const result = await pollTcatShipmentStatuses()
+    if (result.logsCreated > 0 || result.statusChanged > 0) {
+      console.info(
+        `[worker] 黑貓貨態：查 ${result.polled} 張、新增 ${result.logsCreated} 筆歷程、${result.statusChanged} 張換狀態`,
+      )
+    }
+    return result
   },
 
   'release-expired-reservations': async () => {

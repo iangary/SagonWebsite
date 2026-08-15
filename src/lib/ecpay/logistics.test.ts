@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { mapLogisticsStatus, sanitizeGoodsName, isC2C } from './logistics'
+import {
+  buildCreateShipmentParams,
+  isC2C,
+  mapLogisticsStatus,
+  sanitizeGoodsName,
+} from './logistics'
 
 describe('mapLogisticsStatus', () => {
   it('300「綠界已收到訂單資料」是建單完成，不是已出貨', () => {
@@ -57,25 +62,71 @@ describe('mapLogisticsStatus', () => {
 
 describe('sanitizeGoodsName', () => {
   it('移除綠界不接受的符號', () => {
-    expect(sanitizeGoodsName('ABC^\'`!@#%&*+\\"<>|_[]DEF', 50)).toBe('ABC DEF')
+    expect(sanitizeGoodsName('ABC^\'`!@#%&*+\\"<>|_[]DEF')).toBe('ABC DEF')
   })
 
-  it('依通路截斷長度（C2C 25 字、B2C 50 字）', () => {
+  it('中文與全形字算 2 個字元寬度，不是 1', () => {
+    // 上限 50 是顯示寬度，所以中文最多 25 個。
+    // 用 String.slice 直接切 50 個中文會送出 100 字元寬度而被綠界退件。
     const long = 'あ'.repeat(80)
-    expect(sanitizeGoodsName(long, 25)).toHaveLength(25)
-    expect(sanitizeGoodsName(long, 50)).toHaveLength(50)
+    expect(sanitizeGoodsName(long)).toHaveLength(25)
+  })
+
+  it('半形字一個算一個寬度', () => {
+    expect(sanitizeGoodsName('a'.repeat(80))).toHaveLength(50)
+  })
+
+  it('不會從多位元組字中間切斷', () => {
+    // 寬度上限落在中文字中間時要整個捨去，切一半會產生亂碼
+    expect(sanitizeGoodsName('あ'.repeat(10), 5)).toBe('ああ')
   })
 
   it('清空後為空字串時回預設值，避免送出空的商品名稱', () => {
-    expect(sanitizeGoodsName('###', 50)).toBe('商品')
+    expect(sanitizeGoodsName('###')).toBe('商品')
   })
 })
 
 describe('isC2C', () => {
-  it('超商取貨是 C2C，宅配不是', () => {
+  it('只有店到店的四家超商是 C2C', () => {
     expect(isC2C('UNIMARTC2C')).toBe(true)
     expect(isC2C('FAMIC2C')).toBe(true)
+    expect(isC2C('HILIFEC2C')).toBe(true)
+    expect(isC2C('OKMARTC2C')).toBe(true)
+  })
+
+  it('超商 B2C 與宅配都不是 C2C —— 這兩種都不能送進綠界建單', () => {
+    expect(isC2C('UNIMART')).toBe(false)
+    expect(isC2C('FAMI')).toBe(false)
+    // 宅配走黑貓，不經綠界
     expect(isC2C('TCAT')).toBe(false)
     expect(isC2C('POST')).toBe(false)
+  })
+})
+
+describe('buildCreateShipmentParams', () => {
+  const input = {
+    merchantTradeNo: 'SGTEST001L',
+    subType: 'UNIMARTC2C',
+    goodsAmount: 1200,
+    goodsName: '測試商品',
+    receiverName: '王小明',
+    receiverCellphone: '0912345678',
+    receiverStoreId: '991182',
+  } as const
+
+  it('LogisticsType 一律是 CVS', () => {
+    // 官方規格：超商（含 B2C）的 LogisticsType 都是 CVS，不會是 HOME
+    expect(buildCreateShipmentParams(input).LogisticsType).toBe('CVS')
+  })
+
+  it('帶上門市代號與簽章，且不送宅配才需要的欄位', () => {
+    const params = buildCreateShipmentParams(input)
+
+    expect(params.ReceiverStoreID).toBe('991182')
+    expect(params.CheckMacValue).toMatch(/^[0-9A-F]{32}$/) // 物流是 MD5
+    expect(params.SenderZipCode).toBeUndefined()
+    expect(params.SenderAddress).toBeUndefined()
+    expect(params.Temperature).toBeUndefined()
+    expect(params.Distance).toBeUndefined()
   })
 })

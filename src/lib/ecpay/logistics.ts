@@ -1,43 +1,19 @@
 import 'server-only'
 import type { LogisticsSubType, ShipmentStatus } from '@prisma/client'
-import { tcatDistance } from '@/lib/tw-zip'
-import { generateCheckMacValue, verifyCheckMacValue, type EcpayCredentials } from './checkmac'
-import {
-  callbackUrl,
-  ecpayEndpoints,
-  logisticsC2CConfig,
-  logisticsConfig,
-  senderConfig,
-} from './config'
+import { generateCheckMacValue, verifyCheckMacValue } from './checkmac'
+import { callbackUrl, ecpayEndpoints, logisticsConfig, senderConfig } from './config'
 
 /**
- * 綠界物流整合。
+ * 綠界物流整合 —— 只做超商取貨 C2C（店到店）。
  *
- * 兩個重點與金流不同：
- *   1. 簽章用 MD5，不是 SHA256
- *   2. 超商取貨（C2C）與宅配（B2C）用不同的商店代號與金鑰
+ * 與金流的差別：簽章用 MD5，不是 SHA256。
+ *
+ * 宅配不走綠界（黑貓是另外簽約的），分流見 src/lib/orders/logistics.ts。
+ * 綠界的超商申請類型分 B2C 與 C2C，官方規定兩者不能混串、也不共用商店代號；
+ * 我們申請的是 C2C，所以這裡只處理 *C2C 這四個 LogisticsSubType。
  */
 
-const C2C_SUBTYPES = new Set<LogisticsSubType>([
-  'FAMIC2C',
-  'UNIMARTC2C',
-  'HILIFEC2C',
-  'OKMARTC2C',
-])
-
-export function isC2C(subType: LogisticsSubType): boolean {
-  return C2C_SUBTYPES.has(subType)
-}
-
-/** 依 C2C / B2C 取得對應的商店代號與金鑰 */
-export function credentialsFor(subType: LogisticsSubType): {
-  merchantId: string
-  credentials: EcpayCredentials
-} {
-  return isC2C(subType) ? logisticsC2CConfig : logisticsConfig
-}
-
-/** 超商取貨可選的門市類型 */
+/** 綠界 C2C 支援的四家超商 */
 export const CVS_SUBTYPES = [
   { value: 'UNIMARTC2C', label: '7-ELEVEN' },
   { value: 'FAMIC2C', label: '全家' },
@@ -45,11 +21,24 @@ export const CVS_SUBTYPES = [
   { value: 'OKMARTC2C', label: 'OK 超商' },
 ] as const
 
-/** 宅配可選的物流商 */
-export const HOME_SUBTYPES = [
-  { value: 'TCAT', label: '黑貓宅急便' },
-  { value: 'POST', label: '中華郵政' },
-] as const
+export type CvsSubType = (typeof CVS_SUBTYPES)[number]['value']
+
+const C2C_SUBTYPES = new Set<LogisticsSubType>(CVS_SUBTYPES.map((s) => s.value))
+
+/** 同時當型別守衛用，讓呼叫端收窄成 CvsSubType 後才能進綠界建單 */
+export function isC2C(subType: LogisticsSubType): subType is CvsSubType {
+  return C2C_SUBTYPES.has(subType)
+}
+
+/**
+ * 宅配可選的物流商。黑貓是我們自己簽約的，不經綠界 ——
+ * 這份清單只產生前台選項與後台顯示，綠界建單不會收到這些值。
+ */
+export const HOME_SUBTYPES = [{ value: 'TCAT', label: '黑貓宅急便' }] as const
+
+/** 綠界對商品金額的限制。超出範圍建單會被退回錯誤碼 10500040。 */
+export const GOODS_AMOUNT_MIN = 1
+export const GOODS_AMOUNT_MAX = 20_000
 
 export const LOGISTICS_SUBTYPE_LABEL: Record<LogisticsSubType, string> = {
   UNIMARTC2C: '7-ELEVEN 取貨',
@@ -99,13 +88,11 @@ export const TRACKING_URL: Partial<Record<LogisticsSubType, string>> = {
  * 注意：電子地圖這一支「不需要」CheckMacValue，綠界文件明確說明。
  * ExtraData 會原封不動回拋，用來把選店結果對回是哪一次結帳。
  */
-export function buildExpressMapParams(subType: LogisticsSubType, extraData: string) {
-  const { merchantId } = credentialsFor(subType)
-
+export function buildExpressMapParams(subType: CvsSubType, extraData: string) {
   return {
     action: ecpayEndpoints.logisticsMap,
     params: {
-      MerchantID: merchantId,
+      MerchantID: logisticsConfig.merchantId,
       LogisticsType: 'CVS',
       LogisticsSubType: subType,
       IsCollection: 'N',
@@ -143,17 +130,14 @@ export function parseMapReply(params: Record<string, string>): CvsStoreSelection
 
 export interface CreateShipmentInput {
   merchantTradeNo: string
-  subType: LogisticsSubType
+  subType: CvsSubType
   goodsAmount: number
   goodsName: string
   receiverName: string
   receiverCellphone: string
   receiverEmail?: string
-  /** 超商取貨必填 */
-  receiverStoreId?: string
-  /** 宅配必填 */
-  receiverZipCode?: string
-  receiverAddress?: string
+  /** 電子地圖回傳的門市代號 */
+  receiverStoreId: string
 }
 
 /** 綠界物流的日期格式與金流不同：yyyy/MM/dd HH:mm:ss（同樣是台北時間） */
@@ -166,58 +150,57 @@ function logisticsTradeDate(date = new Date()): string {
   )
 }
 
+/** GoodsName 的上限。綠界算的是顯示寬度，不是字元數。 */
+const GOODS_NAME_MAX_WIDTH = 50
+
+/**
+ * 綠界的長度限制以顯示寬度計算：中文與全形字佔 2，其餘佔 1。
+ * 直接用 String.slice 會讓中文品名超過上限而被退件。
+ */
+function truncateToWidth(text: string, maxWidth: number): string {
+  let width = 0
+  let out = ''
+  for (const char of text) {
+    const charWidth = (char.codePointAt(0) ?? 0) > 0x7f ? 2 : 1
+    if (width + charWidth > maxWidth) break
+    width += charWidth
+    out += char
+  }
+  return out
+}
+
 /**
  * 綠界對 GoodsName 的限制：不可包含 ^ ' ` ! @ # % & * + \ " < > | _ [ ]
- * 且長度上限 50（C2C 是 25）。踩到會直接被退件。
+ * 且顯示寬度上限 50。踩到會直接被退件。
  */
-export function sanitizeGoodsName(name: string, maxLength: number): string {
+export function sanitizeGoodsName(name: string, maxWidth = GOODS_NAME_MAX_WIDTH): string {
   const cleaned = name.replace(/[\^'`!@#%&*+\\"<>|_[\]]/g, ' ').replace(/\s+/g, ' ').trim()
-  return cleaned.slice(0, maxLength) || '商品'
+  return truncateToWidth(cleaned, maxWidth) || '商品'
 }
 
 export function buildCreateShipmentParams(input: CreateShipmentInput): Record<string, string> {
-  const { merchantId, credentials } = credentialsFor(input.subType)
-  const c2c = isC2C(input.subType)
-
+  // 超商一律是 CVS，B2C 也一樣 —— LogisticsType 不隨 SubType 變動
   const params: Record<string, string> = {
-    MerchantID: merchantId,
+    MerchantID: logisticsConfig.merchantId,
     MerchantTradeNo: input.merchantTradeNo,
     MerchantTradeDate: logisticsTradeDate(),
-    LogisticsType: c2c ? 'CVS' : 'HOME',
+    LogisticsType: 'CVS',
     LogisticsSubType: input.subType,
     GoodsAmount: String(input.goodsAmount),
-    GoodsName: sanitizeGoodsName(input.goodsName, c2c ? 25 : 50),
+    GoodsName: sanitizeGoodsName(input.goodsName),
+    // 寄件人姓名限 4~10 字元，且不可填公司名 —— 否則退件時領不回來
     SenderName: senderConfig.name,
     SenderCellPhone: senderConfig.cellphone,
     ReceiverName: input.receiverName,
     ReceiverCellPhone: input.receiverCellphone,
+    ReceiverStoreID: input.receiverStoreId,
     ServerReplyURL: callbackUrl('/api/ecpay/logistics/reply'),
     IsCollection: 'N',
   }
 
   if (input.receiverEmail) params.ReceiverEmail = input.receiverEmail
 
-  if (c2c) {
-    params.ReceiverStoreID = input.receiverStoreId ?? ''
-  } else {
-    // 宅配才需要寄件人地址與收件地址
-    params.SenderPhone = senderConfig.phone
-    params.SenderZipCode = senderConfig.zipCode
-    params.SenderAddress = senderConfig.address
-    params.ReceiverZipCode = input.receiverZipCode ?? ''
-    params.ReceiverAddress = input.receiverAddress ?? ''
-    // 黑貓需要指定溫層與規格
-    if (input.subType === 'TCAT') {
-      params.Temperature = '0001' // 常溫
-      // 距離要照實申報。少報成同縣市會被綠界事後更正並補收差額，帳目就對不起來。
-      params.Distance = tcatDistance(senderConfig.zipCode, input.receiverZipCode ?? '')
-      // TODO: 商品還沒有尺寸／材積欄位，一律以 60cm 申報。超過的品項會被以較高規格計費。
-      params.Specification = '0001' // 60cm
-      params.ScheduledPickupTime = '4' // 不限時
-    }
-  }
-
-  params.CheckMacValue = generateCheckMacValue(params, credentials, 'md5')
+  params.CheckMacValue = generateCheckMacValue(params, logisticsConfig.credentials, 'md5')
   return params
 }
 
@@ -275,18 +258,8 @@ export async function createShipment(input: CreateShipmentInput): Promise<Create
 // 物流狀態回拋
 // ---------------------------------------------------------------------------
 
-export function verifyLogisticsCallback(
-  params: Record<string, string>,
-  subType?: LogisticsSubType,
-): boolean {
-  // 回拋沒帶 LogisticsSubType 時兩組金鑰都試一次，避免 C2C/B2C 判斷錯誤導致驗簽失敗
-  if (subType) {
-    return verifyCheckMacValue(params, credentialsFor(subType).credentials, 'md5')
-  }
-  return (
-    verifyCheckMacValue(params, logisticsC2CConfig.credentials, 'md5') ||
-    verifyCheckMacValue(params, logisticsConfig.credentials, 'md5')
-  )
+export function verifyLogisticsCallback(params: Record<string, string>): boolean {
+  return verifyCheckMacValue(params, logisticsConfig.credentials, 'md5')
 }
 
 export type MappedShipmentStatus =
@@ -334,16 +307,13 @@ export function mapLogisticsStatus(code: string): MappedShipmentStatus | null {
 /** 查詢物流訂單目前狀態，用於後台人工對帳 */
 export async function queryLogisticsTradeInfo(
   merchantTradeNo: string,
-  subType: LogisticsSubType,
 ): Promise<Record<string, string>> {
-  const { merchantId, credentials } = credentialsFor(subType)
-
   const params: Record<string, string> = {
-    MerchantID: merchantId,
+    MerchantID: logisticsConfig.merchantId,
     MerchantTradeNo: merchantTradeNo,
     TimeStamp: String(Math.floor(Date.now() / 1000)),
   }
-  params.CheckMacValue = generateCheckMacValue(params, credentials, 'md5')
+  params.CheckMacValue = generateCheckMacValue(params, logisticsConfig.credentials, 'md5')
 
   const res = await fetch(ecpayEndpoints.logisticsQuery, {
     method: 'POST',
@@ -356,35 +326,29 @@ export async function queryLogisticsTradeInfo(
   return Object.fromEntries(new URLSearchParams(await res.text()))
 }
 
-/** 列印單據的表單參數（一段標／托運單）。回傳讓前端 POST 開新視窗。 */
+/** 列印一段標的表單參數。回傳讓前端 POST 開新視窗。 */
 export function buildPrintDocumentParams(
-  subType: LogisticsSubType,
+  subType: CvsSubType,
   allPayLogisticsId: string,
   cvsPaymentNo?: string,
   cvsValidationNo?: string,
 ): { action: string; params: Record<string, string> } {
-  const { merchantId, credentials } = credentialsFor(subType)
-
-  const action = isC2C(subType)
-    ? {
-        UNIMARTC2C: ecpayEndpoints.logisticsPrintUnimartC2C,
-        FAMIC2C: ecpayEndpoints.logisticsPrintFamiC2C,
-        HILIFEC2C: ecpayEndpoints.logisticsPrintHilifeC2C,
-        OKMARTC2C: ecpayEndpoints.logisticsPrintOkmartC2C,
-      }[subType as 'UNIMARTC2C' | 'FAMIC2C' | 'HILIFEC2C' | 'OKMARTC2C']
-    : ecpayEndpoints.logisticsPrintTradeDoc
+  const action = {
+    UNIMARTC2C: ecpayEndpoints.logisticsPrintUnimartC2C,
+    FAMIC2C: ecpayEndpoints.logisticsPrintFamiC2C,
+    HILIFEC2C: ecpayEndpoints.logisticsPrintHilifeC2C,
+    OKMARTC2C: ecpayEndpoints.logisticsPrintOkmartC2C,
+  }[subType]
 
   const params: Record<string, string> = {
-    MerchantID: merchantId,
+    MerchantID: logisticsConfig.merchantId,
     AllPayLogisticsID: allPayLogisticsId,
   }
 
-  if (isC2C(subType)) {
-    if (cvsPaymentNo) params.CVSPaymentNo = cvsPaymentNo
-    // 7-11 的一段標需要驗證碼，其他通路不用
-    if (subType === 'UNIMARTC2C' && cvsValidationNo) params.CVSValidationNo = cvsValidationNo
-  }
+  if (cvsPaymentNo) params.CVSPaymentNo = cvsPaymentNo
+  // 7-11 的一段標需要驗證碼，其他通路不用
+  if (subType === 'UNIMARTC2C' && cvsValidationNo) params.CVSValidationNo = cvsValidationNo
 
-  params.CheckMacValue = generateCheckMacValue(params, credentials, 'md5')
+  params.CheckMacValue = generateCheckMacValue(params, logisticsConfig.credentials, 'md5')
   return { action, params }
 }

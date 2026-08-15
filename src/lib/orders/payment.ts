@@ -60,8 +60,26 @@ export async function handlePaymentReturn(params: Record<string, string>): Promi
     throw new Error(`付款金額不符：${merchantTradeNo}`)
   }
 
-  // 已經處理過就直接結束（綠界會重送）
-  if (payment.order.status !== 'PENDING_PAYMENT') return
+  // 已經處理過就直接結束（綠界會重送）。
+  // 但「訂單已取消、錢卻進來了」不能無聲吞掉 —— 這代表消費者在訂單被
+  // 逾期取消後才完成付款（例如 ATM 排程與綠界期限的邊界時刻），錢已經
+  // 收到但不會出貨，必須留下需要人工退款的紀錄。
+  if (payment.order.status !== 'PENDING_PAYMENT') {
+    if (payment.order.status === 'CANCELLED' && payment.status !== 'PAID') {
+      await db.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'PAID',
+          tradeNo: params.TradeNo ?? null,
+          paymentType: params.PaymentType ?? null,
+          paidAt: parseEcpayDate(params.PaymentDate) ?? new Date(),
+          failReason: '逾期入帳：訂單已取消但仍收到付款，需人工退款',
+          rawCallback: params,
+        },
+      })
+    }
+    return
+  }
 
   await db.$transaction(async (tx) => {
     // 交易內再讀一次，擋住兩個通知同時進來的競態
@@ -93,8 +111,8 @@ export async function handlePaymentReturn(params: Record<string, string>): Promi
 
   // 後續動作全部非同步，不讓綠界等
   await enqueue('create-shipment', { orderId: payment.orderId })
-  if (env.ECPAY_INVOICE_AUTO_ISSUE) {
-    await enqueue('issue-invoice', { orderId: payment.orderId })
+  if (env.ECPAY_RECEIPT_AUTO_ISSUE) {
+    await enqueue('issue-receipt', { orderId: payment.orderId })
   }
   await enqueue('send-email', { template: 'order-confirmed', orderId: payment.orderId })
 }

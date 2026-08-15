@@ -1,4 +1,10 @@
-import type { OrderStatus, PaymentStatus, ShipmentStatus, InvoiceStatus } from '@prisma/client'
+import type {
+  OrderStatus,
+  PaymentStatus,
+  ShipmentStatus,
+  InvoiceStatus,
+  ReceiptStatus,
+} from '@prisma/client'
 
 /** 後台一律用繁中顯示，不走 i18n（後台只有一種語言）。 */
 
@@ -31,7 +37,14 @@ export const SHIPMENT_STATUS_LABEL: Record<ShipmentStatus, string> = {
   FAILED: '建單失敗',
 }
 
+/** 紙本統一發票由人工開立，沒有「開立失敗」這種狀態 */
 export const INVOICE_STATUS_LABEL: Record<InvoiceStatus, string> = {
+  PENDING: '尚未開立',
+  ISSUED: '已開立',
+  VOIDED: '已作廢',
+}
+
+export const RECEIPT_STATUS_LABEL: Record<ReceiptStatus, string> = {
   PENDING: '尚未開立',
   ISSUED: '已開立',
   VOIDED: '已作廢',

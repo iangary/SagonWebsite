@@ -66,7 +66,7 @@ services:
     restart: always
     # maxmemory-policy 必須是 noeviction —— BullMQ 的硬性要求。
     # 用 LRU 之類的淘汰策略時，記憶體滿了 Redis 會丟掉鍵值，而那些鍵值就是
-    # 待處理的工作：訂單付了款、webhook 也回了 200，但發票沒開、物流單沒建，
+    # 待處理的工作：訂單付了款、webhook 也回了 200，但收據沒開、物流單沒建，
     # 而且日誌上不會有任何錯誤。
     command:
       - redis-server
@@ -106,6 +106,8 @@ services:
       - '127.0.0.1:3000:3000'
     volumes:
       - uploads:/app/public/uploads
+      # 黑貓託運單 PDF。worker 寫、web 讀，所以兩邊都要掛同一個 volume。
+      - labels:/app/storage/labels
     mem_limit: 1g
     depends_on:
       db: { condition: service_healthy }
@@ -122,8 +124,13 @@ services:
     image: ${IMAGE_PREFIX:?required}-worker:${IMAGE_TAG:-latest}
     restart: always
     env_file: .env.production
-    # 不掛 uploads：worker 的四個工作（建物流單、開發票、寄信、釋放逾期庫存）
-    # 都不碰檔案系統，src/lib/uploads.ts 只被 admin 的 server action 匯入。
+    # 不掛 uploads：商品圖片只在 admin 的 server action 裡處理，worker 不碰。
+    # 但 labels 一定要掛 —— 建黑貓託運單是 worker 做的，PDF 由它寫入；
+    # 而讀取是 web 的 /api/admin/labels 做的。少掛這個 volume，
+    # PDF 會寫進 worker 容器的暫時層，web 永遠讀不到，而且黑貓的下載連結
+    # 只有 24 小時，過期就補印不回來了。
+    volumes:
+      - labels:/app/storage/labels
     mem_limit: 768m
     depends_on:
       db: { condition: service_healthy }
@@ -134,5 +141,6 @@ volumes:
   pgdata:
   redisdata:
   uploads:
+  labels:
   caddy_data:
   caddy_config:

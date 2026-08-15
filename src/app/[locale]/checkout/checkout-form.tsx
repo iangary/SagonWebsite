@@ -61,7 +61,6 @@ export function CheckoutForm({
   defaultAddress,
   shippingFees,
   freeShippingThreshold,
-  isMember,
 }: {
   items: Item[]
   couponCode: string | null
@@ -76,7 +75,6 @@ export function CheckoutForm({
   } | null
   shippingFees: { CVS: number; HOME: number }
   freeShippingThreshold: number
-  isMember: boolean
 }) {
   const [state, formAction, pending] = useActionState(submitCheckout, INITIAL)
 
@@ -84,9 +82,7 @@ export function CheckoutForm({
   const [cvsSubType, setCvsSubType] = React.useState('UNIMARTC2C')
   const [homeSubType, setHomeSubType] = React.useState('TCAT')
   const [store, setStore] = React.useState<CvsStore | null>(null)
-  const [invoiceType, setInvoiceType] = React.useState<'MEMBER' | 'MOBILE' | 'DONATE' | 'COMPANY'>(
-    isMember ? 'MEMBER' : 'MOBILE',
-  )
+  const [invoiceType, setInvoiceType] = React.useState<'PERSONAL' | 'COMPANY'>('PERSONAL')
 
   // 成功後導向綠界收銀台。用 location.assign 而不是 router.push，
   // 因為目標是一支會回 HTML 表單的 route handler，不是 Next 的頁面。
@@ -96,10 +92,23 @@ export function CheckoutForm({
 
   // 接收綠界電子地圖選店的結果
   React.useEffect(() => {
+    // 開地圖時發的一次性 token（存在 sessionStorage），選店結果回來要對得上
+    // 才收 —— 擋掉其他分頁或過期視窗塞進來的門市資料。
+    function tokenMatches(token: string | undefined): boolean {
+      try {
+        const expected = sessionStorage.getItem('ecpay:cvs-map-token')
+        return Boolean(expected) && token === expected
+      } catch {
+        // sessionStorage 被停用時退回舊行為（不驗 token），至少 origin 已經驗過
+        return true
+      }
+    }
+
     function onMessage(event: MessageEvent) {
       if (event.origin !== window.location.origin) return
-      const data = event.data as { type?: string; store?: CvsStore }
+      const data = event.data as { type?: string; store?: CvsStore; token?: string }
       if (data?.type !== 'ecpay:cvs-store-selected' || !data.store) return
+      if (!tokenMatches(data.token)) return
       setStore(data.store)
       setCvsSubType(data.store.subType)
     }
@@ -109,9 +118,14 @@ export function CheckoutForm({
     try {
       const cached = sessionStorage.getItem('ecpay:cvs-store')
       if (cached) {
-        const parsed = JSON.parse(cached) as CvsStore
-        setStore(parsed)
-        setCvsSubType(parsed.subType)
+        const parsed = JSON.parse(cached) as { store?: CvsStore; token?: string } | CvsStore
+        // 新格式是 { store, token }，兼容舊格式（直接是門市物件）
+        const store = 'store' in parsed && parsed.store ? parsed.store : (parsed as CvsStore)
+        const token = 'token' in parsed ? parsed.token : undefined
+        if (store.storeId && tokenMatches(token)) {
+          setStore(store)
+          setCvsSubType(store.subType)
+        }
         sessionStorage.removeItem('ecpay:cvs-store')
       }
     } catch {
@@ -122,7 +136,14 @@ export function CheckoutForm({
   }, [])
 
   function openStoreMap() {
-    const url = `/api/ecpay/logistics/map?subType=${cvsSubType}`
+    let token = ''
+    try {
+      token = crypto.randomUUID()
+      sessionStorage.setItem('ecpay:cvs-map-token', token)
+    } catch {
+      // 沒有 sessionStorage 就不帶 token，map-reply 會原樣帶回空字串
+    }
+    const url = `/api/ecpay/logistics/map?subType=${cvsSubType}&token=${token}`
     window.open(url, 'ecpay-cvs-map', 'width=1000,height=720,menubar=no,toolbar=no')
   }
 
@@ -368,60 +389,34 @@ export function CheckoutForm({
           </div>
         </section>
 
-        {/* 電子發票 */}
+        {/* 發票 */}
         <section>
-          <SectionTitle step={4} title="電子發票" />
+          <SectionTitle step={4} title="發票" />
+          <p className="mt-4 text-xs text-taupe-500">
+            發票為紙本，開立後隨包裹一併寄出。付款完成時另會寄一份電子收據到您的信箱。
+          </p>
           <div className="mt-6 space-y-4">
             <div className="grid gap-2 sm:grid-cols-2">
               {[
-                { value: 'MEMBER', label: '會員載具', note: '存放於本站帳戶，可隨時查詢', disabled: !isMember },
-                { value: 'MOBILE', label: '手機條碼載具', note: '存入您的手機條碼' },
-                { value: 'DONATE', label: '捐贈發票', note: '捐贈給社福機構' },
+                { value: 'PERSONAL', label: '個人', note: '開立二聯式發票' },
                 { value: 'COMPANY', label: '公司統編', note: '開立三聯式發票' },
               ].map((option) => (
                 <button
                   key={option.value}
                   type="button"
-                  disabled={option.disabled}
                   onClick={() => setInvoiceType(option.value as typeof invoiceType)}
                   className={cn(
-                    'border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+                    'border p-3 text-left transition-colors',
                     invoiceType === option.value
                       ? 'border-ink-900 bg-white'
                       : 'border-cream-300 hover:border-taupe-400',
                   )}
                 >
                   <span className="block text-sm text-ink-900">{option.label}</span>
-                  <span className="mt-0.5 block text-xs text-taupe-500">
-                    {option.disabled ? '登入後可使用' : option.note}
-                  </span>
+                  <span className="mt-0.5 block text-xs text-taupe-500">{option.note}</span>
                 </button>
               ))}
             </div>
-
-            {invoiceType === 'MOBILE' && (
-              <Field
-                label="手機條碼"
-                htmlFor="carrierNum"
-                required
-                error={errors.carrierNum}
-                hint="格式為斜線加 7 碼，例如 /ABC1234"
-              >
-                <Input id="carrierNum" name="carrierNum" placeholder="/ABC1234" maxLength={8} />
-              </Field>
-            )}
-
-            {invoiceType === 'DONATE' && (
-              <Field
-                label="愛心碼"
-                htmlFor="loveCode"
-                required
-                error={errors.loveCode}
-                hint="不確定可填 25885（財團法人台灣兒童暨家庭扶助基金會）"
-              >
-                <Input id="loveCode" name="loveCode" inputMode="numeric" maxLength={7} />
-              </Field>
-            )}
 
             {invoiceType === 'COMPANY' && (
               <div className="grid gap-4 sm:grid-cols-2">

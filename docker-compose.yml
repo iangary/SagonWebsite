@@ -13,8 +13,10 @@ services:
       POSTGRES_INITDB_ARGS: '--auth-host=scram-sha-256'
       TZ: Asia/Taipei
     ports:
-      # host 用 5433，避開機器上其他既有的 PostgreSQL。容器之間仍走 db:5432。
-      - '5433:5432'
+      # host 用 15433：避開既有 PostgreSQL，也避開 Windows 的 Hyper-V/WSL
+      # 動態保留埠範圍（常態性涵蓋 5150-5749，會吃掉 5433 導致綁不起來）。
+      # 容器之間仍走 db:5432。
+      - '15433:5432'
     volumes:
       # PG18 起，官方 image 要求掛在 /var/lib/postgresql（不是 .../data），
       # 資料會放到版本專屬子目錄，日後 pg_upgrade --link 才不會跨掛載點。

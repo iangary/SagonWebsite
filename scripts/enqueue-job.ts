@@ -9,7 +9,7 @@
  * 範例：
  *   ... scripts/enqueue-job.ts send-email <orderId> order-confirmed
  *   ... scripts/enqueue-job.ts create-shipment <orderId>
- *   ... scripts/enqueue-job.ts issue-invoice <orderId>
+ *   ... scripts/enqueue-job.ts issue-receipt <orderId>
  *   ... scripts/enqueue-job.ts release-expired-reservations
  */
 
@@ -19,8 +19,9 @@ import IORedis from 'ioredis'
 const JOB_NAMES = [
   'send-email',
   'create-shipment',
-  'issue-invoice',
+  'issue-receipt',
   'release-expired-reservations',
+  'poll-tcat-status',
 ] as const
 
 type JobName = (typeof JOB_NAMES)[number]
@@ -37,7 +38,7 @@ if (!jobArg || !JOB_NAMES.includes(jobArg as JobName)) {
 }
 const job = jobArg as JobName
 
-if (job !== 'release-expired-reservations' && !orderId) {
+if (job !== 'release-expired-reservations' && job !== 'poll-tcat-status' && !orderId) {
   usage(`${job} 需要指定 orderId`)
 }
 
@@ -50,7 +51,7 @@ const queue = new Queue('sagon', { connection })
 const data =
   job === 'send-email'
     ? { template, orderId }
-    : job === 'release-expired-reservations'
+    : job === 'release-expired-reservations' || job === 'poll-tcat-status'
       ? {}
       : { orderId }
 

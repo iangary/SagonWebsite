@@ -73,6 +73,8 @@ export function CartView({
   if (items.length === 0) {
     return (
       <div className="mx-auto flex max-w-md flex-col items-center px-6 py-28 text-center">
+        {/* 空狀態也要有 h1 —— 每頁一個 h1 是無障礙與 SEO 的底線 */}
+        <h1 className="sr-only">{labels.title}</h1>
         <ShoppingBag size={40} strokeWidth={1} className="text-taupe-400" />
         <p className="mt-6 text-ink-700">{labels.empty}</p>
         <Button asChild className="mt-8">

@@ -66,20 +66,46 @@ export async function recordWebhook(
     }
   }
 
-  const created = await db.webhookEvent.create({
-    data: {
-      provider: 'ECPAY',
-      kind,
-      externalId,
-      merchantTradeNo: params.MerchantTradeNo ?? null,
-      payload: params,
-      headers: headers ?? undefined,
-      signatureValid,
-    },
-    select: { id: true },
-  })
+  try {
+    const created = await db.webhookEvent.create({
+      data: {
+        provider: 'ECPAY',
+        kind,
+        externalId,
+        merchantTradeNo: params.MerchantTradeNo ?? null,
+        payload: params,
+        headers: headers ?? undefined,
+        signatureValid,
+      },
+      select: { id: true },
+    })
+    return { id: created.id, alreadyProcessed: false, externalId }
+  } catch (error) {
+    // 兩個一模一樣的重送「同時」進來時，find 都會撲空、其中一個 create 會
+    // 撞唯一鍵（P2002）。撞到的那個重讀一次即可，不能讓 route 回 500
+    // （否則綠界又會再重送一輪）。
+    if (isUniqueViolation(error)) {
+      const winner = await db.webhookEvent.findUniqueOrThrow({
+        where: { provider_kind_externalId: { provider: 'ECPAY', kind, externalId } },
+        select: { id: true, processedAt: true },
+      })
+      return {
+        id: winner.id,
+        alreadyProcessed: winner.processedAt !== null,
+        externalId,
+      }
+    }
+    throw error
+  }
+}
 
-  return { id: created.id, alreadyProcessed: false, externalId }
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: string }).code === 'P2002'
+  )
 }
 
 export async function markWebhookProcessed(id: string): Promise<void> {

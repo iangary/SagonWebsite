@@ -1,11 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import type { LogisticsSubType } from '@prisma/client'
-import { buildExpressMapParams, CVS_SUBTYPES } from '@/lib/ecpay/logistics'
+import { buildExpressMapParams, CVS_SUBTYPES, type CvsSubType } from '@/lib/ecpay/logistics'
 import { renderAutoSubmitForm } from '@/lib/ecpay/auto-submit'
 
 export const dynamic = 'force-dynamic'
 
 const ALLOWED = new Set<string>(CVS_SUBTYPES.map((s) => s.value))
+
+function isAllowed(subType: string): subType is CvsSubType {
+  return ALLOWED.has(subType)
+}
 
 /**
  * 開啟綠界電子地圖讓消費者選門市。
@@ -13,14 +16,14 @@ const ALLOWED = new Set<string>(CVS_SUBTYPES.map((s) => s.value))
  */
 export async function GET(req: NextRequest) {
   const subType = req.nextUrl.searchParams.get('subType') ?? 'UNIMARTC2C'
-  if (!ALLOWED.has(subType)) {
+  if (!isAllowed(subType)) {
     return NextResponse.json({ error: '不支援的超商類型' }, { status: 400 })
   }
 
   // 用一個隨機 token 當 ExtraData，選店結果回來時據此確認是這一次開的視窗
   const token = req.nextUrl.searchParams.get('token') ?? crypto.randomUUID()
 
-  const { action, params } = buildExpressMapParams(subType as LogisticsSubType, token)
+  const { action, params } = buildExpressMapParams(subType, token)
 
   return renderAutoSubmitForm({
     action,

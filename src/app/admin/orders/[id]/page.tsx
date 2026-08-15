@@ -3,12 +3,13 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { db } from '@/lib/db'
 import { formatTWD } from '@/lib/utils'
-import { LOGISTICS_SUBTYPE_LABEL, buildPrintDocumentParams } from '@/lib/ecpay/logistics'
+import { LOGISTICS_SUBTYPE_LABEL, buildPrintDocumentParams, isC2C } from '@/lib/ecpay/logistics'
 import {
   ORDER_STATUS_LABEL,
   PAYMENT_STATUS_LABEL,
   SHIPMENT_STATUS_LABEL,
   INVOICE_STATUS_LABEL,
+  RECEIPT_STATUS_LABEL,
   CHOOSE_PAYMENT_LABEL,
 } from '@/lib/orders/labels'
 import { Badge, ORDER_STATUS_TONE } from '@/components/ui/badge'
@@ -32,6 +33,7 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
       items: true,
       payment: true,
       invoice: true,
+      receipt: true,
       coupon: true,
       user: { select: { id: true, name: true, email: true } },
       shipment: { include: { logs: { orderBy: { occurredAt: 'desc' } } } },
@@ -40,9 +42,10 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
 
   if (!order) notFound()
 
-  // 列印單據要 POST 到綠界，在伺服器端先把帶簽章的參數算好交給前端
+  // 列印一段標要 POST 到綠界，在伺服器端先把帶簽章的參數算好交給前端。
+  // 只有超商取貨走綠界；宅配是黑貓，託運單 PDF 走 /api/admin/labels/[orderId]。
   const printForm =
-    order.shipment?.allPayLogisticsId
+    order.shipment?.allPayLogisticsId && isC2C(order.shipment.logisticsSubType)
       ? buildPrintDocumentParams(
           order.shipment.logisticsSubType,
           order.shipment.allPayLogisticsId,
@@ -75,8 +78,21 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
       <OrderActions
         orderId={order.id}
         orderStatus={order.status}
-        hasShipment={Boolean(order.shipment?.allPayLogisticsId)}
+        shippingMethod={order.shippingMethod}
+        // 黑貓建單成功不會回 allPayLogisticsId，只看它會讓按鈕一直可按、重複建單
+        hasShipment={Boolean(order.shipment?.shipmentNo || order.shipment?.allPayLogisticsId)}
+        hasLabel={Boolean(order.shipment?.labelPath)}
+        // 建單曾轉人工處理（例如黑貓逾時，單可能已成立）：再按建單前必須先確認，
+        // 否則會產生第二張真實託運單
+        manualNote={
+          order.shipment?.status === 'PENDING' &&
+          !order.shipment.shipmentNo &&
+          !order.shipment.allPayLogisticsId
+            ? (order.shipment.statusMsg ?? null)
+            : null
+        }
         invoiceStatus={order.invoice?.status ?? null}
+        receiptStatus={order.receipt?.status ?? null}
         printForm={printForm}
       />
 
@@ -200,35 +216,66 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
                 {order.shipment.failReason && (
                   <Row label="建單失敗" value={order.shipment.failReason} tone="sale" />
                 )}
+                {order.shipment.statusMsg && (
+                  // manual fallback 的人工處理指示也寫在 statusMsg，一定要讓客服看得到
+                  <Row
+                    label="狀態訊息"
+                    value={order.shipment.statusMsg}
+                    tone={order.shipment.status === 'PENDING' ? 'sale' : undefined}
+                  />
+                )}
               </dl>
             ) : (
               <p className="text-sm text-taupe-500">無物流資料</p>
             )}
           </Section>
 
-          <Section title="發票">
+          <Section title="發票（紙本，人工開立）">
             {order.invoice ? (
               <dl className="space-y-2 text-sm">
                 <Row label="狀態" value={INVOICE_STATUS_LABEL[order.invoice.status]} />
+                <Row label="開立對象" value={order.invoice.isB2B ? '公司' : '個人'} />
+                {order.invoice.taxId && <Row label="統一編號" value={order.invoice.taxId} />}
+                {order.invoice.companyName && (
+                  <Row label="公司抬頭" value={order.invoice.companyName} />
+                )}
                 {order.invoice.invoiceNumber && (
                   <Row label="發票號碼" value={order.invoice.invoiceNumber} />
                 )}
-                {order.invoice.randomNumber && (
-                  <Row label="隨機碼" value={order.invoice.randomNumber} />
+                {order.invoice.invoiceDate && (
+                  <Row
+                    label="開立日期"
+                    value={order.invoice.invoiceDate.toLocaleDateString('zh-TW')}
+                  />
                 )}
-                {order.invoice.taxId && <Row label="統一編號" value={order.invoice.taxId} />}
-                {order.invoice.carrierNum && (
-                  <Row label="載具" value={order.invoice.carrierNum} />
-                )}
-                {order.invoice.donation && (
-                  <Row label="捐贈愛心碼" value={order.invoice.loveCode ?? '—'} />
-                )}
-                {order.invoice.failReason && (
-                  <Row label="失敗原因" value={order.invoice.failReason} tone="sale" />
+                {order.invoice.voidReason && (
+                  <Row label="作廢原因" value={order.invoice.voidReason} tone="sale" />
                 )}
               </dl>
             ) : (
               <p className="text-sm text-taupe-500">無發票資料</p>
+            )}
+          </Section>
+
+          <Section title="電子收據（綠界）">
+            {order.receipt ? (
+              <dl className="space-y-2 text-sm">
+                <Row label="狀態" value={RECEIPT_STATUS_LABEL[order.receipt.status]} />
+                {order.receipt.receiptNo && (
+                  <Row label="收據編號" value={order.receipt.receiptNo} />
+                )}
+                {order.receipt.issuedAt && (
+                  <Row
+                    label="開立時間"
+                    value={order.receipt.issuedAt.toLocaleString('zh-TW', { hour12: false })}
+                  />
+                )}
+                {order.receipt.failReason && (
+                  <Row label="失敗原因" value={order.receipt.failReason} tone="sale" />
+                )}
+              </dl>
+            ) : (
+              <p className="text-sm text-taupe-500">無收據資料</p>
             )}
           </Section>
         </div>

@@ -43,10 +43,9 @@ ENV APP_URL=http://localhost:3000 \
     AUTH_SECRET=build-time-placeholder-secret \
     ECPAY_MERCHANT_ID=0 ECPAY_HASH_KEY=0 ECPAY_HASH_IV=0 \
     ECPAY_LOGISTICS_MERCHANT_ID=0 ECPAY_LOGISTICS_HASH_KEY=0 ECPAY_LOGISTICS_HASH_IV=0 \
-    ECPAY_LOGISTICS_C2C_MERCHANT_ID=0 ECPAY_LOGISTICS_C2C_HASH_KEY=0 ECPAY_LOGISTICS_C2C_HASH_IV=0 \
     ECPAY_SENDER_NAME=build ECPAY_SENDER_CELLPHONE=0900000000 \
     ECPAY_SENDER_ZIPCODE=000 ECPAY_SENDER_ADDRESS=build \
-    ECPAY_INVOICE_MERCHANT_ID=0 ECPAY_INVOICE_HASH_KEY=0 ECPAY_INVOICE_HASH_IV=0
+    ECPAY_RECEIPT_MERCHANT_ID=0 ECPAY_RECEIPT_HASH_KEY=0 ECPAY_RECEIPT_HASH_IV=0
 COPY . .
 # public/ 目前只有 uploads（被 .dockerignore 排除）且沒有任何檔案進 git，
 # 所以 CI 上的 build context 根本沒有這個目錄，runner 的 COPY 會失敗。
@@ -77,7 +76,9 @@ ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-RUN mkdir -p /app/public/uploads && chown -R node:node /app
+# storage/labels 要先建出來並歸 node 所有：Docker 建立具名 volume 時會沿用
+# 映像檔裡該路徑的擁有者，路徑不存在就會變成 root 的，非 root 的 node 寫不進去。
+RUN mkdir -p /app/public/uploads /app/storage/labels && chown -R node:node /app
 
 USER node
 EXPOSE 3000
@@ -93,6 +94,9 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
+# worker 會把黑貓託運單 PDF 寫進這裡（見 lib/tcat/labels.ts），
+# 同 runner：路徑要先存在且屬於 node，volume 掛上來才不會是 root 的。
+RUN mkdir -p /app/storage/labels && chown -R node:node /app
 USER node
 # server-only 在 Next 的 bundler 外會直接拋錯，用 react-server condition 讓它解析成空模組。
 # 容器內的環境變數由 compose 的 env_file 提供，--env-file-if-exists 只是本機跑的方便。

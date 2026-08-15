@@ -34,12 +34,10 @@ const schema = z.object({
   ECPAY_HASH_KEY: z.string().min(1),
   ECPAY_HASH_IV: z.string().min(1),
 
+  // 只做超商 C2C，綠界不會核發第二組物流代號
   ECPAY_LOGISTICS_MERCHANT_ID: z.string().min(1),
   ECPAY_LOGISTICS_HASH_KEY: z.string().min(1),
   ECPAY_LOGISTICS_HASH_IV: z.string().min(1),
-  ECPAY_LOGISTICS_C2C_MERCHANT_ID: z.string().min(1),
-  ECPAY_LOGISTICS_C2C_HASH_KEY: z.string().min(1),
-  ECPAY_LOGISTICS_C2C_HASH_IV: z.string().min(1),
 
   ECPAY_SENDER_NAME: z.string().min(1),
   ECPAY_SENDER_PHONE: z.string().default(''),
@@ -47,10 +45,32 @@ const schema = z.object({
   ECPAY_SENDER_ZIPCODE: z.string().min(1),
   ECPAY_SENDER_ADDRESS: z.string().min(1),
 
-  ECPAY_INVOICE_MERCHANT_ID: z.string().min(1),
-  ECPAY_INVOICE_HASH_KEY: z.string().min(1),
-  ECPAY_INVOICE_HASH_IV: z.string().min(1),
-  ECPAY_INVOICE_AUTO_ISSUE: boolish.default(true),
+  // 電子收據。不是統一發票 —— 紙本發票另由人工開立隨包裹寄出。
+  ECPAY_RECEIPT_MERCHANT_ID: z.string().min(1),
+  ECPAY_RECEIPT_HASH_KEY: z.string().min(1),
+  ECPAY_RECEIPT_HASH_IV: z.string().min(1),
+  ECPAY_RECEIPT_AUTO_ISSUE: boolish.default(true),
+
+  // 黑貓宅急便（統一速達印單 API 平台）。宅配是我們自己簽的約，不經綠界。
+  TCAT_ENV: z.enum(['stage', 'production']).default('stage'),
+  TCAT_CUSTOMER_ID: z.string().min(1),
+  TCAT_CUSTOMER_TOKEN: z.string().min(1),
+  /**
+   * 寄件地址對應的「黑貓郵碼」後六碼 —— 不是中華郵政的郵遞區號。
+   * 用 scripts/tcat-parse-address.ts 查一次寫進來即可，地址沒變就不會變。
+   */
+  TCAT_SENDER_ZIP: z.string().length(6),
+  /** 託運單版型：01 A4 二模、02 A4 三模、03 熱轉印 */
+  TCAT_OBT_TYPE: z.enum(['01', '02', '03']).default('01'),
+  /** 商品類別，見規格書 2.2.1 第 32 項。0008 = 服飾配件 */
+  TCAT_PRODUCT_TYPE_ID: z.string().length(4).default('0008'),
+  /** 材積級距：0001 60cm、0002 90cm、0003 120cm、0004 150cm */
+  TCAT_DEFAULT_SPEC: z.enum(['0001', '0002', '0003', '0004']).default('0002'),
+  /**
+   * 每滿這個件數就把材積往上升一級。預設極大值 = 一律用 TCAT_DEFAULT_SPEC。
+   * 之後要調整級距規則改這個值就好，不用動程式。
+   */
+  TCAT_SPEC_QTY_STEP: intFromString(9999),
 
   SMS_PROVIDER: z.enum(['console', 'mitake']).default('console'),
   MITAKE_USERNAME: z.string().optional().default(''),

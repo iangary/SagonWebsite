@@ -7,7 +7,7 @@ import { db } from '@/lib/db'
 import { requireAdmin } from '@/lib/auth'
 import { audit } from '@/lib/audit'
 import { createShipmentForOrder } from '@/lib/orders/logistics'
-import { issueInvoiceForOrder, voidInvoiceForOrder } from '@/lib/orders/invoice'
+import { issueReceiptForOrder, voidReceiptForOrder } from '@/lib/orders/receipt'
 import { releaseOrderReservations } from '@/lib/orders/stock'
 import { enqueue } from '@/lib/queue'
 
@@ -34,27 +34,139 @@ export async function adminCreateShipment(orderId: string): Promise<AdminActionR
     await createShipmentForOrder(orderId)
     await audit({ userId: admin.id, action: 'shipment.create', entity: 'Order', entityId: orderId })
     revalidatePath(`/admin/orders/${orderId}`)
-    return '已向綠界建立物流訂單'
+    // 超商走綠界、宅配走黑貓，由 providerFor 決定，這裡不必分辨
+    return '已建立物流訂單'
   })
 }
 
-export async function adminIssueInvoice(orderId: string): Promise<AdminActionResult> {
+/**
+ * 填入黑貓托運單號並標記已出貨。
+ *
+ * 黑貓已改為 API 自動建單（見 lib/orders/logistics.ts 的 tcatProvider），
+ * 這支只留給例外情況補單 —— 最常見的是建單請求逾時、單其實已經成立，
+ * 這時不能重送（會建出第二張），只能到黑貓後台抄單號回填。
+ */
+const tcatSchema = z.object({
+  orderId: z.string().min(1),
+  shipmentNo: z
+    .string()
+    .trim()
+    .min(1, '請填寫黑貓托運單號')
+    .max(30, '托運單號最多 30 字')
+    .regex(/^[A-Za-z0-9-]+$/, '托運單號只能是英數與連字號'),
+})
+
+export async function adminRecordTcatShipment(
+  orderId: string,
+  shipmentNo: string,
+): Promise<AdminActionResult> {
   const admin = await requireAdmin()
 
-  return run('開立發票', async () => {
-    await issueInvoiceForOrder(orderId)
-    await audit({ userId: admin.id, action: 'invoice.issue', entity: 'Order', entityId: orderId })
+  const parsed = tcatSchema.safeParse({ orderId, shipmentNo })
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? '參數錯誤' }
+  }
+
+  return run('回填黑貓托運單號', async () => {
+    const order = await db.order.findUniqueOrThrow({
+      where: { id: orderId },
+      select: { status: true, shippingMethod: true, shipment: { select: { id: true } } },
+    })
+
+    if (order.shippingMethod !== 'HOME') {
+      throw new Error('只有宅配訂單需要回填黑貓托運單號')
+    }
+    if (!order.shipment) throw new Error('這張訂單沒有物流資料')
+
+    await db.$transaction([
+      db.shipment.update({
+        where: { id: order.shipment.id },
+        data: {
+          shipmentNo: parsed.data.shipmentNo,
+          status: 'IN_TRANSIT',
+          statusMsg: '已於黑貓系統建單並出貨',
+          failReason: null,
+        },
+      }),
+      db.order.update({ where: { id: orderId }, data: { status: 'SHIPPED' } }),
+    ])
+
+    await audit({
+      userId: admin.id,
+      action: 'shipment.tcat.record',
+      entity: 'Order',
+      entityId: orderId,
+      after: { shipmentNo: parsed.data.shipmentNo },
+    })
+    await enqueue('send-email', { template: 'shipped', orderId })
+
     revalidatePath(`/admin/orders/${orderId}`)
-    return '發票已開立'
+    revalidatePath('/admin/orders')
+    return '已回填托運單號並標記為已出貨'
+  })
+}
+
+/**
+ * 回填人工開立的紙本發票號碼。
+ * 我們沒有申請綠界電子發票，發票是人工開立、隨包裹寄出，這裡只留紀錄供客服查詢。
+ */
+const invoiceRecordSchema = z.object({
+  orderId: z.string().min(1),
+  invoiceNumber: z
+    .string()
+    .trim()
+    .regex(/^[A-Z]{2}\d{8}$/, '發票號碼格式為 2 碼英文字母加 8 位數字，例如 AB12345678'),
+})
+
+export async function adminRecordInvoice(
+  orderId: string,
+  invoiceNumber: string,
+): Promise<AdminActionResult> {
+  const admin = await requireAdmin()
+
+  const parsed = invoiceRecordSchema.safeParse({ orderId, invoiceNumber })
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? '參數錯誤' }
+  }
+
+  return run('回填發票號碼', async () => {
+    await db.invoice.update({
+      where: { orderId },
+      data: {
+        invoiceNumber: parsed.data.invoiceNumber,
+        invoiceDate: new Date(),
+        status: 'ISSUED',
+      },
+    })
+    await audit({
+      userId: admin.id,
+      action: 'invoice.record',
+      entity: 'Order',
+      entityId: orderId,
+      after: { invoiceNumber: parsed.data.invoiceNumber },
+    })
+    revalidatePath(`/admin/orders/${orderId}`)
+    return '已回填發票號碼'
+  })
+}
+
+export async function adminIssueReceipt(orderId: string): Promise<AdminActionResult> {
+  const admin = await requireAdmin()
+
+  return run('開立電子收據', async () => {
+    await issueReceiptForOrder(orderId)
+    await audit({ userId: admin.id, action: 'receipt.issue', entity: 'Order', entityId: orderId })
+    revalidatePath(`/admin/orders/${orderId}`)
+    return '電子收據已開立'
   })
 }
 
 const voidSchema = z.object({
   orderId: z.string().min(1),
-  reason: z.string().trim().min(1, '請填寫作廢原因').max(20, '作廢原因最多 20 字'),
+  reason: z.string().trim().min(1, '請填寫作廢原因').max(200, '作廢原因最多 200 字'),
 })
 
-export async function adminVoidInvoice(
+export async function adminVoidReceipt(
   orderId: string,
   reason: string,
 ): Promise<AdminActionResult> {
@@ -65,17 +177,17 @@ export async function adminVoidInvoice(
     return { ok: false, error: parsed.error.issues[0]?.message ?? '參數錯誤' }
   }
 
-  return run('作廢發票', async () => {
-    await voidInvoiceForOrder(orderId, parsed.data.reason)
+  return run('作廢電子收據', async () => {
+    await voidReceiptForOrder(orderId, parsed.data.reason)
     await audit({
       userId: admin.id,
-      action: 'invoice.void',
+      action: 'receipt.void',
       entity: 'Order',
       entityId: orderId,
       after: { reason: parsed.data.reason },
     })
     revalidatePath(`/admin/orders/${orderId}`)
-    return '發票已作廢'
+    return '電子收據已作廢'
   })
 }
 
