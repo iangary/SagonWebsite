@@ -1,7 +1,7 @@
 # 莎岡選品店 — 電商網站
 
 繁體中文電商網站，版面與資訊架構參考 [www.sagan.com.tw](https://www.sagan.com.tw)。
-Docker + Next.js 16 + PostgreSQL 18，串接**綠界 ECPay 金流、物流與電子發票**，
+Docker + Next.js 16 + PostgreSQL 18，串接**綠界 ECPay 金流、超商取貨與電子收據**，
 會員支援 **Google SSO / Email 密碼 / 手機驗證碼**三種登入並可互相綁定。
 
 > 這份 README 講的是**怎麼跑起來**。
@@ -42,7 +42,7 @@ npm run worker
 | 測試會員 | | `customer@sagon.local` / `admin1234`（手機 0912345678） |
 | Mailpit | <http://localhost:8025> | 開發用收信匣 |
 | Adminer | <http://localhost:8080> | `docker compose up -d adminer` |
-| PostgreSQL | `localhost:5433` | 避開機器上其他 PG，容器間仍走 `db:5432` |
+| PostgreSQL | `localhost:15433` | 避開其他 PG 與 Windows 動態保留埠（5150–5749 會吃掉 5433），容器間仍走 `db:5432` |
 
 ---
 
@@ -64,8 +64,11 @@ docker compose logs cloudflared | grep trycloudflare
 | 服務 | 簽章 | 測試站 | 商店代號 |
 |---|---|---|---|
 | 全方位金流 AIO | CheckMacValue（**SHA256**） | `payment-stage` | `ECPAY_MERCHANT_ID` |
-| 物流整合 | CheckMacValue（**MD5**） | `logistics-stage` | B2C 與 C2C **分開申請** |
-| 電子發票 B2C v3 | **AES-128-CBC** 加密 JSON | `einvoice-stage` | `ECPAY_INVOICE_MERCHANT_ID` |
+| 物流整合（僅超商 C2C） | CheckMacValue（**MD5**） | `logistics-stage` | `ECPAY_LOGISTICS_MERCHANT_ID` |
+| 電子收據 | **AES-128-CBC** 加密 JSON | `einvoice-stage` | `ECPAY_RECEIPT_MERCHANT_ID` |
+
+**沒有串的**：電子發票（沒申請，紙本由人工開立隨包裹寄出）、宅配（黑貓另外簽約，
+不經綠界）、超商 B2C（申請類型與 C2C 不能混串，需要第二組商店代號）。
 
 CheckMacValue 的實作對照官方文件範例寫了 golden test（`src/lib/ecpay/checkmac.test.ts`），
 改動簽章邏輯後務必跑 `npm run test`。
@@ -86,7 +89,7 @@ CheckMacValue 的實作對照官方文件範例寫了 golden test（`src/lib/ecp
 ### 開發時模擬付款成功
 
 信用卡的 `ReturnURL` 通知只有真的刷卡才會發出。要測試後續流程（實扣庫存、
-建物流單、開發票、寄信）可以自己簽一份通知打進來：
+建物流單、開收據、寄信）可以自己簽一份通知打進來：
 
 ```bash
 npx tsx --env-file-if-exists=.env --conditions=react-server scripts/simulate-ecpay-callback.ts payment-return <orderNo>
@@ -104,18 +107,33 @@ npx tsx --env-file-if-exists=.env --conditions=react-server scripts/simulate-ecp
 | ATM 取號 → `PaymentInfoURL` 回拋 | ✅ 真實回拋，驗簽通過，虛擬帳號寫入 |
 | 付款成功 → 實扣庫存、訂單轉狀態 | ✅（用 `simulate-ecpay-callback.ts` 驗證） |
 | Webhook 冪等（重送不重複扣庫存） | ✅ |
-| 建立物流訂單（宅配 TCAT） | ✅ 綠界回傳真實物流編號與托運單號 |
 | 物流狀態回拋 → 更新貨態 | ✅ |
 | 超商取貨選店（ExpressMap） | ✅ 綠界電子地圖回傳真實門市（7-11 建盛門市）並寫入 |
 | 正式版 Docker 映像與 compose | ✅ 建置、migration、健康檢查、供頁皆正常 |
-| Vitest 55 項 / Playwright 12 項 | ✅ 全數通過 |
+| Vitest 單元 179 項 + 整合 154 項（真實 Postgres） | ✅ 全數通過 |
 | 後台商品維護（新增／圖片／規格／分類品牌） | ✅ 建立→上傳→上架→刪除全程實測 |
-| 電子發票開立 | ⚠️ **未完成** |
+| 黑貓 `ParsingAddress`（地址換郵碼） | ✅ 測試站真實回應，憑證有效 |
+| 超商 C2C 建單 | ⚠️ **未實測**（先前實測的是宅配 TCAT，已改走黑貓） |
+| 黑貓建單 `PrintOBT` → 下載託運單 | ⚠️ **未實測** |
+| 黑貓貨態輪詢 `OBTStatus` | ⚠️ **未實測** |
+| 電子收據開立 | ⚠️ **未實測** |
 
-**電子發票**：AES 加解密與電文往返都正常（綠界回傳的是可解密的業務錯誤訊息，
-不是傳輸錯誤），但公用測試商店代號沒有可用的發票字軌，回
-`查無可使用字軌或發票號碼`。要完成驗證需要登入
-[vendor-stage.ecpay.com.tw](https://vendor-stage.ecpay.com.tw) 為商店設定發票字軌。
+**超商 C2C 建單**：物流商店代號從 B2C（`2000132`）換成 C2C（`2000933`），
+`LogisticsType` 也修正為固定 `CVS`，需要重新對測試站跑一次建單。
+
+**電子收據**：AES 加解密沿用原本電子發票那套（已有 golden test），但還沒對綠界
+測試站實際送過電文。特別要驗的是折扣以負數單價呈現時會不會被退件 ——
+官方文件只寫「單價可為 0」，沒有明說可為負。
+
+**黑貓宅配**：已改為直接串接統一速達印單 API（規格書在 `docs/黑貓宅急便_…_v2.1.2/`）。
+`ParsingAddress` 已對測試站實測通過，確認契客代號與授權碼有效、測試站也對我們開通
+（`scripts/tcat-parse-address.ts` 可重跑）。寄件人資料已對齊契客專區的「印單資料設定」：
+新北市中和區宜安路 171 號 → 黑貓郵碼 `40-693-52-C`，`TCAT_SENDER_ZIP=69352C`。
+
+尚未實測的是 `PrintOBT` 建單 —— 它會產生一張**真實的託運單**，留給有人在旁邊確認時再跑。
+
+要注意黑貓建單**沒有冪等鍵**：逾時而其實已成立的情況無法從回應分辨，
+所以程式碼刻意不自動重試，任何失敗都轉人工到黑貓後台確認後回填單號。
 
 **信用卡付款**：沒有實際在綠界收銀台輸入卡號完成刷卡。收銀台本身已確認會接受
 我們送出的訂單（金額、品項、訂單編號都正確顯示），付款成功後的處理邏輯則是用
@@ -128,8 +146,10 @@ npx tsx --env-file-if-exists=.env --conditions=react-server scripts/simulate-ecp
 ```bash
 npm run dev          # 開發伺服器
 npm run worker       # 背景工作（物流建單、開發票、寄信、釋放逾期庫存）
-npm run test         # Vitest 單元測試（簽章、金額計算、物流狀態對應）
-npm run e2e          # Playwright 端到端測試
+npm run test         # Vitest 單元測試（不碰資料庫，最快）
+npm run test:integration  # 整合測試（需 docker compose 的 db，連 sagon_test 庫）
+npm run test:all     # 單元 + 整合
+npm run e2e          # Playwright 端到端測試（金流模擬需 .env 的綠界測試金鑰）
 npm run typecheck    # tsc --noEmit
 npm run build        # 正式版建置
 npm run db:migrate   # 建立並套用 migration
@@ -157,8 +177,8 @@ src/
 │  ├─ admin/             後台（獨立 root layout，不做多語系）
 │  └─ api/ecpay/         綠界 callback
 ├─ lib/
-│  ├─ ecpay/             checkmac / aio / logistics / invoice / webhook
-│  ├─ orders/            pricing / stock / create / payment / logistics / invoice
+│  ├─ ecpay/             checkmac / aio / logistics / receipt / webhook
+│  ├─ orders/            pricing / stock / create / payment / logistics / receipt
 │  ├─ auth/              Auth.js 設定、密碼、OTP
 │  ├─ sms/               可插拔簡訊供應商（console / 三竹）
 │  └─ cart/
