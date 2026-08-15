@@ -24,7 +24,7 @@ export default async function ContactPage({ params }: { params: Promise<{ locale
     {
       icon: Mail,
       title: '客服信箱',
-      body: 'service@sagon.local',
+      body: env.SHOP_SERVICE_EMAIL,
       note: '一般問題會在 1 個工作天內回覆',
     },
     {

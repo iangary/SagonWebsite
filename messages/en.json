@@ -12,7 +12,10 @@
     "orderQuery": "Track Order",
     "faq": "FAQ",
     "contact": "Contact",
-    "admin": "Admin"
+    "admin": "Admin",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "returns": "Returns & Refunds"
   },
   "home": {
     "heroTitle": "Your own happiness is the only moral compass",

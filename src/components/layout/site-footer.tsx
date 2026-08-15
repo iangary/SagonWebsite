@@ -13,6 +13,12 @@ export async function SiteFooter() {
     { href: '/faq', label: tNav('faq') },
   ]
 
+  const legalLinks = [
+    { href: '/returns', label: tNav('returns') },
+    { href: '/terms', label: tNav('terms') },
+    { href: '/privacy', label: tNav('privacy') },
+  ]
+
   return (
     <footer className="mt-20 border-t border-cream-200 bg-cream-100">
       <div className="mx-auto grid max-w-7xl gap-10 px-6 py-14 sm:grid-cols-2 lg:grid-cols-4">
@@ -52,7 +58,7 @@ export async function SiteFooter() {
             </div>
             <div>
               <dt className="inline">Email：</dt>
-              <dd className="inline">service@sagon.local</dd>
+              <dd className="inline">{env.SHOP_SERVICE_EMAIL}</dd>
             </div>
             <div>
               <dt className="inline">客服時間：</dt>
@@ -63,9 +69,20 @@ export async function SiteFooter() {
       </div>
 
       <div className="border-t border-cream-200 px-6 py-5">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 text-xs text-taupe-500 sm:flex-row">
-          <p>{t('copyright', { year })}</p>
-          <p>{t('disclaimer')}</p>
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 text-xs text-taupe-500">
+          <ul className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 sm:justify-start">
+            {legalLinks.map((link) => (
+              <li key={link.href}>
+                <Link href={link.href} className="transition-colors hover:text-ink-700">
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-col items-center justify-between gap-2 sm:flex-row">
+            <p>{t('copyright', { year })}</p>
+            <p>{t('disclaimer')}</p>
+          </div>
         </div>
       </div>
     </footer>

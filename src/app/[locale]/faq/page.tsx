@@ -1,7 +1,18 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
+import { Link } from '@/i18n/routing'
 import { env } from '@/lib/env'
 import { formatTWD } from '@/lib/utils'
+
+/**
+ * 答案維持純文字 —— 它同時餵給頁面與 FAQPage 結構化資料。
+ * 需要延伸閱讀時用 more 帶一個連結，不要把 JSX 混進 a。
+ */
+type FaqItem = {
+  q: string
+  a: string
+  more?: { href: string; label: string }
+}
 
 export const revalidate = 3600
 
@@ -19,7 +30,7 @@ export default async function FaqPage({ params }: { params: Promise<{ locale: st
   const { locale } = await params
   setRequestLocale(locale)
 
-  const groups = [
+  const groups: { title: string; items: FaqItem[] }[] = [
     {
       title: '訂購與付款',
       items: [
@@ -29,7 +40,7 @@ export default async function FaqPage({ params }: { params: Promise<{ locale: st
         },
         {
           q: '下單後可以修改訂單嗎？',
-          a: '訂單成立後無法自行修改。若尚未出貨，請於客服時間內來信 service@sagon.local，並附上訂單編號，我們會協助處理。',
+          a: `訂單成立後無法自行修改。若尚未出貨，請於客服時間內來信 ${env.SHOP_SERVICE_EMAIL}，並附上訂單編號，我們會協助處理。`,
         },
         {
           q: '折扣碼要怎麼使用？',
@@ -64,10 +75,12 @@ export default async function FaqPage({ params }: { params: Promise<{ locale: st
         {
           q: '可以退換貨嗎？',
           a: '依《消費者保護法》，您享有商品到貨後 7 天的鑑賞期（非試用期）。退回商品須為全新完整、包含原包裝與吊牌。基於衛生考量，貼身衣物一經拆封或試穿恕不接受退換。',
+          more: { href: '/returns', label: '完整退換貨政策' },
         },
         {
           q: '退款要多久？',
           a: '我們收到退回商品並確認無誤後 3–7 個工作天完成退款。信用卡退刷依各發卡行作業時間，通常為 1–2 個帳單週期。',
+          more: { href: '/returns', label: '退款方式與時程' },
         },
       ],
     },
@@ -103,7 +116,17 @@ export default async function FaqPage({ params }: { params: Promise<{ locale: st
               {group.items.map((item) => (
                 <div key={item.q} className="py-6">
                   <dt className="text-sm text-ink-900">{item.q}</dt>
-                  <dd className="mt-2.5 text-sm leading-loose text-ink-700">{item.a}</dd>
+                  <dd className="mt-2.5 text-sm leading-loose text-ink-700">
+                    {item.a}
+                    {item.more && (
+                      <Link
+                        href={item.more.href}
+                        className="mt-2 block text-ink-900 underline underline-offset-4"
+                      >
+                        {item.more.label}
+                      </Link>
+                    )}
+                  </dd>
                 </div>
               ))}
             </dl>

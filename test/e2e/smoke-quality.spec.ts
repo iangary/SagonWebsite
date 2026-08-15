@@ -6,7 +6,10 @@ import { PRODUCT_CARD } from './helpers/checkout'
  * 逐頁深入的走查另見 docs/site-review-findings.md。
  */
 
-const KEY_ROUTES = ['/', '/product/all', '/cart', '/login', '/register', '/faq', '/about', '/order/query']
+const KEY_ROUTES = [
+  '/', '/product/all', '/cart', '/login', '/register', '/faq', '/about', '/order/query',
+  '/privacy', '/terms', '/returns',
+]
 
 test.describe('全站品質 smoke', () => {
   test.describe.configure({ timeout: 240_000 })
@@ -59,7 +62,7 @@ test.describe('全站品質 smoke', () => {
   })
 
   test('每頁恰有一個 main 與一個 h1，商品圖有 alt 屬性', async ({ page }) => {
-    for (const route of ['/', '/product/all', '/cart', '/login']) {
+    for (const route of ['/', '/product/all', '/cart', '/login', '/privacy', '/terms', '/returns']) {
       await page.goto(route)
       expect(await page.locator('main').count(), `${route} 的 main 數量`).toBe(1)
       expect(await page.locator('h1').count(), `${route} 的 h1 數量`).toBe(1)

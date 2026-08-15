@@ -79,7 +79,7 @@ export default async function AboutPage({ params }: { params: Promise<{ locale: 
           </div>
           <div>
             <dt className="inline text-taupe-600">客服信箱：</dt>
-            <dd className="inline">service@sagon.local</dd>
+            <dd className="inline">{env.SHOP_SERVICE_EMAIL}</dd>
           </div>
           <div>
             <dt className="inline text-taupe-600">客服時間：</dt>

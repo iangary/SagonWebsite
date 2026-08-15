@@ -38,6 +38,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entry('/faq', 'monthly', 0.5),
     entry('/contact', 'monthly', 0.4),
     entry('/order/query', 'yearly', 0.3),
+    entry('/returns', 'yearly', 0.3),
+    entry('/terms', 'yearly', 0.2),
+    entry('/privacy', 'yearly', 0.2),
   ]
 
   const [categories, products] = await Promise.all([

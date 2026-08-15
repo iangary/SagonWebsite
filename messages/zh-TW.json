@@ -12,7 +12,10 @@
     "orderQuery": "訂單查詢",
     "faq": "常見問題",
     "contact": "聯絡我們",
-    "admin": "管理後台"
+    "admin": "管理後台",
+    "privacy": "隱私權政策",
+    "terms": "服務條款",
+    "returns": "退換貨政策"
   },
   "home": {
     "heroTitle": "讓自己幸福，是他唯一的道德觀",

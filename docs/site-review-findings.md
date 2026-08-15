@@ -17,6 +17,8 @@
 | F6 | P2 | `setProductCategories` revalidate 到不存在的 `/admin/categories`（實際是 `/admin/taxonomy`） | 修正路徑 |
 | F7 | P2 | repo 從第一天就沒有 eslint 設定檔，`npm run lint` 直接報錯 | 新增 `eslint.config.mjs`（eslint-config-next 16 flat config） |
 | F8 | P1 | Windows 的 Hyper-V/WSL 動態保留埠（5150–5749）吃掉 5433，Postgres 容器綁不起來 —— 本機 dev 與測試都連不到資料庫 | docker compose 與 `.env` 改用 15433 |
+| F9 | P0 | 全站客服信箱是開發用占位 `service@sagon.local`，客人寄信會石沉大海（原 W3）。四個頁面各自寫死，明明已有 `SHOP_SERVICE_EMAIL` 設定卻沒人讀 | 預設值改為真實信箱；頁尾／關於／聯絡／常見問題四處改讀 `env.SHOP_SERVICE_EMAIL`，單一來源 |
+| F10 | P0 | 缺隱私權政策、服務條款、退換貨政策 —— 消保法七天鑑賞期為強制告知事項（原 R11） | 新增 `/privacy`、`/terms`、`/returns` 三頁，頁尾與 sitemap 收錄，FAQ 互連 |
 
 ## 未修（需排期或商業決策）
 
@@ -32,7 +34,7 @@
 | R8 | P2 | CVS 標籤 | `goodsAmount` 用含運費的 `grandTotal` 申報（非代收時無實害，但標籤上的申報值偏高） | 改用 subtotal-discount，或接受現狀 |
 | R9 | P2 | 商品編輯 | 已上架商品每次儲存（狀態仍為 ACTIVE）都會重寫 `publishedAt`，原始上架時間遺失 | 只在 DRAFT/ARCHIVED→ACTIVE 時設定 |
 | R10 | P2 | 貨態輪詢 | `recordStatusHistory` 每次輪詢載入該出貨單全部歷程做去重，量大時無上限 | 以 (statusCode, occurredAt) 唯一索引改用 upsert |
-| R11 | P0（法務） | 全站 | 缺隱私權政策、服務條款、退換貨政策頁（消保法七天鑑賞期為強制要求）—— 檢核表 F-01 | 上線前必須補齊三頁 |
+| R11 | ~~P0~~ | 全站 | ~~缺隱私權政策、服務條款、退換貨政策頁~~ → 已於 2026-08-15 補齊（見 F10）。**但條文內容由開發方擬定，未經律師審閱**，正式營運前建議請法律顧問過目，特別是下列三處商業決定：① 七天鑑賞期退貨的退回運費依消保法由賣方負擔（現行條文即如此寫）；② 貼身衣物拆封不退的認定範圍；③ 管轄法院約定 | 送法律顧問審閱 |
 | R12 | P2 | 前端 | 8 個元件踩到 React 19 的 `set-state-in-effect`（eslint 已降為警告）：toast、cart-count-provider、add-to-cart、checkout-form、image-manager、coupon-form、security-panel 等 | 逐一重構為事件回呼/衍生狀態 |
 | R13 | P2 | 文件 | 測試數字三處漂移（README「147」、檢核表「85」、實際值隨本次大增） | 本次收尾一併更新 |
 
@@ -53,7 +55,7 @@ h1/main 結構、圖片 alt、i18n key）；後台互動流程由 `test/e2e/admi
 
 | ID | 嚴重度 | 頁面 | 問題 | 建議 |
 |----|--------|------|------|------|
-| W3 | P0（上線前） | /faq、/contact、/about | 客服信箱全站顯示 `service@sagon.local` —— 開發用占位網域，客人寄信會石沉大海 | 上線前全域替換為真實客服信箱（grep `sagon.local`） |
+| W3 | ~~P0~~ | /faq、/contact、/about | ~~客服信箱是開發用占位網域~~ → 已於 2026-08-15 修復（見 F9）。剩餘提醒：寄件人位址 `MAIL_FROM` 仍是 `no-reply@sagon.local`，正式寄信需搭配可通過 SPF/DKIM 的網域 | 上線前設定寄件網域 |
 | W4 | P1 | /en 全站 | 英文版只有 UI 標籤有翻譯：首頁 hero 標語、About 段落、公告列（全站消費滿…）、footer 文案、分類名稱全是中文；Category 明明有 `nameEn` 欄位但導覽沒有使用 | 決定英文版的定位：要嘛補齊翻譯（含 nameEn 串接），要嘛先下線 /en 避免半吊子體驗；已加 `test.fail` 標記的 E2E 追蹤（smoke-quality.spec.ts） |
 | W5 | P2 | / 首頁 | 「精選商品」與「新品上架」內容完全相同 —— `getFeaturedProducts` 就是 publishedAt 排序，沒有精選旗標，兩區塊放一樣的 8 件商品 | 加 `isFeatured` 欄位或改為隨機/銷量排序，否則區塊二選一 |
 | W6 | P2 | 整體 | 整合測試揭露：`releaseExpiredReservations` 與 `handlePaymentReturn` 併發時會互相死鎖（Postgres 40P01，鎖定順序相反：付款先鎖 payment→order→variant，釋放先鎖 variant→reservation→order）。資料不變量不會壞、綠界重送會自癒，但 worker 會有噪音錯誤 | 統一兩邊的鎖定順序（都先 update order row） |
