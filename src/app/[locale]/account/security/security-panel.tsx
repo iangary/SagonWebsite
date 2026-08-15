@@ -2,67 +2,82 @@
 
 import * as React from 'react'
 import { useActionState } from 'react'
+import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { signIn } from 'next-auth/react'
-import { Check, KeyRound, Smartphone, Link2 } from 'lucide-react'
+import { Check, KeyRound, Smartphone } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input, Field } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/toast'
+import { SsoMark } from '@/components/auth/sso-buttons'
+import { SSO_PROVIDER_LABELS, type SsoProviderId } from '@/lib/auth/sso'
 import { setPassword, bindPhone, unlinkProvider, type ActionState } from '../actions'
 
 const INITIAL: ActionState = { ok: false }
 
+export type SsoStatus = {
+  id: SsoProviderId
+  /** 這個帳號已經綁了這個 provider */
+  linked: boolean
+  /** 站台有設定這個 provider 的憑證（沒設定就不能新綁，但已綁的仍可解除） */
+  configured: boolean
+}
+
 export function SecurityPanel({
   email,
   maskedPhone,
-  hasGoogle,
+  sso,
   hasPassword,
   hasPhone,
-  googleEnabled,
   isLastMethod,
 }: {
   email: string | null
   maskedPhone: string | null
-  hasGoogle: boolean
+  sso: SsoStatus[]
   hasPassword: boolean
   hasPhone: boolean
-  googleEnabled: boolean
   isLastMethod: boolean
 }) {
+  const t = useTranslations('account')
+
   return (
     <div className="space-y-5">
       <section className="border border-cream-200 bg-white p-6">
-        <h2 className="text-sm tracking-[0.1em]">登入方式</h2>
-        <p className="mt-2 text-xs text-taupe-500">
-          您可以同時綁定多種登入方式。至少要保留一種，才不會無法登入。
-        </p>
+        <h2 className="text-sm tracking-[0.1em]">{t('loginMethods')}</h2>
+        <p className="mt-2 text-xs text-taupe-500">{t('loginMethodsHint')}</p>
 
         <ul className="mt-5 divide-y divide-cream-100">
-          <MethodRow
-            icon={<Link2 size={16} strokeWidth={1.5} />}
-            title="Google 帳號"
-            status={hasGoogle ? '已綁定' : '未綁定'}
-            active={hasGoogle}
-            action={
-              googleEnabled ? (
-                <GoogleBinding hasGoogle={hasGoogle} isLastMethod={isLastMethod} />
-              ) : (
-                <span className="text-xs text-taupe-400">未設定 Google OAuth</span>
-              )
-            }
-          />
+          {sso.map((provider) => (
+            <MethodRow
+              key={provider.id}
+              icon={<SsoMark id={provider.id} />}
+              title={t('ssoAccount', { provider: SSO_PROVIDER_LABELS[provider.id] })}
+              status={provider.linked ? t('linked') : t('notLinked')}
+              active={provider.linked}
+              activeLabel={t('active')}
+              action={<SsoBinding provider={provider} isLastMethod={isLastMethod} />}
+            />
+          ))}
           <MethodRow
             icon={<KeyRound size={16} strokeWidth={1.5} />}
-            title="Email 與密碼"
-            status={hasPassword ? `已設定（${email ?? '—'}）` : email ? '尚未設定密碼' : '尚未設定 Email'}
+            title={t('emailPassword')}
+            status={
+              hasPassword
+                ? t('passwordSet', { email: email ?? '—' })
+                : email
+                  ? t('passwordNotSet')
+                  : t('emailNotSet')
+            }
             active={hasPassword}
+            activeLabel={t('active')}
           />
           <MethodRow
             icon={<Smartphone size={16} strokeWidth={1.5} />}
-            title="手機驗證碼"
-            status={hasPhone ? `已綁定（${maskedPhone}）` : '未綁定'}
+            title={t('phoneOtp')}
+            status={hasPhone ? t('phoneLinked', { phone: maskedPhone ?? '—' }) : t('notLinked')}
             active={hasPhone}
+            activeLabel={t('active')}
           />
         </ul>
       </section>
@@ -78,12 +93,14 @@ function MethodRow({
   title,
   status,
   active,
+  activeLabel,
   action,
 }: {
   icon: React.ReactNode
   title: string
   status: string
   active: boolean
+  activeLabel: string
   action?: React.ReactNode
 }) {
   return (
@@ -99,7 +116,7 @@ function MethodRow({
         {active && (
           <Badge tone="success">
             <Check size={11} className="mr-1" />
-            啟用中
+            {activeLabel}
           </Badge>
         )}
         {action}
@@ -108,51 +125,56 @@ function MethodRow({
   )
 }
 
-function GoogleBinding({
-  hasGoogle,
+function SsoBinding({
+  provider,
   isLastMethod,
 }: {
-  hasGoogle: boolean
+  provider: SsoStatus
   isLastMethod: boolean
 }) {
+  const t = useTranslations('account')
   const router = useRouter()
   const { toast } = useToast()
   const [pending, setPending] = React.useState(false)
 
+  const label = SSO_PROVIDER_LABELS[provider.id]
+
   async function unlink() {
-    if (!window.confirm('確定要解除 Google 綁定嗎？')) return
+    if (!window.confirm(t('confirmUnlinkSso', { provider: label }))) return
     setPending(true)
-    const result = await unlinkProvider('google')
+    const result = await unlinkProvider(provider.id)
     setPending(false)
 
     if (!result.ok) {
-      toast(result.error ?? '解除綁定失敗', 'error')
+      toast(result.error ?? t('unlinkFailed'), 'error')
       return
     }
-    toast('已解除 Google 綁定')
+    toast(t('ssoUnlinked', { provider: label }))
     router.refresh()
   }
 
-  if (!hasGoogle) {
+  if (!provider.linked) {
     return (
       <Button
         size="sm"
         variant="outline"
-        onClick={() => signIn('google', { redirectTo: '/account/security' })}
+        onClick={() => signIn(provider.id, { redirectTo: '/account/security' })}
       >
-        綁定
+        {t('link')}
       </Button>
     )
   }
 
   return (
     <Button size="sm" variant="ghost" disabled={pending || isLastMethod} onClick={unlink}>
-      {isLastMethod ? '唯一登入方式' : '解除綁定'}
+      {isLastMethod ? t('onlyLoginMethod') : t('unbind')}
     </Button>
   )
 }
 
 function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
+  const t = useTranslations('account')
+  const tCheckout = useTranslations('checkout')
   const { toast } = useToast()
   const router = useRouter()
   const [state, formAction, pending] = useActionState(setPassword, INITIAL)
@@ -171,17 +193,17 @@ function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
 
   return (
     <form ref={formRef} action={formAction} className="border border-cream-200 bg-white p-6">
-      <h2 className="text-sm tracking-[0.1em]">{hasPassword ? '變更密碼' : '設定密碼'}</h2>
+      <h2 className="text-sm tracking-[0.1em]">
+        {hasPassword ? t('changePassword') : t('setPassword')}
+      </h2>
       <p className="mt-2 text-xs text-taupe-500">
-        {hasPassword
-          ? '變更後，舊密碼將立即失效。'
-          : '設定密碼後，就能用 Email 加密碼登入這個帳號。'}
+        {hasPassword ? t('changePasswordHint') : t('setPasswordHint')}
       </p>
 
       <div className="mt-5 grid max-w-sm gap-4">
         {hasPassword && (
           <Field
-            label="目前密碼"
+            label={t('currentPassword')}
             htmlFor="currentPassword"
             required
             error={errors.currentPassword}
@@ -196,11 +218,11 @@ function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
           </Field>
         )}
         <Field
-          label="新密碼"
+          label={t('newPassword')}
           htmlFor="newPassword"
           required
           error={errors.newPassword}
-          hint="至少 8 個字元"
+          hint={t('newPasswordHint')}
         >
           <Input
             id="newPassword"
@@ -212,7 +234,7 @@ function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
           />
         </Field>
         <Field
-          label="確認新密碼"
+          label={t('confirmNewPassword')}
           htmlFor="confirmPassword"
           required
           error={errors.confirmPassword}
@@ -228,7 +250,7 @@ function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
       </div>
 
       <Button type="submit" className="mt-6" disabled={pending}>
-        {pending ? '處理中…' : hasPassword ? '變更密碼' : '設定密碼'}
+        {pending ? tCheckout('processingShort') : hasPassword ? t('changePassword') : t('setPassword')}
       </Button>
     </form>
   )
@@ -243,6 +265,7 @@ function PhoneSection({
   hasPhone: boolean
   maskedPhone: string | null
 }) {
+  const t = useTranslations('account')
   const { toast } = useToast()
   const router = useRouter()
   const [state, formAction, pending] = useActionState(bindPhone, INITIAL)
@@ -283,14 +306,14 @@ function PhoneSection({
       }
 
       if (!data.ok) {
-        toast(data.error ?? '發送失敗', 'error')
+        toast(data.error ?? t('sendFailed'), 'error')
         if (data.retryAfterSeconds) setCooldown(data.retryAfterSeconds)
         return
       }
 
       setSent(true)
       setCooldown(RESEND_SECONDS)
-      toast(data.devCode ? `驗證碼已發送（開發模式：${data.devCode}）` : '驗證碼已發送')
+      toast(data.devCode ? t('otpSentDev', { code: data.devCode }) : t('otpSent'))
     } finally {
       setSending(false)
     }
@@ -298,15 +321,17 @@ function PhoneSection({
 
   return (
     <form action={formAction} className="border border-cream-200 bg-white p-6">
-      <h2 className="text-sm tracking-[0.1em]">{hasPhone ? '更換手機號碼' : '綁定手機號碼'}</h2>
+      <h2 className="text-sm tracking-[0.1em]">
+        {hasPhone ? t('changePhone') : t('bindPhone')}
+      </h2>
       <p className="mt-2 text-xs text-taupe-500">
         {hasPhone
-          ? `目前綁定 ${maskedPhone}。更換後將以新號碼登入。`
-          : '綁定後可以用手機號碼加驗證碼登入，不需要記密碼。'}
+          ? t('changePhoneHint', { phone: maskedPhone ?? '—' })
+          : t('bindPhoneHint')}
       </p>
 
       <div className="mt-5 max-w-sm space-y-4">
-        <Field label="手機號碼" htmlFor="bindPhone" required>
+        <Field label={t('phone')} htmlFor="bindPhone" required>
           <Input
             id="bindPhone"
             name="phone"
@@ -321,7 +346,7 @@ function PhoneSection({
 
         <div className="flex items-end gap-2">
           <div className="flex-1">
-            <Field label="驗證碼" htmlFor="bindCode" required>
+            <Field label={t('otpCode')} htmlFor="bindCode" required>
               <Input
                 id="bindCode"
                 name="code"
@@ -338,13 +363,13 @@ function PhoneSection({
             onClick={sendCode}
             disabled={sending || cooldown > 0 || phone.length < 10}
           >
-            {cooldown > 0 ? `${cooldown}s` : '發送驗證碼'}
+            {cooldown > 0 ? `${cooldown}s` : t('sendOtp')}
           </Button>
         </div>
       </div>
 
       <Button type="submit" className="mt-6" disabled={pending || !sent}>
-        {pending ? '驗證中…' : hasPhone ? '更換手機' : '綁定手機'}
+        {pending ? t('verifying') : hasPhone ? t('changePhoneSubmit') : t('bindPhoneSubmit')}
       </Button>
     </form>
   )

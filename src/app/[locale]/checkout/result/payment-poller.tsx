@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 
@@ -15,6 +16,7 @@ const MAX_POLLS = 12 // 約 30 秒
  * 避免使用者付完款卻看到「等待付款」而困惑。
  */
 export function PaymentPoller({ orderNo }: { orderNo: string }) {
+  const t = useTranslations('result')
   const router = useRouter()
   const [polling, setPolling] = React.useState(true)
 
@@ -55,7 +57,7 @@ export function PaymentPoller({ orderNo }: { orderNo: string }) {
   return (
     <p className="mb-8 flex items-center justify-center gap-2 border border-cream-300 bg-white px-4 py-2.5 text-xs text-taupe-600">
       <Loader2 size={13} className="animate-spin" />
-      正在向綠界確認付款結果…
+      {t('polling')}
     </p>
   )
 }

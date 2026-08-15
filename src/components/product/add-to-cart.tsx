@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useRouter } from '@/i18n/routing'
 import { Minus, Plus, ShoppingBag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,25 +18,10 @@ export type VariantOption = {
   available: number
 }
 
-type Labels = {
-  selectVariant: string
-  quantity: string
-  addToCart: string
-  buyNow: string
-  outOfStock: string
-  lowStock: string
-  addedToCart: string
-}
-
 const LOW_STOCK_THRESHOLD = 5
 
-export function AddToCart({
-  variants,
-  labels,
-}: {
-  variants: VariantOption[]
-  labels: Labels
-}) {
+export function AddToCart({ variants }: { variants: VariantOption[] }) {
+  const t = useTranslations('product')
   const router = useRouter()
   const { toast } = useToast()
   const { setCount } = useCartCount()
@@ -58,7 +44,7 @@ export function AddToCart({
 
   async function submit(thenCheckout: boolean) {
     if (!selected) {
-      toast(labels.selectVariant, 'error')
+      toast(t('selectVariant'), 'error')
       return
     }
     setPending(true)
@@ -74,7 +60,7 @@ export function AddToCart({
     if (thenCheckout) {
       router.push('/cart')
     } else {
-      toast(labels.addedToCart)
+      toast(t('addedToCart'))
     }
   }
 
@@ -83,7 +69,7 @@ export function AddToCart({
       {variants.length > 1 && (
         <fieldset data-testid="variant-selector">
           <legend className="mb-2.5 text-xs tracking-wide text-taupe-600">
-            {labels.selectVariant}
+            {t('selectVariant')}
           </legend>
           <div className="flex flex-wrap gap-2">
             {variants.map((variant) => {
@@ -111,20 +97,16 @@ export function AddToCart({
       )}
 
       {selected && selected.available > 0 && selected.available <= LOW_STOCK_THRESHOLD && (
-        <p className="text-xs text-sale">
-          {labels.lowStock.replace('{count}', String(selected.available))}
-        </p>
+        <p className="text-xs text-sale">{t('lowStock', { count: selected.available })}</p>
       )}
 
       <div>
-        <span className="mb-2.5 block text-xs tracking-wide text-taupe-600">
-          {labels.quantity}
-        </span>
+        <span className="mb-2.5 block text-xs tracking-wide text-taupe-600">{t('quantity')}</span>
         <div className="inline-flex items-center border border-cream-300">
           <QtyButton
             onClick={() => setQty((q) => Math.max(1, q - 1))}
             disabled={qty <= 1 || allSoldOut}
-            label="減少數量"
+            label={t('decreaseQty')}
           >
             <Minus size={14} />
           </QtyButton>
@@ -132,7 +114,7 @@ export function AddToCart({
           <QtyButton
             onClick={() => setQty((q) => Math.min(maxQty, q + 1))}
             disabled={qty >= maxQty || allSoldOut}
-            label="增加數量"
+            label={t('increaseQty')}
           >
             <Plus size={14} />
           </QtyButton>
@@ -141,7 +123,8 @@ export function AddToCart({
 
       {selected && (
         <p className="text-lg">
-          小計 <span className="tabular-nums">{formatTWD(selected.price * qty)}</span>
+          {t('lineSubtotal')}{' '}
+          <span className="tabular-nums">{formatTWD(selected.price * qty)}</span>
         </p>
       )}
 
@@ -154,10 +137,10 @@ export function AddToCart({
           variant="outline"
         >
           <ShoppingBag size={16} />
-          {allSoldOut ? labels.outOfStock : labels.addToCart}
+          {allSoldOut ? t('outOfStock') : t('addToCart')}
         </Button>
         <Button onClick={() => submit(true)} disabled={pending || allSoldOut} size="lg" full>
-          {labels.buyNow}
+          {t('buyNow')}
         </Button>
       </div>
     </div>

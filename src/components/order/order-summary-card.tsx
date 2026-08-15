@@ -1,10 +1,10 @@
 import Image from 'next/image'
-import { getTranslations } from 'next-intl/server'
+import { getLocale, getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/routing'
 import type { Order, OrderItem, Payment, Shipment, Invoice } from '@prisma/client'
 import { Badge, ORDER_STATUS_TONE, SHIPMENT_STATUS_TONE } from '@/components/ui/badge'
 import { formatTWD } from '@/lib/utils'
-import { LOGISTICS_SUBTYPE_LABEL, shipmentStatusKey } from '@/lib/ecpay/logistics'
+import { shipmentStatusKey } from '@/lib/ecpay/logistics'
 
 type OrderWithDetails = Order & {
   items: OrderItem[]
@@ -24,11 +24,15 @@ export async function OrderSummaryCard({
   order: OrderWithDetails
   showReviewLink?: boolean
 }) {
-  const [tStatus, tShipment, tResult] = await Promise.all([
+  const [tStatus, tShipment, tResult, tLogistics, tProduct, locale] = await Promise.all([
     getTranslations('orderStatus'),
     getTranslations('shipmentStatus'),
     getTranslations('result'),
+    getTranslations('logistics'),
+    getTranslations('product'),
+    getLocale(),
   ])
+  const tCommon = await getTranslations('common')
 
   const awaitingTransfer = order.payment?.status === 'AWAITING_TRANSFER'
 
@@ -42,7 +46,7 @@ export async function OrderSummaryCard({
         <div>
           <p className="text-sm tabular-nums text-ink-900">{order.orderNo}</p>
           <p className="mt-0.5 text-xs text-taupe-500">
-            {order.createdAt.toLocaleString('zh-TW', { hour12: false })}
+            {order.createdAt.toLocaleString(locale, { hour12: false })}
           </p>
         </div>
         <Badge tone={ORDER_STATUS_TONE[order.status]}>{tStatus(order.status)}</Badge>
@@ -73,9 +77,12 @@ export async function OrderSummaryCard({
         {order.shipment && (
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
             <span>
-              配送：{LOGISTICS_SUBTYPE_LABEL[order.shipment.logisticsSubType]}
+              {tResult('shipmentLabel')}
+              {tCommon('colon')}
+              {tLogistics(order.shipment.logisticsSubType)}
               {order.shipment.cvsStoreName && ` ・ ${order.shipment.cvsStoreName}`}
-              {order.shipment.shipmentNo && ` ・ 單號 ${order.shipment.shipmentNo}`}
+              {order.shipment.shipmentNo &&
+                ` ・ ${tResult('shipmentNoShort')} ${order.shipment.shipmentNo}`}
             </span>
             <Badge tone={SHIPMENT_STATUS_TONE[order.shipment.status]}>
               {tShipment(
@@ -84,23 +91,36 @@ export async function OrderSummaryCard({
             </Badge>
           </div>
         )}
-        {order.invoice?.invoiceNumber && <p>發票號碼：{order.invoice.invoiceNumber}</p>}
+        {order.invoice?.invoiceNumber && (
+          <p>
+            {tResult('invoiceNumber')}
+            {tCommon('colon')}
+            {order.invoice.invoiceNumber}
+          </p>
+        )}
         {awaitingTransfer && order.payment?.vAccount && (
           <p className="text-sale">
-            待轉帳：{order.payment.bankCode} / {order.payment.vAccount}
-            （期限 {order.payment.expireDate}）
+            {tResult('awaitingTransfer', {
+              bankCode: order.payment.bankCode ?? '—',
+              vAccount: order.payment.vAccount,
+              expireDate: order.payment.expireDate ?? '—',
+            })}
           </p>
         )}
         {awaitingTransfer && order.payment?.paymentNo && (
           <p className="text-sale">
-            待繳費代碼：{order.payment.paymentNo}（期限 {order.payment.expireDate}）
+            {tResult('awaitingPaymentCode', {
+              paymentNo: order.payment.paymentNo,
+              expireDate: order.payment.expireDate ?? '—',
+            })}
           </p>
         )}
       </div>
 
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-cream-200 px-5 py-3.5">
         <span className="text-sm">
-          合計 <span className="text-base tabular-nums">{formatTWD(order.grandTotal)}</span>
+          {tResult('grandTotal')}{' '}
+          <span className="text-base tabular-nums">{formatTWD(order.grandTotal)}</span>
         </span>
         <div className="flex gap-3 text-xs">
           {canRetryPayment && (
@@ -116,14 +136,14 @@ export async function OrderSummaryCard({
             href={`/checkout/result?orderNo=${order.orderNo}`}
             className="text-ink-900 underline underline-offset-4"
           >
-            訂單明細
+            {tResult('orderDetail')}
           </Link>
           {showReviewLink && order.status === 'COMPLETED' && (
             <Link
               href={`/account/orders/${order.id}/review`}
               className="text-ink-900 underline underline-offset-4"
             >
-              撰寫評論
+              {tProduct('writeReview')}
             </Link>
           )}
         </div>

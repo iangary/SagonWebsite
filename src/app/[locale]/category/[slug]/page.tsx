@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { setRequestLocale } from 'next-intl/server'
 import { db } from '@/lib/db'
 import { getCategoryBySlug } from '@/lib/catalog/queries'
+import { localizedName } from '@/lib/i18n/localized'
 import { ProductListing, type ListingSearchParams } from '@/components/product/product-listing'
 
 export const revalidate = 300
@@ -20,13 +21,13 @@ export async function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>
+  params: Promise<{ locale: string; slug: string }>
 }): Promise<Metadata> {
-  const { slug } = await params
+  const { locale, slug } = await params
   const category = await getCategoryBySlug(decodeURIComponent(slug))
   if (!category) return {}
   return {
-    title: category.name,
+    title: localizedName(locale, category),
     alternates: { canonical: `/category/${category.slug}` },
   }
 }
@@ -49,7 +50,7 @@ export default async function CategoryPage({
 
   return (
     <ProductListing
-      title={category.name}
+      title={localizedName(locale, category)}
       basePath={`/category/${slug}`}
       searchParams={sp}
       categorySlug={category.slug}

@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useActionState } from 'react'
+import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -19,6 +20,7 @@ export function ReviewForm({
   orderItemId: string
   productId: string
 }) {
+  const t = useTranslations('review')
   const { toast } = useToast()
   const router = useRouter()
   const [state, formAction, pending] = useActionState(submitReview, INITIAL)
@@ -43,7 +45,7 @@ export function ReviewForm({
 
       <div>
         <span className="mb-2 block text-xs tracking-wide text-taupe-600">
-          評分 <span className="text-sale">*</span>
+          {t('rating')} <span className="text-sale">*</span>
         </span>
         <div className="flex gap-1" onMouseLeave={() => setHovered(0)}>
           {[1, 2, 3, 4, 5].map((n) => (
@@ -52,7 +54,7 @@ export function ReviewForm({
               type="button"
               onClick={() => setRating(n)}
               onMouseEnter={() => setHovered(n)}
-              aria-label={`${n} 分`}
+              aria-label={t('ratingStar', { n })}
               aria-pressed={rating === n}
               className="p-0.5"
             >
@@ -71,22 +73,27 @@ export function ReviewForm({
         {errors.rating && <p className="mt-1 text-xs text-sale">{errors.rating}</p>}
       </div>
 
-      <Field label="標題" htmlFor={`title-${orderItemId}`}>
-        <Input id={`title-${orderItemId}`} name="title" maxLength={100} placeholder="選填" />
+      <Field label={t('titleField')} htmlFor={`title-${orderItemId}`}>
+        <Input
+          id={`title-${orderItemId}`}
+          name="title"
+          maxLength={100}
+          placeholder={t('titlePlaceholder')}
+        />
       </Field>
 
-      <Field label="評論內容" htmlFor={`body-${orderItemId}`} required error={errors.body}>
+      <Field label={t('body')} htmlFor={`body-${orderItemId}`} required error={errors.body}>
         <Textarea
           id={`body-${orderItemId}`}
           name="body"
           maxLength={2000}
-          placeholder="分享您對材質、版型、尺寸的實際感受，會很有幫助。"
+          placeholder={t('bodyPlaceholder')}
           required
         />
       </Field>
 
       <Button type="submit" disabled={pending}>
-        {pending ? '送出中…' : '送出評論'}
+        {pending ? t('submitting') : t('submit')}
       </Button>
     </form>
   )

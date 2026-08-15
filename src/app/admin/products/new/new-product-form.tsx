@@ -62,6 +62,21 @@ export function NewProductForm({
             </Field>
           </div>
 
+          <div className="sm:col-span-2">
+            <Field
+              label="英文名稱"
+              htmlFor="nameEn"
+              hint="英文站顯示用，留白會直接顯示中文名"
+            >
+              <Input
+                id="nameEn"
+                name="nameEn"
+                placeholder="LUNALUZ Vintage Floral Pajama Set"
+                maxLength={200}
+              />
+            </Field>
+          </div>
+
           <Field label="品牌" htmlFor="brandId">
             <Select id="brandId" name="brandId" defaultValue="">
               <option value="">未指定</option>

@@ -1,11 +1,12 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useRouter, usePathname } from '@/i18n/routing'
 import { useSearchParams } from 'next/navigation'
 import { X } from 'lucide-react'
 import { Select } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
+import { cn, formatTWD } from '@/lib/utils'
 
 type BrandOption = { slug: string; name: string; count: number }
 
@@ -16,22 +17,28 @@ const SORT_OPTIONS = [
   { value: 'name-asc', labelKey: 'sortNameAsc' },
 ] as const
 
+/**
+ * 價格區間只存邊界，文字交給 messages 組。
+ * 中英文的寫法不一樣（「1,000 以下」vs「Under NT$1,000」），
+ * 把金額寫死在 label 裡就沒辦法翻。
+ */
 const PRICE_BANDS = [
-  { label: '1,000 以下', min: undefined, max: 999 },
-  { label: '1,000 – 2,000', min: 1000, max: 2000 },
-  { label: '2,000 – 3,000', min: 2000, max: 3000 },
-  { label: '3,000 以上', min: 3000, max: undefined },
-]
+  { key: 'under', min: undefined, max: 999 },
+  { key: 'mid-low', min: 1000, max: 2000 },
+  { key: 'mid-high', min: 2000, max: 3000 },
+  { key: 'over', min: 3000, max: undefined },
+] as const
+
+type PriceBand = (typeof PRICE_BANDS)[number]
 
 export function ProductFilters({
   brands,
-  labels,
   showBrandFilter = true,
 }: {
   brands: BrandOption[]
-  labels: Record<string, string>
   showBrandFilter?: boolean
 }) {
+  const t = useTranslations('list')
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -65,7 +72,13 @@ export function ProductFilters({
     })
   }
 
-  function setPriceBand(band: (typeof PRICE_BANDS)[number] | null) {
+  function bandLabel(band: PriceBand): string {
+    if (band.min === undefined) return t('priceUnder', { max: formatTWD(band.max!) })
+    if (band.max === undefined) return t('priceOver', { min: formatTWD(band.min) })
+    return t('priceRange', { min: formatTWD(band.min), max: formatTWD(band.max) })
+  }
+
+  function setPriceBand(band: PriceBand | null) {
     apply((params) => {
       params.delete('minPrice')
       params.delete('maxPrice')
@@ -75,7 +88,7 @@ export function ProductFilters({
     })
   }
 
-  function isBandActive(band: (typeof PRICE_BANDS)[number]) {
+  function isBandActive(band: PriceBand) {
     return (
       (band.min?.toString() ?? null) === currentMin && (band.max?.toString() ?? null) === currentMax
     )
@@ -87,7 +100,7 @@ export function ProductFilters({
     <div className="space-y-8">
       <div>
         <label htmlFor="sort" className="mb-2 block text-xs tracking-wide text-taupe-600">
-          {labels.sortBy}
+          {t('sortBy')}
         </label>
         <Select
           id="sort"
@@ -96,7 +109,7 @@ export function ProductFilters({
         >
           {SORT_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
-              {labels[o.labelKey]}
+              {t(o.labelKey)}
             </option>
           ))}
         </Select>
@@ -104,9 +117,7 @@ export function ProductFilters({
 
       {showBrandFilter && brands.length > 0 && (
         <fieldset>
-          <legend className="mb-3 text-xs tracking-wide text-taupe-600">
-            {labels.filterBrand}
-          </legend>
+          <legend className="mb-3 text-xs tracking-wide text-taupe-600">{t('filterBrand')}</legend>
           <ul className="space-y-2">
             {brands.map((brand) => {
               const checked = selectedBrands.includes(brand.slug)
@@ -130,12 +141,12 @@ export function ProductFilters({
       )}
 
       <fieldset>
-        <legend className="mb-3 text-xs tracking-wide text-taupe-600">{labels.filterPrice}</legend>
+        <legend className="mb-3 text-xs tracking-wide text-taupe-600">{t('filterPrice')}</legend>
         <ul className="space-y-2">
           {PRICE_BANDS.map((band) => {
             const active = isBandActive(band)
             return (
-              <li key={band.label}>
+              <li key={band.key}>
                 <button
                   onClick={() => setPriceBand(active ? null : band)}
                   className={cn(
@@ -143,7 +154,7 @@ export function ProductFilters({
                     active ? 'text-ink-900 underline underline-offset-4' : 'text-ink-700 hover:text-taupe-600',
                   )}
                 >
-                  NT${band.label}
+                  {bandLabel(band)}
                 </button>
               </li>
             )
@@ -157,7 +168,7 @@ export function ProductFilters({
           className="flex items-center gap-1.5 text-xs text-taupe-600 underline underline-offset-4 hover:text-ink-900"
         >
           <X size={13} />
-          {labels.clearFilters}
+          {t('clearFilters')}
         </button>
       )}
     </div>

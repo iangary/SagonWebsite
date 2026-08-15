@@ -1,8 +1,10 @@
 import Image from 'next/image'
+import { useLocale, useTranslations } from 'next-intl'
 import { Link } from '@/i18n/routing'
 import { Badge } from '@/components/ui/badge'
 import { formatTWD } from '@/lib/utils'
 import { isPurchasable, type ProductCardData } from '@/lib/catalog/queries'
+import { localizedName } from '@/lib/i18n/localized'
 
 export function ProductCard({
   product,
@@ -11,6 +13,9 @@ export function ProductCard({
   product: ProductCardData
   priority?: boolean
 }) {
+  const t = useTranslations('product')
+  const locale = useLocale()
+  const name = localizedName(locale, product)
   const [primary, secondary] = product.images
   const available = isPurchasable(product)
   const onSale = product.compareAtPrice !== null && product.compareAtPrice > product.basePrice
@@ -22,7 +27,7 @@ export function ProductCard({
           <>
             <Image
               src={primary.url}
-              alt={primary.alt ?? product.name}
+              alt={primary.alt ?? name}
               fill
               sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
               priority={priority}
@@ -42,13 +47,13 @@ export function ProductCard({
           </>
         ) : (
           <div className="flex h-full items-center justify-center text-xs text-taupe-400">
-            無商品圖
+            {t('noImage')}
           </div>
         )}
 
         <div className="absolute left-3 top-3 flex flex-col gap-1.5">
-          {onSale && <Badge tone="sale">特價</Badge>}
-          {!available && <Badge tone="muted">已售完</Badge>}
+          {onSale && <Badge tone="sale">{t('sale')}</Badge>}
+          {!available && <Badge tone="muted">{t('soldOut')}</Badge>}
         </div>
       </div>
 
@@ -59,7 +64,7 @@ export function ProductCard({
           </p>
         )}
         <h3 className="mt-1 line-clamp-2 text-sm leading-relaxed text-ink-900 transition-colors group-hover:text-taupe-600">
-          {product.name}
+          {name}
         </h3>
         <p className="mt-1.5 flex items-baseline gap-2 text-sm">
           <span className={onSale ? 'text-sale' : 'text-ink-900'}>

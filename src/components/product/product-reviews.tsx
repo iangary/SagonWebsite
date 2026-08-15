@@ -1,3 +1,4 @@
+import { useLocale, useTranslations } from 'next-intl'
 import { Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -11,15 +12,16 @@ type Review = {
 }
 
 /** 顯示名稱只留姓氏加星號，避免把會員全名公開出去 */
-function maskName(name: string | null): string {
-  if (!name) return '匿名會員'
+function maskName(name: string | null, anonymous: string): string {
+  if (!name) return anonymous
   if (name.length <= 1) return name
   return `${name[0]}${'*'.repeat(Math.min(name.length - 1, 2))}`
 }
 
 export function Stars({ rating, size = 14 }: { rating: number; size?: number }) {
+  const t = useTranslations('reviews')
   return (
-    <span className="inline-flex items-center gap-0.5" aria-label={`${rating} 分（滿分 5 分）`}>
+    <span className="inline-flex items-center gap-0.5" aria-label={t('ratingLabel', { rating })}>
       {[1, 2, 3, 4, 5].map((n) => (
         <Star
           key={n}
@@ -42,6 +44,8 @@ export function ProductReviews({
   reviews: Review[]
   labels: { title: string; empty: string }
 }) {
+  const t = useTranslations('reviews')
+  const locale = useLocale()
   const average =
     reviews.length > 0
       ? Math.round((reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length) * 10) / 10
@@ -55,7 +59,7 @@ export function ProductReviews({
           <p className="flex items-center gap-2 text-sm text-taupe-600">
             <Stars rating={Math.round(average)} />
             <span className="tabular-nums">{average}</span>
-            <span>（{reviews.length} 則）</span>
+            <span>{t('count', { count: reviews.length })}</span>
           </p>
         )}
       </div>
@@ -69,13 +73,15 @@ export function ProductReviews({
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <Stars rating={review.rating} />
-                  <span className="text-sm text-ink-900">{maskName(review.user.name)}</span>
+                  <span className="text-sm text-ink-900">
+                    {maskName(review.user.name, t('anonymous'))}
+                  </span>
                 </div>
                 <time
                   dateTime={review.createdAt.toISOString()}
                   className="text-xs text-taupe-400"
                 >
-                  {review.createdAt.toLocaleDateString('zh-TW')}
+                  {review.createdAt.toLocaleDateString(locale)}
                 </time>
               </div>
               {review.title && <p className="mt-3 text-sm text-ink-900">{review.title}</p>}
@@ -87,9 +93,7 @@ export function ProductReviews({
         </ul>
       )}
 
-      <p className="mt-8 text-xs text-taupe-500">
-        購買並完成訂單後，可於「會員中心 → 我的訂單」為商品留下評論。
-      </p>
+      <p className="mt-8 text-xs text-taupe-500">{t('cta')}</p>
     </section>
   )
 }

@@ -1,11 +1,13 @@
 import NextAuth from 'next-auth'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import Google from 'next-auth/providers/google'
+import Line from 'next-auth/providers/line'
+import Facebook from 'next-auth/providers/facebook'
 import Credentials from 'next-auth/providers/credentials'
 import { z } from 'zod'
 
 import { db } from '@/lib/db'
-import { env, isGoogleAuthEnabled } from '@/lib/env'
+import { env, isGoogleAuthEnabled, isLineAuthEnabled, isFacebookAuthEnabled } from '@/lib/env'
 import { authConfig } from './config'
 import { verifyPassword } from './password'
 import { verifyOtp } from './otp'
@@ -35,6 +37,30 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             clientSecret: env.AUTH_GOOGLE_SECRET,
             // Google 的 email 一定是驗證過的，所以用同一個 email 註冊過密碼的人
             // 可以直接用 Google 登入同一個帳號，而不是被擋掉或開出第二個帳號。
+            allowDangerousEmailAccountLinking: true,
+          }),
+        ]
+      : []),
+
+    ...(isLineAuthEnabled
+      ? [
+          Line({
+            clientId: env.AUTH_LINE_ID,
+            clientSecret: env.AUTH_LINE_SECRET,
+            // LINE 的 email 需要另外申請「Email address permission」才拿得到，
+            // 沒過審或使用者拒絕授權時 profile.email 會是 undefined —— 見下方 createUser。
+            allowDangerousEmailAccountLinking: true,
+          }),
+        ]
+      : []),
+
+    ...(isFacebookAuthEnabled
+      ? [
+          Facebook({
+            clientId: env.AUTH_FACEBOOK_ID,
+            clientSecret: env.AUTH_FACEBOOK_SECRET,
+            // email 權限只有「進階存取」才對一般用戶生效；用手機註冊的 FB 帳號
+            // 本來就可能沒有 email，兩種情況 profile.email 都會是 null —— 見下方 createUser。
             allowDangerousEmailAccountLinking: true,
           }),
         ]
@@ -111,8 +137,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
   events: {
     /**
-     * PrismaAdapter 建立 Google 使用者時不會帶 phone/role，
+     * PrismaAdapter 建立 SSO 使用者時不會帶 phone/role，
      * 這裡補一次 email 正規化，避免大小寫不同被當成兩個人。
+     *
+     * 注意：LINE 沒拿到 email 權限時 user.email 會是 null，這是允許的
+     * （schema 上 email 為 optional），但這種會員收不到訂單通知信，
+     * 結帳流程必須另外要求補 email 或手機。
      */
     async createUser({ user }) {
       if (user.email && user.email !== user.email.toLowerCase()) {

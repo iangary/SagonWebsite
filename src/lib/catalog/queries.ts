@@ -9,6 +9,7 @@ export const PRODUCT_CARD_SELECT = {
   id: true,
   slug: true,
   name: true,
+  nameEn: true,
   basePrice: true,
   compareAtPrice: true,
   brand: { select: { name: true, slug: true } },
@@ -156,6 +157,7 @@ export async function listBrands() {
       slug: true,
       name: true,
       description: true,
+      descriptionEn: true,
       _count: { select: { products: { where: { status: 'ACTIVE' } } } },
     },
   })
@@ -167,6 +169,7 @@ export async function listCategories() {
     select: {
       slug: true,
       name: true,
+      nameEn: true,
       _count: { select: { products: true } },
     },
   })

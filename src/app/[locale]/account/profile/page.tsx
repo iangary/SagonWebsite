@@ -1,4 +1,4 @@
-import { getTranslations } from 'next-intl/server'
+import { getLocale, getTranslations } from 'next-intl/server'
 import { db } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
 import { maskMobile } from '@/lib/sms/provider'
@@ -13,7 +13,11 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 }
 
 export default async function ProfilePage() {
-  const sessionUser = await requireUser()
+  const [t, locale, sessionUser] = await Promise.all([
+    getTranslations('account'),
+    getLocale(),
+    requireUser(),
+  ])
 
   const user = await db.user.findUniqueOrThrow({
     where: { id: sessionUser.id },
@@ -32,23 +36,25 @@ export default async function ProfilePage() {
       <ProfileForm defaultName={user.name ?? ''} />
 
       <section className="border border-cream-200 bg-white p-6">
-        <h2 className="text-sm tracking-[0.1em]">帳號資訊</h2>
+        <h2 className="text-sm tracking-[0.1em]">{t('accountInfo')}</h2>
         <dl className="mt-4 space-y-2.5 text-sm">
-          <Row label="電子信箱" value={user.email ?? '尚未設定'} />
+          <Row label={t('emailLabel')} value={user.email ?? t('emailNotSetShort')} />
           <Row
-            label="手機號碼"
+            label={t('phoneLabel')}
             value={
               user.phone
-                ? `${maskMobile(user.phone)}${user.phoneVerified ? '（已驗證）' : '（未驗證）'}`
-                : '尚未綁定'
+                ? `${maskMobile(user.phone)}${
+                    user.phoneVerified
+                      ? t('phoneVerifiedSuffix')
+                      : t('phoneUnverifiedSuffix')
+                  }`
+                : t('phoneNotLinked')
             }
           />
-          <Row label="註冊日期" value={user.createdAt.toLocaleDateString('zh-TW')} />
-          <Row label="訂單筆數" value={String(user._count.orders)} />
+          <Row label={t('registeredAt')} value={user.createdAt.toLocaleDateString(locale)} />
+          <Row label={t('orderCount')} value={String(user._count.orders)} />
         </dl>
-        <p className="mt-4 text-xs text-taupe-500">
-          Email 與手機的變更請至「帳號安全」頁面操作。
-        </p>
+        <p className="mt-4 text-xs text-taupe-500">{t('profileSecurityHint')}</p>
       </section>
     </div>
   )

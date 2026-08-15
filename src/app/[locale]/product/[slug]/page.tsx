@@ -6,6 +6,7 @@ import { db } from '@/lib/db'
 import { env } from '@/lib/env'
 import { formatTWD, truncate } from '@/lib/utils'
 import { getProductBySlug, getRelatedProducts } from '@/lib/catalog/queries'
+import { localizedName } from '@/lib/i18n/localized'
 import { availableStock } from '@/lib/cart'
 import { ProductGallery } from '@/components/product/product-gallery'
 import { AddToCart } from '@/components/product/add-to-cart'
@@ -32,22 +33,23 @@ export async function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>
+  params: Promise<{ locale: string; slug: string }>
 }): Promise<Metadata> {
-  const { slug } = await params
+  const { locale, slug } = await params
   const product = await getProductBySlug(decodeURIComponent(slug))
   if (!product) return {}
 
-  const description = product.seoDescription ?? truncate(product.summary ?? product.name, 155)
+  const name = localizedName(locale, product)
+  const description = product.seoDescription ?? truncate(product.summary ?? name, 155)
   const image = product.images[0]?.url
 
   return {
-    title: product.seoTitle ?? product.name,
+    title: product.seoTitle ?? name,
     description,
     alternates: { canonical: `/product/${product.slug}` },
     openGraph: {
       type: 'website',
-      title: product.name,
+      title: name,
       description,
       images: image ? [{ url: image }] : undefined,
     },
@@ -65,10 +67,14 @@ export default async function ProductPage({
   const product = await getProductBySlug(decodeURIComponent(slug))
   if (!product) notFound()
 
-  const [t, related] = await Promise.all([
+  const [t, tNav, tCommon, related] = await Promise.all([
     getTranslations('product'),
+    getTranslations('nav'),
+    getTranslations('common'),
     getRelatedProducts(product),
   ])
+
+  const name = localizedName(locale, product)
 
   const variants = product.variants.map((v) => ({
     id: v.id,
@@ -85,8 +91,8 @@ export default async function ProductPage({
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
-    name: product.name,
-    description: truncate(product.summary ?? product.name, 300),
+    name,
+    description: truncate(product.summary ?? name, 300),
     image: product.images.map((i) => new URL(i.url, env.APP_URL).toString()),
     brand: product.brand ? { '@type': 'Brand', name: product.brand.name } : undefined,
     offers: {
@@ -110,19 +116,20 @@ export default async function ProductPage({
 
       <div className="mx-auto max-w-7xl px-6 py-10">
         <Breadcrumbs
+          label={tNav('breadcrumb')}
           items={[
-            { label: '首頁', href: '/' },
+            { label: tNav('home'), href: '/' },
             ...product.categories.slice(0, 1).map((c) => ({
-              label: c.category.name,
+              label: localizedName(locale, c.category),
               href: `/category/${c.category.slug}`,
             })),
-            { label: product.name },
+            { label: name },
           ]}
         />
 
         <div className="mt-8 gap-12 lg:flex">
           <div className="lg:w-[52%]">
-            <ProductGallery images={product.images} name={product.name} />
+            <ProductGallery images={product.images} name={name} />
           </div>
 
           <div className="mt-10 lg:mt-0 lg:flex-1">
@@ -135,7 +142,7 @@ export default async function ProductPage({
               </Link>
             )}
 
-            <h1 className="mt-2 text-2xl leading-relaxed">{product.name}</h1>
+            <h1 className="mt-2 text-2xl leading-relaxed">{name}</h1>
 
             <div className="mt-4 flex items-baseline gap-3">
               <span className={`text-2xl ${onSale ? 'text-sale' : 'text-ink-900'}`}>
@@ -146,36 +153,36 @@ export default async function ProductPage({
                   {formatTWD(product.compareAtPrice!)}
                 </span>
               )}
-              {onSale && <Badge tone="sale">特價</Badge>}
+              {onSale && <Badge tone="sale">{t('sale')}</Badge>}
             </div>
 
             <hr className="my-7 border-cream-200" />
 
-            <AddToCart
-              variants={variants}
-              labels={{
-                selectVariant: t('selectVariant'),
-                quantity: t('quantity'),
-                addToCart: t('addToCart'),
-                buyNow: t('buyNow'),
-                outOfStock: t('outOfStock'),
-                lowStock: t('lowStock', { count: 0 }).replace('0', '{count}'),
-                addedToCart: t('addedToCart'),
-              }}
-            />
+            <AddToCart variants={variants} />
 
             <dl className="mt-8 space-y-2 border-t border-cream-200 pt-6 text-xs text-taupe-600">
               <div>
-                <dt className="inline">配送方式：</dt>
-                <dd className="inline">超商取貨（7-11／全家／萊爾富／OK）、宅配到府</dd>
+                <dt className="inline">
+                  {t('shippingLabel')}
+                  {tCommon('colon')}
+                </dt>
+                <dd className="inline">{t('shippingValue')}</dd>
               </div>
               <div>
-                <dt className="inline">付款方式：</dt>
-                <dd className="inline">信用卡、ATM 虛擬帳號、超商代碼繳費</dd>
+                <dt className="inline">
+                  {t('paymentLabel')}
+                  {tCommon('colon')}
+                </dt>
+                <dd className="inline">{t('paymentValue')}</dd>
               </div>
               <div>
-                <dt className="inline">免運門檻：</dt>
-                <dd className="inline">消費滿 {formatTWD(env.FREE_SHIPPING_THRESHOLD)}</dd>
+                <dt className="inline">
+                  {t('freeShippingLabel')}
+                  {tCommon('colon')}
+                </dt>
+                <dd className="inline">
+                  {t('freeShippingValue', { amount: formatTWD(env.FREE_SHIPPING_THRESHOLD) })}
+                </dd>
               </div>
             </dl>
           </div>
@@ -212,9 +219,15 @@ export default async function ProductPage({
   )
 }
 
-function Breadcrumbs({ items }: { items: { label: string; href?: string }[] }) {
+function Breadcrumbs({
+  label,
+  items,
+}: {
+  label: string
+  items: { label: string; href?: string }[]
+}) {
   return (
-    <nav aria-label="麵包屑">
+    <nav aria-label={label}>
       <ol className="flex flex-wrap items-center gap-1.5 text-xs text-taupe-500">
         {items.map((item, i) => (
           <li key={i} className="flex items-center gap-1.5">

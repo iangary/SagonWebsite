@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Link } from '@/i18n/routing'
 import { cn } from '@/lib/utils'
@@ -32,6 +33,8 @@ export function Pagination({
   basePath: string
   searchParams: Record<string, string | string[] | undefined>
 }) {
+  const t = useTranslations('list')
+
   if (totalPages <= 1) return null
 
   function hrefFor(target: number) {
@@ -49,11 +52,14 @@ export function Pagination({
   const items = buildPageItems(page, totalPages)
 
   return (
-    <nav aria-label="分頁" className="mt-14 flex items-center justify-center gap-1">
+    <nav
+      aria-label={t('paginationLabel')}
+      className="mt-14 flex items-center justify-center gap-1"
+    >
       {page > 1 ? (
         <Link
           href={hrefFor(page - 1)}
-          aria-label="上一頁"
+          aria-label={t('prevPage')}
           className="flex size-9 items-center justify-center text-ink-700 hover:bg-cream-100"
         >
           <ChevronLeft size={16} />
@@ -89,7 +95,7 @@ export function Pagination({
       {page < totalPages ? (
         <Link
           href={hrefFor(page + 1)}
-          aria-label="下一頁"
+          aria-label={t('nextPage')}
           className="flex size-9 items-center justify-center text-ink-700 hover:bg-cream-100"
         >
           <ChevronRight size={16} />

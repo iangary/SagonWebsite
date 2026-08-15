@@ -1,8 +1,10 @@
-import { getTranslations } from 'next-intl/server'
+import { getLocale, getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/routing'
 import { db } from '@/lib/db'
 import { env } from '@/lib/env'
 import { formatTWD } from '@/lib/utils'
+import { localizedName } from '@/lib/i18n/localized'
+import { shopName } from '@/lib/shop-config'
 import { HeaderActions } from './header-actions'
 import { MobileNav } from './mobile-nav'
 
@@ -30,28 +32,39 @@ async function getNavCategories() {
 }
 
 export async function SiteHeader() {
-  const [t, categories] = await Promise.all([getTranslations('nav'), getNavCategories()])
+  const [t, tAnnouncement, locale, categories] = await Promise.all([
+    getTranslations('nav'),
+    getTranslations('announcement'),
+    getLocale(),
+    getNavCategories(),
+  ])
 
   const navLinks = [
     { href: '/', label: t('home') },
     { href: '/product/all', label: t('allProducts') },
     { href: '/about', label: t('about') },
-    ...categories.map((c) => ({ href: `/category/${c.slug}`, label: c.name })),
+    ...categories.map((c) => ({
+      href: `/category/${c.slug}`,
+      label: localizedName(locale, c),
+    })),
   ]
 
   return (
     <header className="sticky top-0 z-50 border-b border-cream-200 bg-cream-50/95 backdrop-blur">
       {/* 公告列：免運門檻 */}
       <div className="bg-ink-900 px-4 py-2 text-center text-xs tracking-wide text-cream-100">
-        全站消費滿 {formatTWD(env.FREE_SHIPPING_THRESHOLD)} 免運費
+        {tAnnouncement('freeShipping', { amount: formatTWD(env.FREE_SHIPPING_THRESHOLD) })}
       </div>
 
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
-        <MobileNav links={navLinks} />
+        <MobileNav
+          links={navLinks}
+          labels={{ menu: t('menu'), open: t('openMenu'), close: t('closeMenu') }}
+        />
 
         <Link href="/" className="shrink-0">
           <span className="font-serif-display text-xl tracking-[0.2em] text-ink-900 sm:text-2xl">
-            {env.SHOP_NAME}
+            {shopName(locale)}
           </span>
         </Link>
 
@@ -66,12 +79,15 @@ export async function SiteHeader() {
             logout: t('logout'),
             orderQuery: t('orderQuery'),
             admin: t('admin'),
+            closeSearch: t('closeSearch'),
+            memberFallback: t('memberFallback'),
+            switchLanguage: t('switchLanguage'),
           }}
         />
       </div>
 
       {/* 桌機的分類列 */}
-      <nav aria-label="主要分類" className="hidden border-t border-cream-200 lg:block">
+      <nav aria-label={t('mainCategories')} className="hidden border-t border-cream-200 lg:block">
         <ul className="no-scrollbar mx-auto flex max-w-7xl items-center gap-7 overflow-x-auto px-6 py-3 text-[13px] tracking-wide">
           {navLinks.map((link) => (
             <li key={link.href}>

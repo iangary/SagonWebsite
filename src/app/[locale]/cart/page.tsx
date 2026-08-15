@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { db } from '@/lib/db'
 import { getCart, availableStock } from '@/lib/cart'
 import { shopConfig } from '@/lib/shop-config'
+import { localizedName } from '@/lib/i18n/localized'
 import { calculatePricing } from '@/lib/orders/pricing'
 import { CartView } from './cart-view'
 
@@ -22,7 +23,7 @@ export default async function CartPage({ params }: { params: Promise<{ locale: s
   const { locale } = await params
   setRequestLocale(locale)
 
-  const [t, cart] = await Promise.all([getTranslations('cart'), getCart()])
+  const cart = await getCart()
 
   const coupon = cart.couponCode
     ? await db.coupon.findUnique({ where: { code: cart.couponCode } })
@@ -48,7 +49,7 @@ export default async function CartPage({ params }: { params: Promise<{ locale: s
     variantName: item.variant.name,
     available: availableStock(item.variant),
     unitPrice: item.variant.price,
-    productName: item.variant.product.name,
+    productName: localizedName(locale, item.variant.product),
     productSlug: item.variant.product.slug,
     brandName: item.variant.product.brand?.name ?? null,
     imageUrl: item.variant.product.images[0]?.url ?? null,
@@ -60,21 +61,6 @@ export default async function CartPage({ params }: { params: Promise<{ locale: s
       pricing={pricing}
       couponCode={cart.couponCode}
       freeShippingThreshold={shopConfig.freeShippingThreshold}
-      labels={{
-        title: t('title'),
-        empty: t('empty'),
-        emptyCta: t('emptyCta'),
-        subtotal: t('subtotal'),
-        discount: t('discount'),
-        shipping: t('shipping'),
-        total: t('total'),
-        checkout: t('checkout'),
-        remove: t('remove'),
-        couponCode: t('couponCode'),
-        applyCoupon: t('applyCoupon'),
-        freeShipping: t('freeShipping'),
-        continueShopping: t('continueShopping'),
-      }}
     />
   )
 }

@@ -61,17 +61,6 @@ export async function ProductListing({
     listBrands(),
   ])
 
-  const labels = {
-    sortBy: t('sortBy'),
-    sortNewest: t('sortNewest'),
-    sortPriceAsc: t('sortPriceAsc'),
-    sortPriceDesc: t('sortPriceDesc'),
-    sortNameAsc: t('sortNameAsc'),
-    filterBrand: t('filterBrand'),
-    filterPrice: t('filterPrice'),
-    clearFilters: t('clearFilters'),
-  }
-
   return (
     <div className="mx-auto max-w-7xl px-6 py-12">
       <header className="border-b border-cream-200 pb-6">
@@ -79,7 +68,7 @@ export async function ProductListing({
         {description && <p className="mt-3 max-w-2xl text-sm text-ink-700">{description}</p>}
         {filters.q && (
           <p className="mt-3 text-sm text-taupe-600">
-            「{filters.q}」的搜尋結果
+            {t('searchResultsFor', { query: filters.q })}
           </p>
         )}
         <p className="mt-3 text-xs text-taupe-500">{t('resultCount', { count: result.total })}</p>
@@ -93,7 +82,6 @@ export async function ProductListing({
               name: b.name,
               count: b._count.products,
             }))}
-            labels={labels}
             showBrandFilter={showBrandFilter}
           />
         </aside>

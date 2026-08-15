@@ -152,8 +152,12 @@ model Brand {
   slug        String  @unique
   name        String
   description String? @db.Text
-  imageUrl    String?
-  sortOrder   Int     @default(0)
+
+  /// 關於頁的品牌簡介英文版。留白時英文站退回中文（品牌名本身多半就是英文）。
+  descriptionEn String? @db.Text
+
+  imageUrl  String?
+  sortOrder Int     @default(0)
 
   products Product[]
 
@@ -880,9 +884,15 @@ model AuditLog {
 
 /// 首頁輪播 / Hero 等可由後台維護的區塊
 model Banner {
-  id        String   @id @default(cuid())
-  title     String
-  subtitle  String?
+  id       String  @id @default(cuid())
+  title    String
+  subtitle String?
+
+  /// 英文版首頁用。留白時英文站會退回 messages/en.json 的預設標語，
+  /// 而不是顯示中文 —— 中英混排比翻譯不到位更難看。
+  titleEn    String?
+  subtitleEn String?
+
   imageUrl  String
   linkUrl   String?
   placement String   @default("hero") // hero | carousel

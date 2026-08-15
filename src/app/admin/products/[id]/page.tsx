@@ -70,9 +70,13 @@ export default async function AdminProductDetail({
         product={{
           id: product.id,
           name: product.name,
+          nameEn: product.nameEn ?? '',
           summary: product.summary ?? '',
+          descriptionHtml: product.descriptionHtml ?? '',
           status: product.status,
           brandId: product.brandId ?? '',
+          basePrice: product.basePrice,
+          compareAtPrice: product.compareAtPrice?.toString() ?? '',
           seoTitle: product.seoTitle ?? '',
           seoDescription: product.seoDescription ?? '',
           slug: product.slug,

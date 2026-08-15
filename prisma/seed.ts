@@ -36,7 +36,13 @@ type ScrapedProduct = {
   variants: ScrapedVariant[]
   categorySourceIds: string[]
 }
-type ScrapedCategory = { sourceId: string; name: string; productSourceIds: string[] }
+type ScrapedCategory = {
+  sourceId: string
+  name: string
+  /** 英文站導覽用，來源站沒有這欄，由 seed-data 手動補 */
+  nameEn?: string
+  productSourceIds: string[]
+}
 type ScrapeResult = {
   scrapedAt: string
   source: string
@@ -54,15 +60,57 @@ function slugify(input: string): string {
     .replace(/^-|-$/g, '')
 }
 
-const BRAND_META: Record<string, { slug: string; description: string; sortOrder: number }> = {
-  MMOM: { slug: 'mmom', description: '韓國 MMOM，柔軟親膚的日常睡衣。', sortOrder: 1 },
-  LUNALUZ: { slug: 'lunaluz', description: '韓國 LUNALUZ，優雅細緻的睡衣選品。', sortOrder: 2 },
-  ULLALA: { slug: 'ullala', description: '韓國 ULLALA，經典舒適的睡衣套裝。', sortOrder: 3 },
-  BALCONY: { slug: 'balcony', description: '韓國 BALCONY，質感純棉與蕾絲工藝。', sortOrder: 4 },
-  VIVIHOME: { slug: 'vivihome', description: '韓國 VIVIHOME，居家生活的溫柔提案。', sortOrder: 5 },
-  'The Warmth': { slug: 'the-warmth', description: '韓國 The Warmth 手作圍裙。', sortOrder: 6 },
-  FOTL: { slug: 'fotl', description: 'FOTL 香氛與手工飾品。', sortOrder: 7 },
-  棉紗之間: { slug: 'mianshazhijian', description: '莎岡推薦｜棉紗之間。', sortOrder: 8 },
+type BrandMeta = { slug: string; description: string; descriptionEn: string; sortOrder: number }
+
+const BRAND_META: Record<string, BrandMeta> = {
+  MMOM: {
+    slug: 'mmom',
+    description: '韓國 MMOM，柔軟親膚的日常睡衣。',
+    descriptionEn: 'MMOM of Korea — soft, skin-friendly everyday sleepwear.',
+    sortOrder: 1,
+  },
+  LUNALUZ: {
+    slug: 'lunaluz',
+    description: '韓國 LUNALUZ，優雅細緻的睡衣選品。',
+    descriptionEn: 'LUNALUZ of Korea — elegant, finely made sleepwear.',
+    sortOrder: 2,
+  },
+  ULLALA: {
+    slug: 'ullala',
+    description: '韓國 ULLALA，經典舒適的睡衣套裝。',
+    descriptionEn: 'ULLALA of Korea — classic, comfortable pyjama sets.',
+    sortOrder: 3,
+  },
+  BALCONY: {
+    slug: 'balcony',
+    description: '韓國 BALCONY，質感純棉與蕾絲工藝。',
+    descriptionEn: 'BALCONY of Korea — quality cotton and lace craftsmanship.',
+    sortOrder: 4,
+  },
+  VIVIHOME: {
+    slug: 'vivihome',
+    description: '韓國 VIVIHOME，居家生活的溫柔提案。',
+    descriptionEn: 'VIVIHOME of Korea — a gentler take on life at home.',
+    sortOrder: 5,
+  },
+  'The Warmth': {
+    slug: 'the-warmth',
+    description: '韓國 The Warmth 手作圍裙。',
+    descriptionEn: 'The Warmth of Korea — handmade aprons.',
+    sortOrder: 6,
+  },
+  FOTL: {
+    slug: 'fotl',
+    description: 'FOTL 香氛與手工飾品。',
+    descriptionEn: 'FOTL — fragrance and handmade jewellery.',
+    sortOrder: 7,
+  },
+  棉紗之間: {
+    slug: 'mianshazhijian',
+    description: '莎岡推薦｜棉紗之間。',
+    descriptionEn: 'Sagan Picks — Cotton & Gauze.',
+    sortOrder: 8,
+  },
 }
 
 async function loadScrapeResult(): Promise<ScrapeResult | null> {
@@ -77,11 +125,22 @@ async function seedBrands(products: ScrapedProduct[]) {
   const idBySlug = new Map<string, string>()
 
   for (const name of names) {
-    const meta = BRAND_META[name] ?? { slug: slugify(name), description: '', sortOrder: 99 }
+    const meta: BrandMeta = BRAND_META[name] ?? {
+      slug: slugify(name),
+      description: '',
+      descriptionEn: '',
+      sortOrder: 99,
+    }
+    const fields = {
+      name,
+      description: meta.description,
+      descriptionEn: meta.descriptionEn || null,
+      sortOrder: meta.sortOrder,
+    }
     const brand = await db.brand.upsert({
       where: { slug: meta.slug },
-      update: { name, description: meta.description, sortOrder: meta.sortOrder },
-      create: { slug: meta.slug, name, description: meta.description, sortOrder: meta.sortOrder },
+      update: fields,
+      create: { slug: meta.slug, ...fields },
     })
     idBySlug.set(name, brand.id)
   }
@@ -97,8 +156,14 @@ async function seedCategories(categories: ScrapedCategory[]) {
     const slug = slugify(cat.name) || `category-${cat.sourceId}`
     const record = await db.category.upsert({
       where: { sourceId: cat.sourceId },
-      update: { name: cat.name, sortOrder: index },
-      create: { sourceId: cat.sourceId, slug, name: cat.name, sortOrder: index },
+      update: { name: cat.name, nameEn: cat.nameEn ?? null, sortOrder: index },
+      create: {
+        sourceId: cat.sourceId,
+        slug,
+        name: cat.name,
+        nameEn: cat.nameEn ?? null,
+        sortOrder: index,
+      },
     })
     idBySourceId.set(cat.sourceId, record.id)
   }
@@ -318,6 +383,8 @@ async function seedBanners() {
       id: 'seed-hero',
       title: '讓自己幸福，是他唯一的道德觀',
       subtitle: '嚴選韓國睡衣、寢具與家居飾品',
+      titleEn: 'Your own happiness is the only moral compass',
+      subtitleEn: 'Curated Korean sleepwear, bedding and home goods',
       imageUrl: first.url,
       linkUrl: '/product/all',
       placement: 'hero',

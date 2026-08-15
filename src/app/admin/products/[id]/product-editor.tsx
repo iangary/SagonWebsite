@@ -40,9 +40,13 @@ export function ProductEditor({
   product: {
     id: string
     name: string
+    nameEn: string
     summary: string
+    descriptionHtml: string
     status: string
     brandId: string
+    basePrice: number
+    compareAtPrice: string
     seoTitle: string
     seoDescription: string
     slug: string
@@ -76,6 +80,21 @@ export function ProductEditor({
             </Field>
           </div>
 
+          <div className="sm:col-span-2">
+            <Field
+              label="英文名稱"
+              htmlFor="nameEn"
+              hint="英文站顯示用，留白會直接顯示中文名"
+            >
+              <Input
+                id="nameEn"
+                name="nameEn"
+                defaultValue={product.nameEn}
+                maxLength={200}
+              />
+            </Field>
+          </div>
+
           <Field label="狀態" htmlFor="status" required>
             <Select id="status" name="status" defaultValue={product.status}>
               <option value="ACTIVE">上架中</option>
@@ -96,8 +115,42 @@ export function ProductEditor({
           </Field>
 
           <div className="sm:col-span-2">
+            <Field
+              label="原價"
+              htmlFor="compareAtPrice"
+              error={errors.compareAtPrice}
+              hint={`要高於售價 ${formatTWD(product.basePrice)} 才會顯示刪除線，留白就是沒有特價`}
+            >
+              <Input
+                id="compareAtPrice"
+                name="compareAtPrice"
+                type="number"
+                min={0}
+                className="max-w-56"
+                defaultValue={product.compareAtPrice}
+              />
+            </Field>
+          </div>
+
+          <div className="sm:col-span-2">
             <Field label="摘要" htmlFor="summary" hint="顯示在列表與 OG 描述">
               <Textarea id="summary" name="summary" defaultValue={product.summary} maxLength={500} />
+            </Field>
+          </div>
+
+          <div className="sm:col-span-2">
+            <Field
+              label="商品描述"
+              htmlFor="descriptionHtml"
+              hint="顯示在商品頁。支援 HTML，段落、粗體、清單都可以用。"
+            >
+              <Textarea
+                id="descriptionHtml"
+                name="descriptionHtml"
+                defaultValue={product.descriptionHtml}
+                className="min-h-40 font-mono text-xs"
+                placeholder="<p>材質：100% 純棉</p>"
+              />
             </Field>
           </div>
 

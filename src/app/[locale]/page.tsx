@@ -2,9 +2,11 @@ import Image from 'next/image'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { ArrowRight } from 'lucide-react'
 import { Link } from '@/i18n/routing'
+import { defaultLocale } from '@/i18n/config'
 import { Button } from '@/components/ui/button'
 import { ProductGrid } from '@/components/product/product-card'
 import { getFeaturedProducts, getHeroBanner, listBrands, listProducts } from '@/lib/catalog/queries'
+import { shopName } from '@/lib/shop-config'
 
 // 商品資料變動不頻繁，用 ISR 讓首頁走 CDN 快取
 export const revalidate = 300
@@ -20,6 +22,15 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     listBrands(),
     listProducts({ sort: 'newest', page: 1 }),
   ])
+
+  const shop = shopName(locale)
+
+  // Banner 的文案挑當前語系的欄位，沒填就退回 messages 的預設標語 ——
+  // 刻意不退回 hero.title，那欄一定是中文，英文站會整段變中文。
+  const isDefaultLocale = locale === defaultLocale
+  const heroTitle = (isDefaultLocale ? hero?.title : hero?.titleEn?.trim()) || t('heroTitle')
+  const heroSubtitle =
+    (isDefaultLocale ? hero?.subtitle : hero?.subtitleEn?.trim()) || t('heroSubtitle')
 
   return (
     <>
@@ -41,11 +52,9 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           <div className="max-w-lg">
             <p className="text-xs tracking-[0.35em] text-taupe-600 uppercase">Sagan Select</p>
             <h1 className="mt-5 text-3xl leading-[1.4] text-ink-900 sm:text-4xl sm:leading-[1.4]">
-              {hero?.title ?? t('heroTitle')}
+              {heroTitle}
             </h1>
-            <p className="mt-4 text-sm leading-relaxed text-ink-700 sm:text-base">
-              {hero?.subtitle ?? t('heroSubtitle')}
-            </p>
+            <p className="mt-4 text-sm leading-relaxed text-ink-700 sm:text-base">{heroSubtitle}</p>
             <Button asChild size="lg" className="mt-9">
               <Link href={hero?.linkUrl ?? '/product/all'}>
                 {t('heroCta')}
@@ -68,7 +77,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             >
               <span className="text-sm tracking-[0.1em] text-ink-900">{brand.name}</span>
               <span className="mt-6 text-xs text-taupe-500">
-                {brand._count.products} 件商品
+                {t('brandProductCount', { count: brand._count.products })}
                 <ArrowRight
                   size={13}
                   className="ml-1 inline transition-transform group-hover:translate-x-0.5"
@@ -91,14 +100,10 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       <section className="bg-cream-100 py-20">
         <div className="mx-auto max-w-2xl px-6 text-center">
           <p className="text-xs tracking-[0.3em] text-taupe-600 uppercase">About</p>
-          <h2 className="mt-5 text-2xl leading-relaxed">經典、優雅、質感</h2>
-          <p className="mt-5 text-sm leading-loose text-ink-700">
-            莎岡選品店創立於 2023 年春天，專注引進韓國高品質睡衣、寢具與家居飾品。
-            我們嚴選韓國品牌，並與品牌總部正式授權合作，
-            希望每一件送到您手中的商品，都能陪伴日常裡那些最放鬆的時刻。
-          </p>
+          <h2 className="mt-5 text-2xl leading-relaxed">{t('aboutTitle')}</h2>
+          <p className="mt-5 text-sm leading-loose text-ink-700">{t('aboutBody', { shop })}</p>
           <Button asChild variant="outline" className="mt-8">
-            <Link href="/about">認識莎岡</Link>
+            <Link href="/about">{t('aboutCta', { shop })}</Link>
           </Button>
         </div>
       </section>

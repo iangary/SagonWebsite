@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Image from 'next/image'
+import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { Minus, Plus, Trash2, ShoppingBag, Tag } from 'lucide-react'
 import { Link } from '@/i18n/routing'
@@ -26,21 +27,18 @@ type CartItemView = {
   imageUrl: string | null
 }
 
-type Labels = Record<string, string>
-
 export function CartView({
   items,
   pricing,
   couponCode,
   freeShippingThreshold,
-  labels,
 }: {
   items: CartItemView[]
   pricing: PricingResult
   couponCode: string | null
   freeShippingThreshold: number
-  labels: Labels
 }) {
+  const t = useTranslations('cart')
   const router = useRouter()
   const { toast } = useToast()
   const { setCount } = useCartCount()
@@ -74,11 +72,11 @@ export function CartView({
     return (
       <div className="mx-auto flex max-w-md flex-col items-center px-6 py-28 text-center">
         {/* 空狀態也要有 h1 —— 每頁一個 h1 是無障礙與 SEO 的底線 */}
-        <h1 className="sr-only">{labels.title}</h1>
+        <h1 className="sr-only">{t('title')}</h1>
         <ShoppingBag size={40} strokeWidth={1} className="text-taupe-400" />
-        <p className="mt-6 text-ink-700">{labels.empty}</p>
+        <p className="mt-6 text-ink-700">{t('empty')}</p>
         <Button asChild className="mt-8">
-          <Link href="/product/all">{labels.emptyCta}</Link>
+          <Link href="/product/all">{t('emptyCta')}</Link>
         </Button>
       </div>
     )
@@ -88,7 +86,7 @@ export function CartView({
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-12">
-      <h1 className="text-2xl tracking-[0.12em]">{labels.title}</h1>
+      <h1 className="text-2xl tracking-[0.12em]">{t('title')}</h1>
 
       <div className="mt-10 gap-12 lg:flex lg:items-start">
         <ul className="flex-1 divide-y divide-cream-200 border-y border-cream-200">
@@ -125,7 +123,7 @@ export function CartView({
                   <p className="mt-1 text-xs text-taupe-500">{item.variantName}</p>
                   {item.available < item.qty && (
                     <p className="mt-1 text-xs text-sale">
-                      庫存不足，目前僅剩 {item.available} 件
+                      {t('lowStockWarning', { count: item.available })}
                     </p>
                   )}
                 </div>
@@ -135,7 +133,7 @@ export function CartView({
                     <button
                       onClick={() => changeQty(item.id, item.qty - 1)}
                       disabled={pending === item.id || item.qty <= 1}
-                      aria-label="減少數量"
+                      aria-label={t('decreaseQty')}
                       className="flex size-9 items-center justify-center text-ink-700 hover:bg-cream-100 disabled:text-taupe-300"
                     >
                       <Minus size={13} />
@@ -144,7 +142,7 @@ export function CartView({
                     <button
                       onClick={() => changeQty(item.id, item.qty + 1)}
                       disabled={pending === item.id || item.qty >= item.available}
-                      aria-label="增加數量"
+                      aria-label={t('increaseQty')}
                       className="flex size-9 items-center justify-center text-ink-700 hover:bg-cream-100 disabled:text-taupe-300"
                     >
                       <Plus size={13} />
@@ -158,7 +156,7 @@ export function CartView({
                     <button
                       onClick={() => remove(item.id)}
                       disabled={pending === item.id}
-                      aria-label={labels.remove}
+                      aria-label={t('remove')}
                       className="text-taupe-400 transition-colors hover:text-sale"
                     >
                       <Trash2 size={15} />
@@ -175,41 +173,42 @@ export function CartView({
             <CouponForm
               currentCode={couponCode}
               error={pricing.couponError}
-              labels={labels}
               onApplied={() => router.refresh()}
             />
 
             <dl className="mt-6 space-y-2.5 border-t border-cream-200 pt-5 text-sm">
-              <Row label={labels.subtotal} value={formatTWD(pricing.subtotal)} />
+              <Row label={t('subtotal')} value={formatTWD(pricing.subtotal)} />
               {pricing.discountTotal > 0 && (
                 <Row
-                  label={labels.discount}
+                  label={t('discount')}
                   value={`-${formatTWD(pricing.discountTotal)}`}
                   tone="sale"
                 />
               )}
               <Row
-                label={labels.shipping}
-                value={pricing.shippingFee === 0 ? labels.freeShipping : formatTWD(pricing.shippingFee)}
+                label={t('shipping')}
+                value={
+                  pricing.shippingFee === 0 ? t('freeShipping') : formatTWD(pricing.shippingFee)
+                }
               />
             </dl>
 
             {shortfall > 0 && (
               <p className="mt-3 text-xs text-taupe-600">
-                再購買 {formatTWD(shortfall)} 即可享免運
+                {t('freeShippingHint', { amount: formatTWD(shortfall) })}
               </p>
             )}
 
             <dl className="mt-5 border-t border-cream-200 pt-5">
               <div className="flex items-baseline justify-between">
-                <dt className="text-sm">{labels.total}</dt>
+                <dt className="text-sm">{t('total')}</dt>
                 <dd className="text-xl tabular-nums">{formatTWD(pricing.grandTotal)}</dd>
               </div>
-              <p className="mt-1.5 text-xs text-taupe-500">運費以結帳時選擇的配送方式為準</p>
+              <p className="mt-1.5 text-xs text-taupe-500">{t('shippingNote')}</p>
             </dl>
 
             <Button asChild size="lg" full className="mt-6">
-              <Link href="/checkout">{labels.checkout}</Link>
+              <Link href="/checkout">{t('checkout')}</Link>
             </Button>
           </div>
 
@@ -217,7 +216,7 @@ export function CartView({
             href="/product/all"
             className="mt-4 block text-center text-xs text-taupe-600 underline underline-offset-4 hover:text-ink-900"
           >
-            {labels.continueShopping}
+            {t('continueShopping')}
           </Link>
         </aside>
       </div>
@@ -245,14 +244,13 @@ function Row({
 function CouponForm({
   currentCode,
   error,
-  labels,
   onApplied,
 }: {
   currentCode: string | null
   error: string | null
-  labels: Labels
   onApplied: () => void
 }) {
+  const t = useTranslations('cart')
   const { toast } = useToast()
   const [code, setCode] = React.useState(currentCode ?? '')
   const [pending, setPending] = React.useState(false)
@@ -264,7 +262,7 @@ function CouponForm({
     setPending(false)
 
     if (!result.ok) {
-      toast(result.error ?? '折扣碼無法使用', 'error')
+      toast(result.error ?? t('couponFailed'), 'error')
       return
     }
     onApplied()
@@ -277,24 +275,26 @@ function CouponForm({
         className="mb-2 flex items-center gap-1.5 text-xs tracking-wide text-taupe-600"
       >
         <Tag size={13} />
-        {labels.couponCode}
+        {t('couponCode')}
       </label>
       <div className="flex gap-2">
         <Input
           id="coupon"
           value={code}
           onChange={(e) => setCode(e.target.value.toUpperCase())}
-          placeholder="輸入折扣碼"
+          placeholder={t('couponPlaceholder')}
           aria-invalid={Boolean(error)}
           className="flex-1"
         />
         <Button type="submit" variant="subtle" disabled={pending}>
-          {labels.applyCoupon}
+          {t('applyCoupon')}
         </Button>
       </div>
       {error && <p className="mt-1.5 text-xs text-sale">{error}</p>}
       {currentCode && !error && (
-        <p className="mt-1.5 text-xs text-taupe-600">已套用「{currentCode}」</p>
+        <p className="mt-1.5 text-xs text-taupe-600">
+          {t('couponAppliedCode', { code: currentCode })}
+        </p>
       )}
     </form>
   )

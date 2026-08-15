@@ -5,13 +5,19 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { Menu, X } from 'lucide-react'
 import { Link } from '@/i18n/routing'
 
-export function MobileNav({ links }: { links: { href: string; label: string }[] }) {
+export function MobileNav({
+  links,
+  labels,
+}: {
+  links: { href: string; label: string }[]
+  labels: { menu: string; open: string; close: string }
+}) {
   const [open, setOpen] = React.useState(false)
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger
-        aria-label="開啟選單"
+        aria-label={labels.open}
         className="-ml-2 flex size-10 items-center justify-center text-ink-700 lg:hidden"
       >
         <Menu size={20} strokeWidth={1.5} />
@@ -20,8 +26,10 @@ export function MobileNav({ links }: { links: { href: string; label: string }[] 
         <Dialog.Overlay className="fixed inset-0 z-70 bg-ink-900/30 backdrop-blur-sm" />
         <Dialog.Content className="fixed inset-y-0 left-0 z-80 flex w-[85vw] max-w-xs flex-col bg-cream-50 shadow-xl">
           <div className="flex h-16 items-center justify-between border-b border-cream-200 px-5">
-            <Dialog.Title className="font-serif-display text-lg tracking-widest">選單</Dialog.Title>
-            <Dialog.Close aria-label="關閉選單" className="text-taupe-500 hover:text-ink-900">
+            <Dialog.Title className="font-serif-display text-lg tracking-widest">
+              {labels.menu}
+            </Dialog.Title>
+            <Dialog.Close aria-label={labels.close} className="text-taupe-500 hover:text-ink-900">
               <X size={20} />
             </Dialog.Close>
           </div>

@@ -7,7 +7,7 @@ import { db } from '@/lib/db'
 import { Button } from '@/components/ui/button'
 import { Badge, ORDER_STATUS_TONE, SHIPMENT_STATUS_TONE } from '@/components/ui/badge'
 import { formatTWD } from '@/lib/utils'
-import { LOGISTICS_SUBTYPE_LABEL, TRACKING_URL, shipmentStatusKey } from '@/lib/ecpay/logistics'
+import { TRACKING_URL, shipmentStatusKey } from '@/lib/ecpay/logistics'
 import { ShipmentTimeline } from '@/components/order/shipment-timeline'
 import { PaymentPoller } from './payment-poller'
 
@@ -35,10 +35,11 @@ export default async function CheckoutResultPage({
   const { orderNo } = await searchParams
   if (!orderNo) notFound()
 
-  const [t, tStatus, tShipment, order] = await Promise.all([
+  const [t, tStatus, tShipment, tLogistics, order] = await Promise.all([
     getTranslations('result'),
     getTranslations('orderStatus'),
     getTranslations('shipmentStatus'),
+    getTranslations('logistics'),
     db.order.findUnique({
       where: { orderNo },
       include: {
@@ -108,13 +109,10 @@ export default async function CheckoutResultPage({
           <dl className="mt-4 space-y-3 text-sm">
             <InfoRow label={t('bankCode')} value={payment.bankCode ?? '—'} />
             <InfoRow label={t('vAccount')} value={payment.vAccount} copyable />
-            <InfoRow label="轉帳金額" value={formatTWD(payment.amount)} />
+            <InfoRow label={t('transferAmount')} value={formatTWD(payment.amount)} />
             <InfoRow label={t('expireDate')} value={payment.expireDate ?? '—'} />
           </dl>
-          <p className="mt-4 text-xs leading-relaxed text-taupe-600">
-            請於期限內完成轉帳。系統確認入帳後會自動更新訂單狀態並寄送通知信。
-            逾期未付款的訂單會自動取消並釋放庫存。
-          </p>
+          <p className="mt-4 text-xs leading-relaxed text-taupe-600">{t('atmHint')}</p>
         </section>
       )}
 
@@ -123,19 +121,17 @@ export default async function CheckoutResultPage({
         <section className="mt-10 border border-cream-300 bg-white p-6">
           <h2 className="text-sm tracking-[0.1em]">{t('cvsPaymentNo')}</h2>
           <dl className="mt-4 space-y-3 text-sm">
-            <InfoRow label="繳費代碼" value={payment.paymentNo} copyable />
-            <InfoRow label="繳費金額" value={formatTWD(payment.amount)} />
+            <InfoRow label={t('paymentCode')} value={payment.paymentNo} copyable />
+            <InfoRow label={t('paymentAmount')} value={formatTWD(payment.amount)} />
             <InfoRow label={t('expireDate')} value={payment.expireDate ?? '—'} />
           </dl>
-          <p className="mt-4 text-xs leading-relaxed text-taupe-600">
-            請持繳費代碼至四大超商的多媒體機台列印繳費單後至櫃台繳費。
-          </p>
+          <p className="mt-4 text-xs leading-relaxed text-taupe-600">{t('cvsHint')}</p>
         </section>
       )}
 
       {/* 訂單內容 */}
       <section className="mt-10 border-t border-cream-200 pt-8">
-        <h2 className="text-sm tracking-[0.1em]">訂單內容</h2>
+        <h2 className="text-sm tracking-[0.1em]">{t('orderItems')}</h2>
         <ul className="mt-4 divide-y divide-cream-200">
           {order.items.map((item) => (
             <li key={item.id} className="flex items-start justify-between gap-4 py-3 text-sm">
@@ -153,16 +149,20 @@ export default async function CheckoutResultPage({
         </ul>
 
         <dl className="mt-4 space-y-2 border-t border-cream-200 pt-4 text-sm">
-          <SummaryRow label="小計" value={formatTWD(order.subtotal)} />
+          <SummaryRow label={t('subtotal')} value={formatTWD(order.subtotal)} />
           {order.discountTotal > 0 && (
-            <SummaryRow label="折扣" value={`-${formatTWD(order.discountTotal)}`} tone="sale" />
+            <SummaryRow
+              label={t('discount')}
+              value={`-${formatTWD(order.discountTotal)}`}
+              tone="sale"
+            />
           )}
           <SummaryRow
-            label="運費"
-            value={order.shippingFee === 0 ? '免運費' : formatTWD(order.shippingFee)}
+            label={t('shipping')}
+            value={order.shippingFee === 0 ? t('freeShipping') : formatTWD(order.shippingFee)}
           />
           <div className="flex justify-between border-t border-cream-200 pt-2 text-base">
-            <dt>總計</dt>
+            <dt>{t('total')}</dt>
             <dd className="tabular-nums">{formatTWD(order.grandTotal)}</dd>
           </div>
         </dl>
@@ -171,11 +171,11 @@ export default async function CheckoutResultPage({
       {/* 配送資訊 */}
       {order.shipment && (
         <section className="mt-8 border-t border-cream-200 pt-8">
-          <h2 className="text-sm tracking-[0.1em]">配送資訊</h2>
+          <h2 className="text-sm tracking-[0.1em]">{t('shippingInfo')}</h2>
           <dl className="mt-4 space-y-2 text-sm">
             <InfoRow
-              label="配送方式"
-              value={LOGISTICS_SUBTYPE_LABEL[order.shipment.logisticsSubType]}
+              label={t('shippingMethod')}
+              value={tLogistics(order.shipment.logisticsSubType)}
             />
             <div className="flex items-baseline justify-between gap-4">
               <dt className="shrink-0 text-taupe-600">{t('shipmentStatusLabel')}</dt>
@@ -190,14 +190,14 @@ export default async function CheckoutResultPage({
             {order.shipment.shipmentNo && (
               <InfoRow label={t('shipmentNo')} value={order.shipment.shipmentNo} copyable />
             )}
-            <InfoRow label="收件人" value={order.shipment.receiverName} />
+            <InfoRow label={t('receiver')} value={order.shipment.receiverName} />
             {order.shipment.cvsStoreName ? (
               <>
-                <InfoRow label="取貨門市" value={order.shipment.cvsStoreName} />
-                <InfoRow label="門市地址" value={order.shipment.cvsAddress ?? '—'} />
+                <InfoRow label={t('cvsStore')} value={order.shipment.cvsStoreName} />
+                <InfoRow label={t('cvsStoreAddress')} value={order.shipment.cvsAddress ?? '—'} />
               </>
             ) : (
-              <InfoRow label="收件地址" value={order.shipment.receiverAddress ?? '—'} />
+              <InfoRow label={t('receiverAddress')} value={order.shipment.receiverAddress ?? '—'} />
             )}
             {order.invoice?.invoiceNumber && (
               <InfoRow label={t('invoiceNumber')} value={order.invoice.invoiceNumber} />
@@ -212,9 +212,7 @@ export default async function CheckoutResultPage({
               rel="noopener noreferrer"
               className="mt-4 inline-flex items-center gap-1.5 text-xs text-ink-900 underline underline-offset-4"
             >
-              {t('trackAt', {
-                carrier: LOGISTICS_SUBTYPE_LABEL[order.shipment.logisticsSubType],
-              })}
+              {t('trackAt', { carrier: tLogistics(order.shipment.logisticsSubType) })}
               <ExternalLink size={12} aria-hidden />
             </a>
           )}

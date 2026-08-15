@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { isGoogleAuthEnabled } from '@/lib/env'
+import { enabledSsoProviders } from '@/lib/env'
 import { LoginForm } from './login-form'
 
 export async function generateMetadata({
@@ -31,23 +31,8 @@ export default async function LoginPage({
 
       <LoginForm
         callbackUrl={callbackUrl ?? '/account'}
-        googleEnabled={isGoogleAuthEnabled}
+        ssoProviders={enabledSsoProviders}
         initialError={error ? t('invalidCredentials') : undefined}
-        labels={{
-          continueWithGoogle: t('continueWithGoogle'),
-          orDivider: t('orDivider'),
-          email: t('email'),
-          password: t('password'),
-          phone: t('phone'),
-          otpCode: t('otpCode'),
-          sendOtp: t('sendOtp'),
-          loginWithPassword: t('loginWithPassword'),
-          loginWithPhone: t('loginWithPhone'),
-          submit: t('loginTitle'),
-          noAccount: t('noAccount'),
-          register: t('registerTitle'),
-          otpSent: t('otpSent'),
-        }}
       />
     </div>
   )

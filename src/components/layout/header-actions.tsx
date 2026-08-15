@@ -16,6 +16,9 @@ type Labels = {
   logout: string
   orderQuery: string
   admin: string
+  closeSearch: string
+  memberFallback: string
+  switchLanguage: string
 }
 
 export function HeaderActions({ labels }: { labels: Labels }) {
@@ -29,9 +32,10 @@ export function HeaderActions({ labels }: { labels: Labels }) {
         open={searchOpen}
         onOpenChange={setSearchOpen}
         placeholder={labels.search}
+        closeLabel={labels.closeSearch}
       />
 
-      <LocaleSwitcher />
+      <LocaleSwitcher label={labels.switchLanguage} />
 
       <DropdownMenu.Root>
         <DropdownMenu.Trigger
@@ -49,7 +53,9 @@ export function HeaderActions({ labels }: { labels: Labels }) {
             {session?.user ? (
               <>
                 <div className="border-b border-cream-200 px-4 py-2.5">
-                  <p className="truncate text-ink-900">{session.user.name ?? '會員'}</p>
+                  <p className="truncate text-ink-900">
+                    {session.user.name ?? labels.memberFallback}
+                  </p>
                   <p className="truncate text-xs text-taupe-500">
                     {session.user.email ?? session.user.phone}
                   </p>
@@ -136,10 +142,12 @@ function SearchControl({
   open,
   onOpenChange,
   placeholder,
+  closeLabel,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   placeholder: string
+  closeLabel: string
 }) {
   const router = useRouter()
   const inputRef = React.useRef<HTMLInputElement>(null)
@@ -180,7 +188,7 @@ function SearchControl({
       <button
         type="button"
         onClick={() => onOpenChange(false)}
-        aria-label="關閉搜尋"
+        aria-label={closeLabel}
         className="flex size-8 items-center justify-center text-taupe-400 hover:text-ink-900"
       >
         <X size={16} />

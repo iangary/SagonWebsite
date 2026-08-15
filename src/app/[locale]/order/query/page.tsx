@@ -32,7 +32,7 @@ export default async function OrderQueryPage({
 }) {
   const { locale } = await params
   setRequestLocale(locale)
-  const sp = await searchParams
+  const [t, sp] = await Promise.all([getTranslations('orderQuery'), searchParams])
 
   let order = null
   let notFound = false
@@ -58,16 +58,14 @@ export default async function OrderQueryPage({
   return (
     <div className="mx-auto max-w-2xl px-6 py-16">
       <p className="text-xs tracking-[0.3em] text-taupe-600 uppercase">Order</p>
-      <h1 className="mt-4 text-3xl">訂單查詢</h1>
-      <p className="mt-4 text-sm leading-loose text-ink-700">
-        輸入訂單編號，以及下單時填寫的手機號碼或電子信箱即可查詢。
-      </p>
+      <h1 className="mt-4 text-3xl">{t('title')}</h1>
+      <p className="mt-4 text-sm leading-loose text-ink-700">{t('intro')}</p>
 
       <OrderQueryForm defaultOrderNo={sp.orderNo ?? ''} defaultContact={sp.contact ?? ''} />
 
       {notFound && (
         <p className="mt-8 border border-sale/30 bg-sale/5 px-4 py-3 text-sm text-sale">
-          查不到符合的訂單。請確認訂單編號與聯絡方式是否正確。
+          {t('notFound')}
         </p>
       )}
 

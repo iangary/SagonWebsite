@@ -1,6 +1,8 @@
 import 'server-only'
 import { z } from 'zod'
 
+import type { SsoProviderId } from '@/lib/auth/sso'
+
 /**
  * 伺服器端環境變數。啟動時就驗證，避免跑到結帳那一刻才發現綠界的 HashIV 沒設。
  * 這個模組不能被 middleware（edge runtime）匯入 —— 見 src/auth.config.ts。
@@ -27,6 +29,12 @@ const schema = z.object({
   AUTH_SECRET: z.string().min(16, 'AUTH_SECRET 至少要 16 字元，請用 openssl rand -base64 32 產生'),
   AUTH_GOOGLE_ID: z.string().optional().default(''),
   AUTH_GOOGLE_SECRET: z.string().optional().default(''),
+  // LINE Login channel 的 Channel ID / Channel secret（不是 Messaging API 那組）
+  AUTH_LINE_ID: z.string().optional().default(''),
+  AUTH_LINE_SECRET: z.string().optional().default(''),
+  // Meta 應用程式的「應用程式編號」與「應用程式密鑰」
+  AUTH_FACEBOOK_ID: z.string().optional().default(''),
+  AUTH_FACEBOOK_SECRET: z.string().optional().default(''),
 
   ECPAY_ENV: z.enum(['stage', 'production']).default('stage'),
 
@@ -88,6 +96,8 @@ const schema = z.object({
   SEED_ADMIN_PASSWORD: z.string().min(6).default('admin1234'),
 
   SHOP_NAME: z.string().default('莎岡選品店'),
+  /** 英文站的店名。前台的 logo、頁尾、關於頁都依語系挑這一個。 */
+  SHOP_NAME_EN: z.string().default('Sagan Select'),
   SHOP_TAX_ID: z.string().default('93124857'),
   /** 通知信頁尾的客服信箱。要是收得到信的真信箱 —— 客戶會直接回信到這裡。 */
   SHOP_SERVICE_EMAIL: z.string().email().default('ian890711@gmail.com'),
@@ -111,5 +121,16 @@ function load() {
 export const env = load()
 export type Env = typeof env
 
-/** Google SSO 是選配：沒填 client id 就不要在登入頁顯示按鈕。 */
-export const isGoogleAuthEnabled = Boolean(env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET)
+/**
+ * SSO 全是選配：沒填憑證的 provider 不會註冊，登入頁也不顯示按鈕。
+ * 這樣本機開發不用湊齊所有第三方帳號也能跑。
+ */
+export const enabledSsoProviders: SsoProviderId[] = [
+  ...(env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET ? (['google'] as const) : []),
+  ...(env.AUTH_LINE_ID && env.AUTH_LINE_SECRET ? (['line'] as const) : []),
+  ...(env.AUTH_FACEBOOK_ID && env.AUTH_FACEBOOK_SECRET ? (['facebook'] as const) : []),
+]
+
+export const isGoogleAuthEnabled = enabledSsoProviders.includes('google')
+export const isLineAuthEnabled = enabledSsoProviders.includes('line')
+export const isFacebookAuthEnabled = enabledSsoProviders.includes('facebook')

@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useActionState } from 'react'
+import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import type { Address } from '@prisma/client'
 import { Plus, Trash2, Pencil } from 'lucide-react'
@@ -11,6 +12,10 @@ import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/toast'
 import { saveAddress, deleteAddress, type ActionState } from '../actions'
 
+/**
+ * 縣市送出的值必須是中文 —— 綠界與黑貓的地址欄位只吃中文。
+ * 只有顯示用的文字依語系翻（見 messages 的 cities）。
+ */
 const CITIES = [
   '台北市', '新北市', '桃園市', '台中市', '台南市', '高雄市',
   '基隆市', '新竹市', '新竹縣', '苗栗縣', '彰化縣', '南投縣',
@@ -21,19 +26,21 @@ const CITIES = [
 const INITIAL: ActionState = { ok: false }
 
 export function AddressBook({ addresses }: { addresses: Address[] }) {
+  const t = useTranslations('account')
+  const tCommon = useTranslations('common')
   const router = useRouter()
   const { toast } = useToast()
   const [editing, setEditing] = React.useState<Address | null>(null)
   const [creating, setCreating] = React.useState(false)
 
   async function remove(id: string) {
-    if (!window.confirm('確定要刪除這筆地址嗎？')) return
+    if (!window.confirm(t('confirmDeleteAddress'))) return
     const result = await deleteAddress(id)
     if (!result.ok) {
-      toast(result.error ?? '刪除失敗', 'error')
+      toast(result.error ?? t('deleteFailed'), 'error')
       return
     }
-    toast('地址已刪除')
+    toast(t('addressDeleted'))
     router.refresh()
   }
 
@@ -44,7 +51,7 @@ export function AddressBook({ addresses }: { addresses: Address[] }) {
       {!showForm && (
         <Button onClick={() => setCreating(true)}>
           <Plus size={15} />
-          新增地址
+          {t('addAddress')}
         </Button>
       )}
 
@@ -65,7 +72,7 @@ export function AddressBook({ addresses }: { addresses: Address[] }) {
 
       {addresses.length === 0 && !showForm ? (
         <p className="border border-cream-200 bg-white py-16 text-center text-sm text-taupe-500">
-          尚未建立收件地址
+          {t('noAddresses')}
         </p>
       ) : (
         <ul className="space-y-3">
@@ -77,7 +84,7 @@ export function AddressBook({ addresses }: { addresses: Address[] }) {
               <div className="min-w-0 text-sm">
                 <p className="flex items-center gap-2 text-ink-900">
                   {address.recipient}
-                  {address.isDefault && <Badge tone="neutral">預設</Badge>}
+                  {address.isDefault && <Badge tone="neutral">{t('defaultAddress')}</Badge>}
                 </p>
                 <p className="mt-1 text-taupe-600">{address.phone}</p>
                 <p className="mt-1 text-taupe-600">
@@ -89,11 +96,11 @@ export function AddressBook({ addresses }: { addresses: Address[] }) {
               <div className="flex shrink-0 gap-1">
                 <Button size="sm" variant="ghost" onClick={() => setEditing(address)}>
                   <Pencil size={13} />
-                  編輯
+                  {tCommon('edit')}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => remove(address.id)}>
                   <Trash2 size={13} />
-                  刪除
+                  {tCommon('delete')}
                 </Button>
               </div>
             </li>
@@ -113,6 +120,9 @@ function AddressForm({
   onDone: () => void
   onCancel: () => void
 }) {
+  const t = useTranslations('account')
+  const tCommon = useTranslations('common')
+  const tCity = useTranslations('cities')
   const { toast } = useToast()
   const [state, formAction, pending] = useActionState(saveAddress, INITIAL)
 
@@ -129,13 +139,15 @@ function AddressForm({
   return (
     <form action={formAction} className="border border-cream-200 bg-white p-6">
       <input type="hidden" name="id" value={address?.id ?? ''} />
-      <h2 className="mb-5 text-sm tracking-[0.1em]">{address ? '編輯地址' : '新增地址'}</h2>
+      <h2 className="mb-5 text-sm tracking-[0.1em]">
+        {address ? t('editAddress') : t('addAddress')}
+      </h2>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="收件人" htmlFor="recipient" required error={errors.recipient}>
+        <Field label={t('recipient')} htmlFor="recipient" required error={errors.recipient}>
           <Input id="recipient" name="recipient" defaultValue={address?.recipient} required />
         </Field>
-        <Field label="手機號碼" htmlFor="phone" required error={errors.phone}>
+        <Field label={t('phone')} htmlFor="phone" required error={errors.phone}>
           <Input
             id="phone"
             name="phone"
@@ -146,24 +158,24 @@ function AddressForm({
             required
           />
         </Field>
-        <Field label="郵遞區號" htmlFor="zip" required error={errors.zip}>
+        <Field label={t('addressZip')} htmlFor="zip" required error={errors.zip}>
           <Input id="zip" name="zip" inputMode="numeric" maxLength={5} defaultValue={address?.zip} required />
         </Field>
-        <Field label="縣市" htmlFor="city" required error={errors.city}>
+        <Field label={t('addressCity')} htmlFor="city" required error={errors.city}>
           <Select id="city" name="city" defaultValue={address?.city ?? ''} required>
-            <option value="">請選擇</option>
+            <option value="">{t('selectPlaceholder')}</option>
             {CITIES.map((city) => (
               <option key={city} value={city}>
-                {city}
+                {tCity(city)}
               </option>
             ))}
           </Select>
         </Field>
-        <Field label="鄉鎮市區" htmlFor="district" required error={errors.district}>
+        <Field label={t('addressDistrict')} htmlFor="district" required error={errors.district}>
           <Input id="district" name="district" defaultValue={address?.district} required />
         </Field>
         <div className="sm:col-span-2">
-          <Field label="詳細地址" htmlFor="line1" required error={errors.line1}>
+          <Field label={t('addressLine')} htmlFor="line1" required error={errors.line1}>
             <Input id="line1" name="line1" defaultValue={address?.line1} required />
           </Field>
         </div>
@@ -176,15 +188,15 @@ function AddressForm({
           defaultChecked={address?.isDefault ?? false}
           className="size-3.5 accent-[#2b2724]"
         />
-        設為預設收件地址
+        {t('setAsDefault')}
       </label>
 
       <div className="mt-6 flex gap-2">
         <Button type="submit" disabled={pending}>
-          {pending ? '儲存中…' : '儲存'}
+          {pending ? t('saving') : tCommon('save')}
         </Button>
         <Button type="button" variant="ghost" onClick={onCancel}>
-          取消
+          {tCommon('cancel')}
         </Button>
       </div>
     </form>

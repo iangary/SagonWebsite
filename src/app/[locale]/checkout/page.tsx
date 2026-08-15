@@ -4,6 +4,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { getCart } from '@/lib/cart'
+import { localizedName } from '@/lib/i18n/localized'
 import { shopConfig } from '@/lib/shop-config'
 import { isCallbackReachable } from '@/lib/ecpay/config'
 import { CheckoutForm } from './checkout-form'
@@ -42,7 +43,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ local
     id: item.id,
     qty: item.qty,
     unitPrice: item.variant.price,
-    productName: item.variant.product.name,
+    productName: localizedName(locale, item.variant.product),
     variantName: item.variant.name,
     imageUrl: item.variant.product.images[0]?.url ?? null,
   }))
@@ -53,11 +54,9 @@ export default async function CheckoutPage({ params }: { params: Promise<{ local
 
       {!isCallbackReachable() && (
         <div className="mt-6 border border-rose-accent/40 bg-rose-accent/5 px-4 py-3 text-sm text-ink-700">
-          <p className="font-medium text-ink-900">開發環境提醒</p>
+          <p className="font-medium text-ink-900">{t('devWarningTitle')}</p>
           <p className="mt-1 leading-relaxed">
-            目前 <code className="text-xs">APP_URL</code> 指向 localhost，綠界打不到我們的
-            callback，付款完成後訂單狀態不會自動更新。請先啟動通道並把
-            <code className="text-xs"> APP_URL</code> 換成公開網址：
+            {t('devWarningBody')}
             <br />
             <code className="mt-1 inline-block text-xs">
               docker compose --profile tunnel up -d cloudflared

@@ -12,7 +12,7 @@ const LABELS: Record<Locale, string> = {
   en: 'English',
 }
 
-export function LocaleSwitcher() {
+export function LocaleSwitcher({ label }: { label: string }) {
   const locale = useLocale() as Locale
   const pathname = usePathname()
   const router = useRouter()
@@ -29,7 +29,7 @@ export function LocaleSwitcher() {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger
-        aria-label="切換語言"
+        aria-label={label}
         disabled={pending}
         className="hidden size-10 items-center justify-center text-ink-700 transition-colors hover:text-taupe-600 disabled:opacity-50 sm:flex"
       >

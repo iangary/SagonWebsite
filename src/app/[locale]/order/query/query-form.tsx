@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input, Field } from '@/components/ui/input'
@@ -15,37 +16,39 @@ export function OrderQueryForm({
   defaultOrderNo: string
   defaultContact: string
 }) {
+  const t = useTranslations('orderQuery')
+
   return (
     <form method="get" className="mt-8 space-y-4">
-      <Field label="訂單編號" htmlFor="orderNo" required>
+      <Field label={t('orderNo')} htmlFor="orderNo" required>
         <Input
           id="orderNo"
           name="orderNo"
           defaultValue={defaultOrderNo}
-          placeholder="例如 SGMB1X2Y3Z4ABCDEF"
+          placeholder={t('orderNoPlaceholder')}
           className="font-mono"
           required
         />
       </Field>
 
       <Field
-        label="手機號碼或電子信箱"
+        label={t('contact')}
         htmlFor="contact"
         required
-        hint="下單時填寫的聯絡方式"
+        hint={t('contactHint')}
       >
         <Input
           id="contact"
           name="contact"
           defaultValue={defaultContact}
-          placeholder="0912345678 或 you@example.com"
+          placeholder={t('contactPlaceholder')}
           required
         />
       </Field>
 
       <Button type="submit" size="lg">
         <Search size={16} />
-        查詢訂單
+        {t('submit')}
       </Button>
     </form>
   )

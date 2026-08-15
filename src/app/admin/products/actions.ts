@@ -40,7 +40,13 @@ async function syncBasePrice(productId: string): Promise<void> {
   }
 }
 
-/** 改完商品後要讓前台的快取失效 */
+/**
+ * 改完商品後要讓前台的快取失效。
+ *
+ * 商品頁是 `revalidate = 300` 的 ISR，不主動失效的話營運改完要等五分鐘才看得到。
+ * localePrefix 是 as-needed，繁中在 `/product/x`、英文在 `/en/product/x`，
+ * 兩條路徑都要清 —— 只清一條會出現「中文改好了、英文還是舊的」。
+ */
 async function revalidateProduct(productId: string): Promise<void> {
   const product = await db.product.findUnique({
     where: { id: productId },
@@ -48,15 +54,21 @@ async function revalidateProduct(productId: string): Promise<void> {
   })
   revalidatePath('/admin/products')
   revalidatePath(`/admin/products/${productId}`)
-  if (product) revalidatePath(`/product/${product.slug}`)
+  if (product) {
+    revalidatePath(`/product/${product.slug}`)
+    revalidatePath(`/en/product/${product.slug}`)
+  }
 }
 
 const productSchema = z.object({
   id: z.string().min(1),
   name: z.string().trim().min(1, '請輸入商品名稱').max(200),
+  nameEn: z.string().trim().max(200).optional().default(''),
   summary: z.string().trim().max(500).optional().default(''),
+  descriptionHtml: z.string().trim().max(100_000).optional().default(''),
   status: z.enum(['DRAFT', 'ACTIVE', 'ARCHIVED']),
   brandId: z.string().optional().default(''),
+  compareAtPrice: z.string().trim().optional().default(''),
   seoTitle: z.string().trim().max(200).optional().default(''),
   seoDescription: z.string().trim().max(300).optional().default(''),
 })
@@ -81,20 +93,50 @@ export async function updateProduct(
   try {
     const before = await db.product.findUniqueOrThrow({
       where: { id },
-      select: { name: true, status: true, brandId: true, summary: true },
+      select: {
+        name: true,
+        nameEn: true,
+        status: true,
+        brandId: true,
+        summary: true,
+        basePrice: true,
+        compareAtPrice: true,
+        publishedAt: true,
+      },
     })
+
+    // 原價低於售價的話刪除線價格會變成「越買越貴」，直接擋下來而不是靜靜丟掉，
+    // 否則營運只會看到欄位莫名其妙變空白。
+    let compareAtPrice: number | null = null
+    if (data.compareAtPrice) {
+      const value = Number.parseInt(data.compareAtPrice, 10)
+      if (!Number.isFinite(value) || value < 0) {
+        return { ok: false, fieldErrors: { compareAtPrice: '原價要填數字' } }
+      }
+      if (value <= before.basePrice) {
+        return {
+          ok: false,
+          fieldErrors: { compareAtPrice: `原價要高於售價 ${before.basePrice} 才會顯示刪除線` },
+        }
+      }
+      compareAtPrice = value
+    }
 
     await db.product.update({
       where: { id },
       data: {
         name: data.name,
+        nameEn: data.nameEn || null,
         summary: data.summary || null,
+        descriptionHtml: data.descriptionHtml || null,
         status: data.status,
         brandId: data.brandId || null,
+        compareAtPrice,
         seoTitle: data.seoTitle || null,
         seoDescription: data.seoDescription || null,
-        // 從草稿轉上架時補上上架時間
-        ...(data.status === 'ACTIVE' ? { publishedAt: new Date() } : {}),
+        // 第一次上架才記上架時間。每次存檔都蓋掉的話，改個錯字就會讓舊商品
+        // 跳到前台「最新上架」的第一位。
+        ...(data.status === 'ACTIVE' && !before.publishedAt ? { publishedAt: new Date() } : {}),
       },
     })
 
@@ -104,11 +146,19 @@ export async function updateProduct(
       entity: 'Product',
       entityId: id,
       before,
-      after: data,
+      // descriptionHtml 可以到十萬字，塞進稽核紀錄只會讓這張表爆掉，只記有沒有改
+      after: {
+        name: data.name,
+        nameEn: data.nameEn,
+        status: data.status,
+        brandId: data.brandId,
+        summary: data.summary,
+        compareAtPrice,
+        descriptionLength: data.descriptionHtml.length,
+      },
     })
 
-    revalidatePath('/admin/products')
-    revalidatePath(`/admin/products/${id}`)
+    await revalidateProduct(id)
     return { ok: true, message: '商品已更新' }
   } catch (error) {
     console.error('[admin] 更新商品失敗', error)
@@ -182,6 +232,7 @@ export async function updateVariant(input: {
 
 const createSchema = z.object({
   name: z.string().trim().min(1, '請輸入商品名稱').max(200),
+  nameEn: z.string().trim().max(200).optional().default(''),
   brandId: z.string().optional().default(''),
   summary: z.string().trim().max(500).optional().default(''),
   descriptionHtml: z.string().trim().max(100_000).optional().default(''),
@@ -232,6 +283,7 @@ export async function createProduct(
       data: {
         slug,
         name: data.name,
+        nameEn: data.nameEn || null,
         summary: data.summary || null,
         descriptionHtml: data.descriptionHtml || null,
         brandId: data.brandId || null,

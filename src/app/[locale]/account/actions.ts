@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { getTranslations } from 'next-intl/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
@@ -15,9 +16,26 @@ export type ActionState = {
   fieldErrors?: Record<string, string>
 }
 
-function fieldErrorsFrom(error: z.ZodError): Record<string, string> {
+/**
+ * 訊息跟著使用者的語系走。Server Action 由 proxy 的 next-intl middleware
+ * 標好語系後才進來，所以這裡拿得到正確的 locale。
+ */
+async function error(key: string): Promise<string> {
+  return (await getTranslations('errors'))(key)
+}
+
+async function validation(key: string): Promise<string> {
+  return (await getTranslations('validation'))(key)
+}
+
+/**
+ * zod 的 message 存的是 messages 的 validation.* key ——
+ * schema 是模組層級的常數，建立時還沒有請求，拿不到語系。
+ */
+async function fieldErrorsFrom(zodError: z.ZodError): Promise<Record<string, string>> {
+  const t = await getTranslations('validation')
   const out: Record<string, string> = {}
-  for (const issue of error.issues) out[String(issue.path[0] ?? '_')] ??= issue.message
+  for (const issue of zodError.issues) out[String(issue.path[0] ?? '_')] ??= t(issue.message)
   return out
 }
 
@@ -26,18 +44,18 @@ function fieldErrorsFrom(error: z.ZodError): Record<string, string> {
 // ---------------------------------------------------------------------------
 
 const profileSchema = z.object({
-  name: z.string().trim().min(1, '請輸入姓名').max(50),
+  name: z.string().trim().min(1, 'nameRequired').max(50),
 })
 
 export async function updateProfile(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser()
 
   const parsed = profileSchema.safeParse(Object.fromEntries(formData.entries()))
-  if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) }
+  if (!parsed.success) return { ok: false, fieldErrors: await fieldErrorsFrom(parsed.error) }
 
   await db.user.update({ where: { id: user.id }, data: { name: parsed.data.name } })
   revalidatePath('/account/profile')
-  return { ok: true, message: '個人資料已更新' }
+  return { ok: true, message: (await getTranslations('account'))('profileUpdated') }
 }
 
 // ---------------------------------------------------------------------------
@@ -46,12 +64,12 @@ export async function updateProfile(_prev: ActionState, formData: FormData): Pro
 
 const addressSchema = z.object({
   id: z.string().optional().default(''),
-  recipient: z.string().trim().min(1, '請輸入收件人').max(50),
-  phone: z.string().trim().min(1, '請輸入手機號碼'),
-  zip: z.string().trim().regex(/^\d{3,5}$/, '郵遞區號格式不正確'),
-  city: z.string().trim().min(1, '請選擇縣市'),
-  district: z.string().trim().min(1, '請輸入鄉鎮市區'),
-  line1: z.string().trim().min(1, '請輸入詳細地址').max(200),
+  recipient: z.string().trim().min(1, 'recipientRequired').max(50),
+  phone: z.string().trim().min(1, 'phoneRequired'),
+  zip: z.string().trim().regex(/^\d{3,5}$/, 'zipFormat'),
+  city: z.string().trim().min(1, 'cityRequired'),
+  district: z.string().trim().min(1, 'districtRequired'),
+  line1: z.string().trim().min(1, 'addressLineRequired').max(200),
   isDefault: z.string().optional().default(''),
 })
 
@@ -59,10 +77,12 @@ export async function saveAddress(_prev: ActionState, formData: FormData): Promi
   const user = await requireUser()
 
   const parsed = addressSchema.safeParse(Object.fromEntries(formData.entries()))
-  if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) }
+  if (!parsed.success) return { ok: false, fieldErrors: await fieldErrorsFrom(parsed.error) }
 
   const phone = normalizeTwMobile(parsed.data.phone)
-  if (!phone) return { ok: false, fieldErrors: { phone: '請輸入正確的台灣手機號碼' } }
+  if (!phone) {
+    return { ok: false, fieldErrors: { phone: await validation('phoneInvalid') } }
+  }
 
   const { id, isDefault, ...rest } = parsed.data
   const makeDefault = isDefault === 'on' || isDefault === 'true'
@@ -79,7 +99,7 @@ export async function saveAddress(_prev: ActionState, formData: FormData): Promi
         where: { id, userId: user.id },
         select: { id: true },
       })
-      if (!owned) throw new Error('找不到這筆地址')
+      if (!owned) throw new Error('address not found')
 
       await tx.address.update({
         where: { id },
@@ -99,8 +119,9 @@ export async function saveAddress(_prev: ActionState, formData: FormData): Promi
     }
   })
 
+  const tAccount = await getTranslations('account')
   revalidatePath('/account/addresses')
-  return { ok: true, message: id ? '地址已更新' : '地址已新增' }
+  return { ok: true, message: tAccount(id ? 'addressUpdated' : 'addressAdded') }
 }
 
 export async function deleteAddress(addressId: string): Promise<{ ok: boolean; error?: string }> {
@@ -110,7 +131,7 @@ export async function deleteAddress(addressId: string): Promise<{ ok: boolean; e
     where: { id: addressId, userId: user.id },
     select: { id: true, isDefault: true },
   })
-  if (!address) return { ok: false, error: '找不到這筆地址' }
+  if (!address) return { ok: false, error: await error('addressNotFound') }
 
   await db.address.delete({ where: { id: addressId } })
 
@@ -135,11 +156,11 @@ export async function deleteAddress(addressId: string): Promise<{ ok: boolean; e
 const passwordSchema = z
   .object({
     currentPassword: z.string().optional().default(''),
-    newPassword: z.string().min(8, '密碼至少 8 個字元').max(128),
+    newPassword: z.string().min(8, 'passwordMin').max(128),
     confirmPassword: z.string(),
   })
   .refine((d) => d.newPassword === d.confirmPassword, {
-    message: '兩次輸入的密碼不一致',
+    message: 'passwordMismatch',
     path: ['confirmPassword'],
   })
 
@@ -147,7 +168,7 @@ export async function setPassword(_prev: ActionState, formData: FormData): Promi
   const sessionUser = await requireUser()
 
   const parsed = passwordSchema.safeParse(Object.fromEntries(formData.entries()))
-  if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) }
+  if (!parsed.success) return { ok: false, fieldErrors: await fieldErrorsFrom(parsed.error) }
 
   const user = await db.user.findUniqueOrThrow({
     where: { id: sessionUser.id },
@@ -157,7 +178,9 @@ export async function setPassword(_prev: ActionState, formData: FormData): Promi
   // 已經有密碼的人要先驗證舊密碼，才不會被 session 劫持者直接改掉
   if (user.passwordHash) {
     const ok = await verifyPassword(user.passwordHash, parsed.data.currentPassword)
-    if (!ok) return { ok: false, fieldErrors: { currentPassword: '目前密碼不正確' } }
+    if (!ok) {
+      return { ok: false, fieldErrors: { currentPassword: await error('currentPasswordWrong') } }
+    }
   }
 
   await db.user.update({
@@ -165,8 +188,12 @@ export async function setPassword(_prev: ActionState, formData: FormData): Promi
     data: { passwordHash: await hashPassword(parsed.data.newPassword) },
   })
 
+  const tAccount = await getTranslations('account')
   revalidatePath('/account/security')
-  return { ok: true, message: user.passwordHash ? '密碼已變更' : '密碼已設定' }
+  return {
+    ok: true,
+    message: tAccount(user.passwordHash ? 'passwordChanged' : 'passwordCreated'),
+  }
 }
 
 const bindPhoneSchema = z.object({
@@ -178,17 +205,17 @@ export async function bindPhone(_prev: ActionState, formData: FormData): Promise
   const sessionUser = await requireUser()
 
   const parsed = bindPhoneSchema.safeParse(Object.fromEntries(formData.entries()))
-  if (!parsed.success) return { ok: false, error: '請輸入手機號碼與驗證碼' }
+  if (!parsed.success) return { ok: false, error: await error('otpFieldsRequired') }
 
   const result = await verifyOtp(parsed.data.phone, parsed.data.code, 'bind')
-  if (!result.ok) return { ok: false, error: '驗證碼錯誤或已過期' }
+  if (!result.ok) return { ok: false, error: await error('otpInvalid') }
 
   const taken = await db.user.findUnique({
     where: { phone: result.phone },
     select: { id: true },
   })
   if (taken && taken.id !== sessionUser.id) {
-    return { ok: false, error: '這支手機號碼已被其他帳號綁定' }
+    return { ok: false, error: await error('phoneTaken') }
   }
 
   await db.user.update({
@@ -197,7 +224,7 @@ export async function bindPhone(_prev: ActionState, formData: FormData): Promise
   })
 
   revalidatePath('/account/security')
-  return { ok: true, message: '手機已驗證綁定' }
+  return { ok: true, message: (await getTranslations('account'))('phoneBound') }
 }
 
 /**
@@ -218,7 +245,7 @@ export async function unlinkProvider(provider: string): Promise<{ ok: boolean; e
   })
 
   const target = user.accounts.filter((a) => a.provider === provider)
-  if (target.length === 0) return { ok: false, error: '沒有綁定這個登入方式' }
+  if (target.length === 0) return { ok: false, error: await error('providerNotLinked') }
 
   const remainingMethods =
     user.accounts.filter((a) => a.provider !== provider).length +
@@ -226,10 +253,7 @@ export async function unlinkProvider(provider: string): Promise<{ ok: boolean; e
     (user.phone && user.phoneVerified ? 1 : 0)
 
   if (remainingMethods === 0) {
-    return {
-      ok: false,
-      error: '這是您唯一的登入方式，請先設定密碼或綁定手機再解除',
-    }
+    return { ok: false, error: await error('lastLoginMethod') }
   }
 
   await db.account.deleteMany({ where: { userId: sessionUser.id, provider } })

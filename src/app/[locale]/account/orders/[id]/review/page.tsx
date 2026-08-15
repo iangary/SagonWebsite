@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import Image from 'next/image'
 import { ArrowLeft } from 'lucide-react'
 import { Link } from '@/i18n/routing'
@@ -7,11 +8,16 @@ import { requireUser } from '@/lib/auth'
 import { ReviewForm } from './review-form'
 
 export const dynamic = 'force-dynamic'
-export const metadata = { title: '撰寫評論', robots: { index: false } }
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'review' })
+  return { title: t('pageTitle'), robots: { index: false } }
+}
 
 export default async function WriteReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const user = await requireUser()
+  const [t, user] = await Promise.all([getTranslations('review'), requireUser()])
 
   // where 帶 userId，別人的訂單看不到
   const order = await db.order.findFirst({
@@ -31,12 +37,12 @@ export default async function WriteReviewPage({ params }: { params: Promise<{ id
   if (order.status !== 'COMPLETED') {
     return (
       <div className="border border-cream-200 bg-white p-8 text-center">
-        <p className="text-sm text-ink-700">訂單完成後才能撰寫評論。</p>
+        <p className="text-sm text-ink-700">{t('notCompleted')}</p>
         <Link
           href="/account/orders"
           className="mt-4 inline-block text-sm text-ink-900 underline underline-offset-4"
         >
-          回我的訂單
+          {t('backToOrders')}
         </Link>
       </div>
     )
@@ -49,13 +55,11 @@ export default async function WriteReviewPage({ params }: { params: Promise<{ id
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-taupe-600 hover:text-ink-900"
       >
         <ArrowLeft size={14} />
-        回我的訂單
+        {t('backToOrders')}
       </Link>
 
-      <h2 className="text-lg tracking-[0.1em]">為訂單 {order.orderNo} 的商品留下評論</h2>
-      <p className="mt-2 text-xs text-taupe-500">
-        評論送出後需經審核才會公開顯示。每個購買項目只能評論一次。
-      </p>
+      <h2 className="text-lg tracking-[0.1em]">{t('heading', { orderNo: order.orderNo })}</h2>
+      <p className="mt-2 text-xs text-taupe-500">{t('hint')}</p>
 
       <ul className="mt-8 space-y-5">
         {order.items.map((item) => {
@@ -79,12 +83,12 @@ export default async function WriteReviewPage({ params }: { params: Promise<{ id
               <div className="mt-4">
                 {existing ? (
                   <p className="text-sm text-taupe-600">
-                    您已評論過這個項目（{existing.rating} 分）。
+                    {t('alreadyReviewed', { rating: existing.rating })}
                   </p>
                 ) : productId ? (
                   <ReviewForm orderItemId={item.id} productId={productId} />
                 ) : (
-                  <p className="text-sm text-taupe-500">這個商品已下架，無法評論。</p>
+                  <p className="text-sm text-taupe-500">{t('productUnavailable')}</p>
                 )}
               </div>
             </li>

@@ -5,6 +5,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { SessionProvider } from 'next-auth/react'
 
 import { routing } from '@/i18n/routing'
+import { shopName } from '@/lib/shop-config'
 import { SiteHeader } from '@/components/layout/site-header'
 import { SiteFooter } from '@/components/layout/site-footer'
 import { ToastProvider } from '@/components/ui/toast'
@@ -30,11 +31,12 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params
   const t = await getTranslations({ locale, namespace: 'home' })
+  const tCommon = await getTranslations({ locale, namespace: 'common' })
 
-  const title = process.env.SHOP_NAME ?? '莎岡選品店'
+  const title = shopName(locale)
   return {
     metadataBase: new URL(process.env.APP_URL ?? 'http://localhost:3000'),
-    title: { default: title, template: `%s｜${title}` },
+    title: { default: title, template: `%s${tCommon('titleSeparator')}${title}` },
     description: t('heroSubtitle'),
     openGraph: {
       type: 'website',

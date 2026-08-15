@@ -1,5 +1,6 @@
 'use server'
 
+import { getTranslations } from 'next-intl/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
 import { hashPassword } from '@/lib/auth/password'
@@ -7,16 +8,21 @@ import { normalizeTwMobile } from '@/lib/sms/provider'
 
 const schema = z
   .object({
-    name: z.string().trim().min(1, '請輸入姓名').max(50),
-    email: z.string().trim().toLowerCase().email('請輸入正確的 Email'),
+    // 訊息存的是 messages 的 validation.* key，回應時才翻。
+    name: z.string().trim().min(1, 'nameRequired').max(50),
+    email: z.string().trim().toLowerCase().email('emailInvalid'),
     phone: z.string().trim().optional().default(''),
-    password: z.string().min(8, '密碼至少 8 個字元').max(128),
+    password: z.string().min(8, 'passwordMin').max(128),
     confirmPassword: z.string(),
   })
   .refine((d) => d.password === d.confirmPassword, {
-    message: '兩次輸入的密碼不一致',
+    message: 'passwordMismatch',
     path: ['confirmPassword'],
   })
+
+async function validation(key: string): Promise<string> {
+  return (await getTranslations('validation'))(key)
+}
 
 export type RegisterState = {
   ok: boolean
@@ -37,10 +43,11 @@ export async function registerAction(
   })
 
   if (!parsed.success) {
+    const t = await getTranslations('validation')
     const fieldErrors: Record<string, string> = {}
     for (const issue of parsed.error.issues) {
       const key = String(issue.path[0] ?? '_')
-      fieldErrors[key] ??= issue.message
+      fieldErrors[key] ??= t(issue.message)
     }
     return { ok: false, fieldErrors }
   }
@@ -51,18 +58,18 @@ export async function registerAction(
   if (parsed.data.phone) {
     phone = normalizeTwMobile(parsed.data.phone)
     if (!phone) {
-      return { ok: false, fieldErrors: { phone: '請輸入正確的台灣手機號碼' } }
+      return { ok: false, fieldErrors: { phone: await validation('phoneInvalid') } }
     }
     const phoneTaken = await db.user.findUnique({ where: { phone }, select: { id: true } })
     if (phoneTaken) {
-      return { ok: false, fieldErrors: { phone: '這支手機號碼已被註冊' } }
+      return { ok: false, fieldErrors: { phone: (await getTranslations('errors'))('phoneTaken2') } }
     }
   }
 
   const existing = await db.user.findUnique({ where: { email } })
 
   if (existing?.passwordHash) {
-    return { ok: false, fieldErrors: { email: '這個 Email 已經註冊過了，請直接登入' } }
+    return { ok: false, fieldErrors: { email: (await getTranslations('errors'))('emailTaken') } }
   }
 
   const passwordHash = await hashPassword(password)

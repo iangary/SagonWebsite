@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useActionState } from 'react'
+import { useTranslations } from 'next-intl'
 import Image from 'next/image'
 import { Store, Truck, Check, CreditCard, Building, Barcode } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -27,24 +28,19 @@ type CvsStore = {
   telephone: string
 }
 
-const CVS_OPTIONS = [
-  { value: 'UNIMARTC2C', label: '7-ELEVEN' },
-  { value: 'FAMIC2C', label: '全家' },
-  { value: 'HILIFEC2C', label: '萊爾富' },
-  { value: 'OKMARTC2C', label: 'OK 超商' },
-]
-
-const HOME_OPTIONS = [
-  { value: 'TCAT', label: '黑貓宅急便' },
-  { value: 'POST', label: '中華郵政' },
-]
+const CVS_OPTIONS = ['UNIMARTC2C', 'FAMIC2C', 'HILIFEC2C', 'OKMARTC2C'] as const
+const HOME_OPTIONS = ['TCAT', 'POST'] as const
 
 const PAYMENT_OPTIONS = [
-  { value: 'Credit', label: '信用卡', icon: CreditCard, note: '支援一次付清與分期' },
-  { value: 'ATM', label: 'ATM 虛擬帳號', icon: Building, note: '下單後取得轉帳帳號' },
-  { value: 'CVS', label: '超商代碼繳費', icon: Barcode, note: '下單後取得繳費代碼' },
-]
+  { value: 'Credit', labelKey: 'credit', noteKey: 'creditNote', icon: CreditCard },
+  { value: 'ATM', labelKey: 'atm', noteKey: 'atmNote', icon: Building },
+  { value: 'CVS', labelKey: 'cvsPayment', noteKey: 'cvsPaymentNote', icon: Barcode },
+] as const
 
+/**
+ * 縣市送出的值必須是中文 —— 綠界與黑貓的地址欄位只吃中文。
+ * 只有顯示用的文字依語系翻（見 messages 的 cities）。
+ */
 const CITIES = [
   '台北市', '新北市', '桃園市', '台中市', '台南市', '高雄市',
   '基隆市', '新竹市', '新竹縣', '苗栗縣', '彰化縣', '南投縣',
@@ -76,6 +72,11 @@ export function CheckoutForm({
   shippingFees: { CVS: number; HOME: number }
   freeShippingThreshold: number
 }) {
+  const t = useTranslations('checkout')
+  const tCart = useTranslations('cart')
+  const tCvs = useTranslations('cvsBrand')
+  const tLogistics = useTranslations('logistics')
+  const tCity = useTranslations('cities')
   const [state, formAction, pending] = useActionState(submitCheckout, INITIAL)
 
   const [shippingMethod, setShippingMethod] = React.useState<'CVS' | 'HOME'>('CVS')
@@ -182,9 +183,14 @@ export function CheckoutForm({
 
         {/* 收件資訊 */}
         <section>
-          <SectionTitle step={1} title="收件資訊" />
+          <SectionTitle step={1} title={t('recipient')} />
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <Field label="收件人姓名" htmlFor="recipientName" required error={errors.recipientName}>
+            <Field
+              label={t('recipientName')}
+              htmlFor="recipientName"
+              required
+              error={errors.recipientName}
+            >
               <Input
                 id="recipientName"
                 name="recipientName"
@@ -194,11 +200,11 @@ export function CheckoutForm({
               />
             </Field>
             <Field
-              label="收件人手機"
+              label={t('recipientPhone')}
               htmlFor="recipientPhone"
               required
               error={errors.recipientPhone}
-              hint="超商到貨通知會發到這支號碼"
+              hint={t('recipientPhoneHint')}
             >
               <Input
                 id="recipientPhone"
@@ -213,11 +219,11 @@ export function CheckoutForm({
             </Field>
             <div className="sm:col-span-2">
               <Field
-                label="電子信箱"
+                label={t('email')}
                 htmlFor="email"
                 required
                 error={errors.email}
-                hint="訂單通知與電子發票會寄到這裡"
+                hint={t('emailHint')}
               >
                 <Input
                   id="email"
@@ -234,27 +240,27 @@ export function CheckoutForm({
 
         {/* 配送方式 */}
         <section>
-          <SectionTitle step={2} title="配送方式" />
+          <SectionTitle step={2} title={t('shippingMethod')} />
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             <MethodCard
               active={shippingMethod === 'CVS'}
               onClick={() => setShippingMethod('CVS')}
               icon={<Store size={18} strokeWidth={1.5} />}
-              title="超商取貨"
-              note={`運費 ${formatTWD(shippingFees.CVS)}`}
+              title={t('cvs')}
+              note={t('shippingFeeNote', { amount: formatTWD(shippingFees.CVS) })}
             />
             <MethodCard
               active={shippingMethod === 'HOME'}
               onClick={() => setShippingMethod('HOME')}
               icon={<Truck size={18} strokeWidth={1.5} />}
-              title="宅配到府"
-              note={`運費 ${formatTWD(shippingFees.HOME)}`}
+              title={t('home')}
+              note={t('shippingFeeNote', { amount: formatTWD(shippingFees.HOME) })}
             />
           </div>
 
           {shippingMethod === 'CVS' ? (
             <div className="mt-6 space-y-4">
-              <Field label="超商通路" htmlFor="cvsSubType" required>
+              <Field label={t('cvsChannel')} htmlFor="cvsSubType" required>
                 <Select
                   id="cvsSubType"
                   value={cvsSubType}
@@ -264,9 +270,9 @@ export function CheckoutForm({
                     setStore(null)
                   }}
                 >
-                  {CVS_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
+                  {CVS_OPTIONS.map((value) => (
+                    <option key={value} value={value}>
+                      {tCvs(value)}
                     </option>
                   ))}
                 </Select>
@@ -280,17 +286,19 @@ export function CheckoutForm({
                         <Check size={14} className="text-taupe-500" />
                         {store.storeName}
                       </p>
-                      <p className="mt-1 text-xs text-taupe-500">門市代號 {store.storeId}</p>
+                      <p className="mt-1 text-xs text-taupe-500">
+                        {t('storeCode', { id: store.storeId })}
+                      </p>
                       <p className="mt-0.5 text-xs text-taupe-500">{store.address}</p>
                     </div>
                     <Button type="button" variant="ghost" size="sm" onClick={openStoreMap}>
-                      更換門市
+                      {t('changeStore')}
                     </Button>
                   </div>
                 ) : (
                   <Button type="button" variant="outline" onClick={openStoreMap} full>
                     <Store size={16} />
-                    選擇取貨門市
+                    {t('pickStore')}
                   </Button>
                 )}
                 {errors.cvsStoreId && <p className="mt-1.5 text-xs text-sale">{errors.cvsStoreId}</p>}
@@ -298,20 +306,25 @@ export function CheckoutForm({
             </div>
           ) : (
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <Field label="物流商" htmlFor="homeSubType" required>
+              <Field label={t('carrier')} htmlFor="homeSubType" required>
                 <Select
                   id="homeSubType"
                   value={homeSubType}
                   onChange={(e) => setHomeSubType(e.target.value)}
                 >
-                  {HOME_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
+                  {HOME_OPTIONS.map((value) => (
+                    <option key={value} value={value}>
+                      {tLogistics(value)}
                     </option>
                   ))}
                 </Select>
               </Field>
-              <Field label="郵遞區號" htmlFor="addressZip" required error={errors.addressZip}>
+              <Field
+                label={t('addressZip')}
+                htmlFor="addressZip"
+                required
+                error={errors.addressZip}
+              >
                 <Input
                   id="addressZip"
                   name="addressZip"
@@ -321,22 +334,27 @@ export function CheckoutForm({
                   autoComplete="postal-code"
                 />
               </Field>
-              <Field label="縣市" htmlFor="addressCity" required error={errors.addressCity}>
+              <Field
+                label={t('addressCity')}
+                htmlFor="addressCity"
+                required
+                error={errors.addressCity}
+              >
                 <Select
                   id="addressCity"
                   name="addressCity"
                   defaultValue={defaultAddress?.city ?? ''}
                 >
-                  <option value="">請選擇</option>
+                  <option value="">{t('selectPlaceholder')}</option>
                   {CITIES.map((city) => (
                     <option key={city} value={city}>
-                      {city}
+                      {tCity(city)}
                     </option>
                   ))}
                 </Select>
               </Field>
               <Field
-                label="鄉鎮市區"
+                label={t('addressDistrict')}
                 htmlFor="addressDistrict"
                 required
                 error={errors.addressDistrict}
@@ -348,7 +366,12 @@ export function CheckoutForm({
                 />
               </Field>
               <div className="sm:col-span-2">
-                <Field label="詳細地址" htmlFor="addressLine" required error={errors.addressLine}>
+                <Field
+                  label={t('addressLine')}
+                  htmlFor="addressLine"
+                  required
+                  error={errors.addressLine}
+                >
                   <Input
                     id="addressLine"
                     name="addressLine"
@@ -363,7 +386,7 @@ export function CheckoutForm({
 
         {/* 付款方式 */}
         <section>
-          <SectionTitle step={3} title="付款方式" />
+          <SectionTitle step={3} title={t('paymentMethod')} />
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             {PAYMENT_OPTIONS.map((option, i) => (
               <label
@@ -380,9 +403,9 @@ export function CheckoutForm({
                 <span>
                   <span className="flex items-center gap-1.5 text-sm text-ink-900">
                     <option.icon size={15} strokeWidth={1.5} />
-                    {option.label}
+                    {t(option.labelKey)}
                   </span>
-                  <span className="mt-1 block text-xs text-taupe-500">{option.note}</span>
+                  <span className="mt-1 block text-xs text-taupe-500">{t(option.noteKey)}</span>
                 </span>
               </label>
             ))}
@@ -391,15 +414,13 @@ export function CheckoutForm({
 
         {/* 發票 */}
         <section>
-          <SectionTitle step={4} title="發票" />
-          <p className="mt-4 text-xs text-taupe-500">
-            發票為紙本，開立後隨包裹一併寄出。付款完成時另會寄一份電子收據到您的信箱。
-          </p>
+          <SectionTitle step={4} title={t('invoice')} />
+          <p className="mt-4 text-xs text-taupe-500">{t('invoiceNote')}</p>
           <div className="mt-6 space-y-4">
             <div className="grid gap-2 sm:grid-cols-2">
               {[
-                { value: 'PERSONAL', label: '個人', note: '開立二聯式發票' },
-                { value: 'COMPANY', label: '公司統編', note: '開立三聯式發票' },
+                { value: 'PERSONAL', label: t('invoicePersonal'), note: t('invoicePersonalNote') },
+                { value: 'COMPANY', label: t('invoiceCompany'), note: t('invoiceCompanyNote') },
               ].map((option) => (
                 <button
                   key={option.value}
@@ -420,10 +441,15 @@ export function CheckoutForm({
 
             {invoiceType === 'COMPANY' && (
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="統一編號" htmlFor="taxId" required error={errors.taxId}>
+                <Field label={t('taxId')} htmlFor="taxId" required error={errors.taxId}>
                   <Input id="taxId" name="taxId" inputMode="numeric" maxLength={8} />
                 </Field>
-                <Field label="公司抬頭" htmlFor="companyName" required error={errors.companyName}>
+                <Field
+                  label={t('companyName')}
+                  htmlFor="companyName"
+                  required
+                  error={errors.companyName}
+                >
                   <Input id="companyName" name="companyName" />
                 </Field>
               </div>
@@ -432,7 +458,7 @@ export function CheckoutForm({
         </section>
 
         <section>
-          <Field label="訂單備註" htmlFor="note" hint="選填，例如指定配送時段">
+          <Field label={t('note')} htmlFor="note" hint={t('noteHint')}>
             <Textarea id="note" name="note" maxLength={500} />
           </Field>
         </section>
@@ -441,7 +467,7 @@ export function CheckoutForm({
       {/* 訂單摘要 */}
       <aside className="mt-12 lg:mt-0 lg:w-80 lg:shrink-0">
         <div className="bg-cream-100 p-6 lg:sticky lg:top-32">
-          <h2 className="text-sm tracking-[0.12em]">訂單摘要</h2>
+          <h2 className="text-sm tracking-[0.12em]">{t('orderSummary')}</h2>
 
           <ul className="mt-5 space-y-4 border-b border-cream-200 pb-5">
             {items.map((item) => (
@@ -475,36 +501,38 @@ export function CheckoutForm({
 
           <dl className="mt-5 space-y-2.5 text-sm">
             <div className="flex justify-between">
-              <dt className="text-ink-700">小計</dt>
+              <dt className="text-ink-700">{tCart('subtotal')}</dt>
               <dd className="tabular-nums">{formatTWD(pricing.subtotal)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-ink-700">運費</dt>
+              <dt className="text-ink-700">{tCart('shipping')}</dt>
               <dd className="tabular-nums">
-                {pricing.shippingFee === 0 ? '免運費' : formatTWD(pricing.shippingFee)}
+                {pricing.shippingFee === 0
+                  ? tCart('freeShipping')
+                  : formatTWD(pricing.shippingFee)}
               </dd>
             </div>
             {couponCode && (
               <div className="flex justify-between text-xs text-taupe-600">
-                <dt>折扣碼</dt>
-                <dd>{couponCode}（結帳時計算）</dd>
+                <dt>{tCart('couponCode')}</dt>
+                <dd>{t('couponPending', { code: couponCode })}</dd>
               </div>
             )}
           </dl>
 
           <div className="mt-5 flex items-baseline justify-between border-t border-cream-200 pt-5">
-            <span className="text-sm">應付金額</span>
+            <span className="text-sm">{t('amountDue')}</span>
             <span className="text-xl tabular-nums">{formatTWD(pricing.grandTotal)}</span>
           </div>
 
           <Button type="submit" size="lg" full className="mt-6" disabled={pending || state.ok}>
-            {pending ? '處理中…' : state.ok ? '前往付款…' : '確認送出訂單'}
+            {pending ? t('processingShort') : state.ok ? t('redirecting') : t('placeOrder')}
           </Button>
 
           <p className="mt-3 text-center text-[11px] leading-relaxed text-taupe-500">
-            點擊後將導向綠界科技安全付款頁面。
+            {t('securityNote')}
             <br />
-            庫存會為您保留 30 分鐘。
+            {t('reserveNote')}
           </p>
         </div>
       </aside>

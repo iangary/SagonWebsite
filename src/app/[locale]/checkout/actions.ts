@@ -1,5 +1,6 @@
 'use server'
 
+import { getTranslations } from 'next-intl/server'
 import { z } from 'zod'
 import type { LogisticsSubType } from '@prisma/client'
 import { createOrderFromCart } from '@/lib/orders/create'
@@ -11,9 +12,11 @@ const HOME_SUBTYPES = ['TCAT'] as const
 
 const schema = z
   .object({
-    email: z.string().trim().toLowerCase().email('請輸入正確的 Email'),
-    recipientName: z.string().trim().min(1, '請輸入收件人姓名').max(50),
-    recipientPhone: z.string().trim().min(1, '請輸入收件人手機'),
+    // 訊息存的是 messages 的 validation.* key，回應時才翻 —— schema 是模組層級的
+    // 常數，建立時還沒有請求，拿不到語系。
+    email: z.string().trim().toLowerCase().email('emailInvalid'),
+    recipientName: z.string().trim().min(1, 'recipientNameRequired').max(50),
+    recipientPhone: z.string().trim().min(1, 'recipientPhoneRequired'),
 
     shippingMethod: z.enum(['CVS', 'HOME']),
     logisticsSubType: z.enum([...CVS_SUBTYPES, ...HOME_SUBTYPES]),
@@ -43,22 +46,22 @@ const schema = z
 
     if (data.shippingMethod === 'CVS') {
       if (!CVS_SUBTYPES.includes(data.logisticsSubType as (typeof CVS_SUBTYPES)[number])) {
-        issue('logisticsSubType', '請選擇超商通路')
+        issue('logisticsSubType', 'cvsChannelRequired')
       }
-      if (!data.cvsStoreId) issue('cvsStoreId', '請選擇取貨門市')
+      if (!data.cvsStoreId) issue('cvsStoreId', 'cvsStoreRequired')
     } else {
       if (!HOME_SUBTYPES.includes(data.logisticsSubType as (typeof HOME_SUBTYPES)[number])) {
-        issue('logisticsSubType', '請選擇宅配物流商')
+        issue('logisticsSubType', 'homeCarrierRequired')
       }
-      if (!/^\d{3,5}$/.test(data.addressZip)) issue('addressZip', '請輸入郵遞區號')
-      if (!data.addressCity) issue('addressCity', '請選擇縣市')
-      if (!data.addressDistrict) issue('addressDistrict', '請輸入鄉鎮市區')
-      if (!data.addressLine) issue('addressLine', '請輸入詳細地址')
+      if (!/^\d{3,5}$/.test(data.addressZip)) issue('addressZip', 'zipRequired')
+      if (!data.addressCity) issue('addressCity', 'cityRequired')
+      if (!data.addressDistrict) issue('addressDistrict', 'districtRequired')
+      if (!data.addressLine) issue('addressLine', 'addressLineRequired')
     }
 
     if (data.invoiceType === 'COMPANY') {
-      if (!/^\d{8}$/.test(data.taxId)) issue('taxId', '統一編號為 8 位數字')
-      if (!data.companyName) issue('companyName', '請輸入公司抬頭')
+      if (!/^\d{8}$/.test(data.taxId)) issue('taxId', 'taxIdFormat')
+      if (!data.companyName) issue('companyName', 'companyNameRequired')
     }
   })
 
@@ -78,10 +81,11 @@ export async function submitCheckout(
   const parsed = schema.safeParse(raw)
 
   if (!parsed.success) {
+    const t = await getTranslations('validation')
     const fieldErrors: Record<string, string> = {}
     for (const issue of parsed.error.issues) {
       const key = String(issue.path[0] ?? '_')
-      fieldErrors[key] ??= issue.message
+      fieldErrors[key] ??= t(issue.message)
     }
     return { ok: false, fieldErrors }
   }
@@ -90,7 +94,8 @@ export async function submitCheckout(
 
   const phone = normalizeTwMobile(data.recipientPhone)
   if (!phone) {
-    return { ok: false, fieldErrors: { recipientPhone: '請輸入正確的台灣手機號碼' } }
+    const t = await getTranslations('validation')
+    return { ok: false, fieldErrors: { recipientPhone: t('phoneInvalid') } }
   }
 
   const result = await createOrderFromCart({

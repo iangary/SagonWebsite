@@ -37,7 +37,7 @@ export default async function AccountOrdersPage() {
         <Package size={36} strokeWidth={1} className="text-taupe-400" />
         <p className="mt-5 text-sm text-ink-700">{t('noOrders')}</p>
         <Button asChild className="mt-6">
-          <Link href="/product/all">開始選購</Link>
+          <Link href="/product/all">{t('startShopping')}</Link>
         </Button>
       </div>
     )

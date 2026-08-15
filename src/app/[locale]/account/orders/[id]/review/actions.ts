@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { getTranslations } from 'next-intl/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
@@ -8,9 +9,9 @@ import { requireUser } from '@/lib/auth'
 const schema = z.object({
   orderItemId: z.string().min(1),
   productId: z.string().min(1),
-  rating: z.coerce.number().int().min(1, '請選擇評分').max(5),
+  rating: z.coerce.number().int().min(1, 'ratingRequired').max(5),
   title: z.string().trim().max(100).optional().default(''),
-  body: z.string().trim().min(5, '評論至少 5 個字').max(2000),
+  body: z.string().trim().min(5, 'reviewBodyMin').max(2000),
 })
 
 export type ReviewState = {
@@ -25,9 +26,10 @@ export async function submitReview(_prev: ReviewState, formData: FormData): Prom
 
   const parsed = schema.safeParse(Object.fromEntries(formData.entries()))
   if (!parsed.success) {
+    const t = await getTranslations('validation')
     const fieldErrors: Record<string, string> = {}
     for (const issue of parsed.error.issues) {
-      fieldErrors[String(issue.path[0] ?? '_')] ??= issue.message
+      fieldErrors[String(issue.path[0] ?? '_')] ??= t(issue.message)
     }
     return { ok: false, fieldErrors }
   }
@@ -45,17 +47,17 @@ export async function submitReview(_prev: ReviewState, formData: FormData): Prom
   })
 
   if (!orderItem) {
-    return { ok: false, error: '找不到對應的購買紀錄，或訂單尚未完成' }
+    return { ok: false, error: (await getTranslations('errors'))('purchaseNotFound') }
   }
   if (orderItem.variant?.productId !== data.productId) {
-    return { ok: false, error: '商品資料不符' }
+    return { ok: false, error: (await getTranslations('errors'))('productMismatch') }
   }
 
   const existing = await db.review.findUnique({
     where: { orderItemId: data.orderItemId },
     select: { id: true },
   })
-  if (existing) return { ok: false, error: '這個項目已經評論過了' }
+  if (existing) return { ok: false, error: (await getTranslations('errors'))('alreadyReviewed') }
 
   await db.review.create({
     data: {
@@ -70,5 +72,5 @@ export async function submitReview(_prev: ReviewState, formData: FormData): Prom
   })
 
   revalidatePath('/account/orders')
-  return { ok: true, message: '評論已送出，通過審核後就會顯示在商品頁' }
+  return { ok: true, message: (await getTranslations('review'))('submitted') }
 }

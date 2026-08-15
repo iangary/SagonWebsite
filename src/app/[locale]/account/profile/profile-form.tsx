@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useActionState } from 'react'
+import { useTranslations } from 'next-intl'
 import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { Input, Field } from '@/components/ui/input'
@@ -11,6 +12,8 @@ import { updateProfile, type ActionState } from '../actions'
 const INITIAL: ActionState = { ok: false }
 
 export function ProfileForm({ defaultName }: { defaultName: string }) {
+  const t = useTranslations('account')
+  const tCommon = useTranslations('common')
   const { toast } = useToast()
   const { update } = useSession()
   const [state, formAction, pending] = useActionState(updateProfile, INITIAL)
@@ -27,10 +30,10 @@ export function ProfileForm({ defaultName }: { defaultName: string }) {
 
   return (
     <form action={formAction} className="border border-cream-200 bg-white p-6">
-      <h2 className="text-sm tracking-[0.1em]">個人資料</h2>
+      <h2 className="text-sm tracking-[0.1em]">{t('profileTitle')}</h2>
 
       <div className="mt-5 max-w-sm">
-        <Field label="姓名" htmlFor="name" required error={state.fieldErrors?.name}>
+        <Field label={t('name')} htmlFor="name" required error={state.fieldErrors?.name}>
           <Input
             id="name"
             name="name"
@@ -44,7 +47,7 @@ export function ProfileForm({ defaultName }: { defaultName: string }) {
 
       <div className="mt-6">
         <Button type="submit" disabled={pending}>
-          {pending ? '儲存中…' : '儲存'}
+          {pending ? t('saving') : tCommon('save')}
         </Button>
       </div>
     </form>

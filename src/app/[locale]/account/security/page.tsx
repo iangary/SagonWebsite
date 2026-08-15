@@ -1,7 +1,8 @@
 import { getTranslations } from 'next-intl/server'
 import { db } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
-import { isGoogleAuthEnabled } from '@/lib/env'
+import { enabledSsoProviders } from '@/lib/env'
+import { SSO_PROVIDER_IDS } from '@/lib/auth/sso'
 import { maskMobile } from '@/lib/sms/provider'
 import { SecurityPanel } from './security-panel'
 
@@ -27,21 +28,30 @@ export default async function SecurityPage() {
     },
   })
 
-  const hasGoogle = user.accounts.some((a) => a.provider === 'google')
+  const linked = new Set(user.accounts.map((a) => a.provider))
+
+  /**
+   * 已綁定但憑證後來被移掉的 provider 仍要列出來，否則使用者沒地方解除綁定。
+   * 兩者皆非的（例如還沒申請的 LINE）就整列不顯示，免得對客人是雜訊。
+   */
+  const sso = SSO_PROVIDER_IDS.filter(
+    (id) => enabledSsoProviders.includes(id) || linked.has(id),
+  ).map((id) => ({ id, linked: linked.has(id), configured: enabledSsoProviders.includes(id) }))
+
   const hasPassword = Boolean(user.passwordHash)
   const hasPhone = Boolean(user.phone && user.phoneVerified)
 
   // 只剩一種登入方式時不能解除，否則會把自己鎖在門外
-  const methodCount = [hasGoogle, hasPassword, hasPhone].filter(Boolean).length
+  const methodCount =
+    sso.filter((p) => p.linked).length + (hasPassword ? 1 : 0) + (hasPhone ? 1 : 0)
 
   return (
     <SecurityPanel
       email={user.email}
       maskedPhone={user.phone ? maskMobile(user.phone) : null}
-      hasGoogle={hasGoogle}
+      sso={sso}
       hasPassword={hasPassword}
       hasPhone={hasPhone}
-      googleEnabled={isGoogleAuthEnabled}
       isLastMethod={methodCount <= 1}
     />
   )
