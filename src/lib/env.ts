@@ -19,7 +19,12 @@ const intFromString = (fallback: number) =>
     .transform((v) => (v === undefined || v === '' ? fallback : Number(v)))
     .pipe(z.number().int().nonnegative())
 
-const schema = z.object({
+/**
+ * 匯出給測試用：src/lib/env.test.ts 會拿 Dockerfile builder 階段設的環境變數
+ * 餵給這個 schema，確保「新增必填變數卻忘了補 Dockerfile」在本機就會紅，
+ * 而不是等 CI 建置到一半才失敗（這個坑已經踩過一次）。
+ */
+export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
   APP_URL: z.string().url(),
@@ -108,7 +113,7 @@ const schema = z.object({
 })
 
 function load() {
-  const parsed = schema.safeParse(process.env)
+  const parsed = envSchema.safeParse(process.env)
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
