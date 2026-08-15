@@ -10,6 +10,10 @@ dist/
 .env.production
 .env.*.local
 
+# 主機端設定檔的本機副本。裡面是從 /srv/sagon 抓下來的實體檔案 ——
+# 資料庫密碼、AUTH_SECRET、綠界與黑貓金鑰都在裡面，一律不進版控。
+docs/sagon-deploy/
+
 # 爬蟲產出（他人著作權素材，僅供本機開發）
 public/uploads/
 prisma/seed-data/
