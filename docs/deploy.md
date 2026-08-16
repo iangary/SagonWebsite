@@ -533,6 +533,8 @@ df -h
 |---|---|
 | `required` 錯誤 | `/srv/sagon/.env` 沒建或少變數（不是 `.env.production`）|
 | web 反覆重啟 | `docker compose logs web`。多半是 `.env.production` 少了必填變數 —— `src/lib/env.ts` 啟動時強驗證，缺一個就 throw |
+| 中文站 `ERR_TOO_MANY_REDIRECTS`（`/en` 正常）| `src/proxy.ts` 用 `auth()` 包住了 next-intl，讓 `AUTH_URL` 的 origin 汙染語系 rewrite。徵兆是 `curl -D - https://chenkuanyi.com.tw/` 出現兩個 `Via: 1.1 Caddy` 與絕對網址的 `X-Middleware-Rewrite`；正常時 rewrite 是相對路徑 `/zh-TW`。**不要靠刪 `AUTH_URL` 解決**，那會改壞 SSO 登入，見下一列 |
+| Google／LINE 登入被 `redirect_uri_mismatch` 擋下 | `.env.production` 少了 `AUTH_URL`。用 `curl -s https://chenkuanyi.com.tw/api/auth/providers` 看 `callbackUrl`，出現 `0.0.0.0:3000` 就是它。補回去再 `up -d --force-recreate web` |
 | 憑證簽不到 | DNS 未生效、80 埠被擋、或 Cloudflare 橘色雲開著 |
 | 綠界回調沒反應 | `APP_URL` 是否為 https 正式網域；綠界後台的回調網址是否同步更新 |
 | 訂單付款成功但沒開電子收據 | `docker compose logs worker`；確認 Redis 活著、worker 沒掛 |

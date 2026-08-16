@@ -71,6 +71,24 @@ else
     drift=$((drift + 1))
   fi
 
+  # AUTH_URL 必須存在，而且沒有它不會有任何錯誤訊息 —— 這是 env.ts 驗證不到的一格。
+  #
+  # 容器裡 Next 給 /api/auth/* 路由的請求網址是用 HOSTNAME=0.0.0.0 / PORT=3000 組的，
+  # Auth.js 直接拿它算 provider.callbackUrl，於是 redirect_uri 會變成
+  # https://0.0.0.0:3000/api/auth/callback/google 而被 Google 拒絕。AUTH_URL 就是在
+  # 修正這一格（AUTH_TRUST_HOST 只影響 createActionURL，救不了 callbackUrl）。
+  # 站台本身完全正常，只有 SSO 登入按不下去，所以特別容易漏掉。
+  #
+  # 反過來，proxy.ts 不能用 auth() 包住 next-intl —— 那會讓 AUTH_URL 的 origin 汙染
+  # 語系 rewrite，中文站整站無限轉址。原因寫在 src/proxy.ts 的檔頭註解。
+  if echo "$remote_keys" | grep -q '^AUTH_URL$'; then
+    echo "  ✓ .env.production 有 AUTH_URL（SSO callback 需要）"
+  else
+    echo "  ✗ .env.production 缺少 AUTH_URL —— Google／LINE 登入會被 redirect_uri_mismatch 擋下"
+    echo "    （站台其他部分正常，所以不會有任何錯誤訊息）"
+    drift=$((drift + 1))
+  fi
+
   # 主機上有、但程式已經不讀的欄位。不算錯，但留著會誤導 ——
   # 例如架構從綠界 B2C 宅配換成黑貓之後，ECPAY_LOGISTICS_C2C_* 就成了死欄位。
   known=$(node -e '
@@ -79,8 +97,9 @@ else
     const body = src.slice(src.indexOf("z.object("), src.indexOf("function load"));
     for (const m of body.matchAll(/^\s{2}([A-Z][A-Z0-9_]+):/gm)) console.log(m[1]);
   ' | sort -u)
-  # AUTH_TRUST_HOST 由 Auth.js 直接讀，不經 env.ts，不算多餘
-  stale=$(comm -13 <(echo "$known") <(echo "$remote_keys") | grep -v '^AUTH_TRUST_HOST$' | tr '\n' ' ')
+  # AUTH_TRUST_HOST 與 AUTH_URL 由 Auth.js 直接讀，不經 env.ts，不算多餘
+  stale=$(comm -13 <(echo "$known") <(echo "$remote_keys") |
+    grep -vE '^(AUTH_TRUST_HOST|AUTH_URL)$' | tr '\n' ' ')
   [ -n "${stale// /}" ] && printf '  ! .env.production 主機多出已廢棄欄位：%s\n' "$stale"
 fi
 

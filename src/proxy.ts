@@ -1,13 +1,39 @@
 import createIntlMiddleware from 'next-intl/middleware'
-import NextAuth from 'next-auth'
-import { NextResponse } from 'next/server'
+import { getToken } from 'next-auth/jwt'
+import { NextResponse, type NextRequest } from 'next/server'
 import { routing, locales } from '@/i18n/routing'
-import { authConfig } from '@/lib/auth/config'
 
 const intlMiddleware = createIntlMiddleware(routing)
 
-// 這裡只用 edge-safe 的設定，proxy 跑在 edge runtime，拿不到 Prisma。
-const { auth } = NextAuth(authConfig)
+/**
+ * 這裡**故意不用 `auth()` 包住**，改成自己解 JWT。看起來繞路，但包起來會讓中文站整站掛掉：
+ *
+ * `.env.production` 有 `AUTH_URL`（`/api/auth/*` 的 OAuth callback 需要它，否則 Auth.js
+ * 會從容器內部網址推導出 `https://0.0.0.0:3000/api/auth/callback/google` 而被 Google 拒絕）。
+ * 而 next-auth 的 `auth()` 會先跑 `reqWithEnvURL()`，把進來的請求 origin 整個換成 `AUTH_URL`
+ * 的值，再把這個「加工過的請求」交給我們的 callback（見 next-auth/lib/index.js 的
+ * 「Execute user's middleware/handler with the augmented request」）。
+ *
+ * 一旦把它傳給 next-intl，`/` → `/zh-TW` 這道內部 rewrite 就會帶上公開網域。Next 判斷
+ * rewrite 是不是內部的條件是 origin 要跟伺服器自己的完全相同（容器裡是 HOSTNAME=0.0.0.0），
+ * 對不上就當成外部網址真的發請求出去，繞回 Caddy 後 proxy 再跑一次、這次看到 `/zh-TW`，
+ * 而 `as-needed` 不准預設語系帶前綴 → 307 回 `/` → 無限轉址。2026-08-16 就是這樣掛的。
+ * 英文站沒事，因為 `/en` 直接對得上 `app/[locale]`，不需要那道 rewrite。
+ *
+ * `getToken()` 只讀 cookie 解 JWT，不碰請求網址，next-intl 拿到的就是原始請求。
+ * session 策略是 JWT（見 lib/auth/config.ts），role 由 jwt callback 釘在 token 上。
+ */
+async function readSession(req: NextRequest) {
+  const token = await getToken({
+    req,
+    secret: process.env.AUTH_SECRET,
+    // cookie 名稱與解密用的 salt 都由這個旗標決定：正式站走 https，Auth.js 發的是
+    // `__Secure-authjs.session-token`；本機 http 是不帶前綴的版本。給錯會全站變成未登入。
+    secureCookie: process.env.NODE_ENV === 'production',
+  })
+  // role 的型別來自 src/types/next-auth.d.ts 對 JWT 的擴充，不用再轉型
+  return { isLoggedIn: Boolean(token), role: token?.role }
+}
 
 const LOCALE_PREFIX = new RegExp(`^/(${locales.join('|')})(?=/|$)`)
 
@@ -38,7 +64,7 @@ const CHAT_COOKIE_MAX_AGE = 60 * 60 * 24 * 90
  * Server Component 在 render 階段不能寫 cookie（Next.js 限制），
  * 所以由 proxy 保證每個訪客一進站就有 id，購物車頁與聊天視窗只要讀就好。
  */
-function ensureVisitorCookies(req: Parameters<Parameters<typeof auth>[0]>[0], res: NextResponse) {
+function ensureVisitorCookies(req: NextRequest, res: NextResponse) {
   const options = {
     httpOnly: true,
     sameSite: 'lax' as const,
@@ -61,10 +87,9 @@ function ensureVisitorCookies(req: Parameters<Parameters<typeof auth>[0]>[0], re
   return res
 }
 
-export default auth((req) => {
+export default async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
-  const isLoggedIn = Boolean(req.auth?.user)
-  const role = req.auth?.user?.role
+  const { isLoggedIn, role } = await readSession(req)
 
   // 後台不做多語系，直接走 role 檢查
   if (pathname.startsWith('/admin')) {
@@ -93,7 +118,7 @@ export default auth((req) => {
   }
 
   return ensureVisitorCookies(req, intlMiddleware(req))
-})
+}
 
 export const config = {
   // 排除 API、Next 靜態資源、以及任何有副檔名的檔案（圖片、favicon…）
