@@ -2,7 +2,7 @@
 # ---------------------------------------------------------------------------
 # base — 共用的 Node 環境。argon2 需要編譯工具鏈才能安裝原生模組。
 # ---------------------------------------------------------------------------
-FROM node:24-bookworm-slim AS base
+FROM node:26-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
 RUN apt-get update \
