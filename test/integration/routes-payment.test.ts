@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { env } from '@/lib/env'
 import { generateCheckMacValue } from '@/lib/ecpay/checkmac'
@@ -14,6 +15,10 @@ vi.mock('@/lib/queue', async () => (await import('./mocks')).queueMockModule())
 
 import { POST as paymentReturnPost } from '@/app/api/ecpay/payment/return/route'
 import { POST as paymentInfoPost } from '@/app/api/ecpay/payment/info/route'
+import {
+  GET as paymentResultGet,
+  POST as paymentResultPost,
+} from '@/app/api/ecpay/payment/result/route'
 import { POST as logisticsReplyPost } from '@/app/api/ecpay/logistics/reply/route'
 
 /**
@@ -24,7 +29,22 @@ import { POST as logisticsReplyPost } from '@/app/api/ecpay/logistics/reply/rout
 type RouteHandler = (req: Request) => Promise<Response>
 const paymentReturn = paymentReturnPost as unknown as RouteHandler
 const paymentInfo = paymentInfoPost as unknown as RouteHandler
+const paymentResult = paymentResultPost as unknown as RouteHandler
+const paymentResultView = paymentResultGet as unknown as RouteHandler
 const logisticsReply = logisticsReplyPost as unknown as RouteHandler
+
+/** 訂單目前所有「會被付款改到」的欄位，用來斷言「一個字都沒動」 */
+async function orderFingerprint(orderId: string) {
+  const o = await reloadOrder(orderId)
+  return {
+    status: o.status,
+    paidAt: o.paidAt,
+    paymentStatus: o.payment?.status,
+    tradeNo: o.payment?.tradeNo,
+    paidAtPayment: o.payment?.paidAt,
+    failReason: o.payment?.failReason,
+  }
+}
 
 /** 物流回拋用的是物流商店的憑證且演算法是 MD5，跟金流那組不同 */
 function signedLogisticsParams(params: Record<string, string>): Record<string, string> {
@@ -217,6 +237,101 @@ describe('POST /api/ecpay/payment/info', () => {
       template: 'payment-info',
       orderId: order.id,
     })
+  })
+})
+
+/**
+ * B-08：前台導回（OrderResultURL）絕對不能改變付款狀態。
+ *
+ * 綠界用兩條路通知結果：ReturnURL 是伺服器對伺服器、帶簽章、可信；
+ * OrderResultURL 是「叫消費者的瀏覽器把結果轉交給我們」，資料經過使用者的
+ * 電腦，任何人都能偽造。在這支端點改訂單狀態＝任何人都能免費下單。
+ *
+ * 這支目前的實作只做一件事：303 導向結果頁，連資料庫都沒碰。這一組是
+ * **回歸測試** —— 它看起來太像「應該順手在這裡更新訂單」的地方，是重構時
+ * 最容易被誤傷的檔案之一。
+ */
+describe('POST /api/ecpay/payment/result（前台導回）', () => {
+  it('偽造的「付款成功」表單：訂單狀態完全不變、不落事件、不排任何後續工作', async () => {
+    const { order, variant } = await createTestOrder()
+    const before = await orderFingerprint(order.id)
+
+    // 連簽章都不對的低成本攻擊：隨手拼一份看起來成功的表單
+    const forged = {
+      MerchantTradeNo: order.payment?.merchantTradeNo ?? '',
+      RtnCode: '1',
+      RtnMsg: '交易成功',
+      TradeAmt: String(order.grandTotal),
+      TradeNo: 'FORGED0001',
+      PaymentDate: '2026/08/16 10:00:00',
+      PaymentType: 'Credit_CreditCard',
+      CheckMacValue: '0'.repeat(64),
+    }
+
+    const res = await paymentResult(callbackRequest('/api/ecpay/payment/result', forged))
+
+    expect(res.status).toBe(303)
+    expect(await orderFingerprint(order.id)).toEqual(before)
+
+    // 沒有任何副作用：不寫事件、不動庫存、不寄信、不建物流單
+    expect(await db.webhookEvent.count()).toBe(0)
+    const freshVariant = await db.productVariant.findUniqueOrThrow({ where: { id: variant.id } })
+    expect(freshVariant.stock).toBe(10)
+    expect(freshVariant.reservedStock).toBe(1)
+    expect(enqueueMock).not.toHaveBeenCalled()
+  })
+
+  it('就算簽章是真的（重放一份合法的 ReturnURL 內容）也一樣不改狀態', async () => {
+    const { order } = await createTestOrder()
+    const before = await orderFingerprint(order.id)
+
+    // 最強的攻擊：消費者確實刷了另一筆、手上有一份簽章正確的 payload，
+    // 把它往這支端點送。權威只有 ReturnURL，這裡照樣什麼都不做。
+    const authentic = signedPaymentReturnParams(order)
+
+    const res = await paymentResult(callbackRequest('/api/ecpay/payment/result', authentic))
+
+    expect(res.status).toBe(303)
+    expect(await orderFingerprint(order.id)).toEqual(before)
+    expect(await db.webhookEvent.count()).toBe(0)
+    expect(enqueueMock).not.toHaveBeenCalled()
+  })
+
+  it('把使用者導到結果頁並帶上訂單編號（303 讓瀏覽器把 POST 轉成 GET）', async () => {
+    const { order } = await createTestOrder()
+    const params = signedPaymentReturnParams(order)
+
+    const res = await paymentResult(callbackRequest('/api/ecpay/payment/result', params))
+
+    expect(res.status).toBe(303)
+    const location = new URL(res.headers.get('location') ?? '')
+    expect(location.pathname).toBe('/checkout/result')
+    expect(location.searchParams.get('orderNo')).toBe(order.payment?.merchantTradeNo)
+  })
+
+  it('沒有 MerchantTradeNo 也不會炸，只是導向不帶訂單編號的結果頁', async () => {
+    const res = await paymentResult(callbackRequest('/api/ecpay/payment/result', { RtnCode: '1' }))
+
+    expect(res.status).toBe(303)
+    const location = new URL(res.headers.get('location') ?? '')
+    expect(location.pathname).toBe('/checkout/result')
+    expect(location.searchParams.has('orderNo')).toBe(false)
+  })
+
+  it('使用者按上一頁變成 GET：同樣只導向，不動任何資料', async () => {
+    const { order } = await createTestOrder()
+    const before = await orderFingerprint(order.id)
+    const orderNo = order.payment?.merchantTradeNo ?? ''
+
+    // GET 分支讀的是 req.nextUrl（NextRequest 才有的屬性），
+    // 所以這裡要用 Next 實際會傳進來的型別，不能用普通的 Request。
+    const res = await paymentResultView(
+      new NextRequest(`http://localhost:3000/api/ecpay/payment/result?orderNo=${orderNo}`),
+    )
+
+    expect(res.status).toBe(303)
+    expect(await orderFingerprint(order.id)).toEqual(before)
+    expect(await db.webhookEvent.count()).toBe(0)
   })
 })
 
