@@ -1,0 +1,57 @@
+# Dependabot：每週幫我們看一次有沒有套件該更新，有的話自己開 PR。
+#
+# 這份設定不需要 CI 也能用（CI 已於 2026-08-16 決定不做，見 docs/test-checklist.html A-01）。
+# 沒有 CI 的代價是：PR 開出來時沒有自動測試幫你判斷能不能合，
+# 所以合併前請自己跑一次 `npm run test:all`，尤其是 next / next-auth / prisma 這三個。
+version: 2
+
+updates:
+  # ── npm ──────────────────────────────────────────────
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: Asia/Taipei
+    # 一次最多 5 個 PR，避免週一早上被淹沒
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'chore(deps)'
+      prefix-development: 'chore(deps-dev)'
+    groups:
+      # patch 版通常是安全的，合成一個 PR 減少雜訊
+      patch-updates:
+        patterns: ['*']
+        update-types: ['patch']
+      # 這幾個一起升才不會型別對不上
+      react:
+        patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
+      prisma:
+        patterns: ['prisma', '@prisma/*']
+      testing:
+        patterns: ['vitest', '@vitest/*', '@playwright/*', 'playwright']
+    ignore:
+      # Next.js 的 major 版更新一律手動處理 —— 這個專案的 App Router、
+      # proxy.ts 與 next-intl 都跟版本綁很緊，AGENTS.md 特別交代過要先讀
+      # node_modules/next/dist/docs/ 再動手，不適合讓機器開 PR。
+      - dependency-name: next
+        update-types: ['version-update:semver-major']
+
+  # ── GitHub Actions ───────────────────────────────────
+  # deploy.yml 用到的 actions 也會過期（Node 版本、棄用警告）
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: 'chore(ci)'
+
+  # ── Docker base image ────────────────────────────────
+  # 正式站跑在這個 image 上，base image 的 CVE 修補值得追
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: 'chore(docker)'
