@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { notifyChat } from './bus'
+import { normalizeGuestContact } from './contact'
 import { previewOf, sanitizeMessageBody, type ChatCursor } from './cursor'
 
 /**
@@ -169,9 +170,23 @@ export async function conversationBelongsToViewer(
   return found !== null
 }
 
+/**
+ * 這次送出要不要先問聯絡方式。
+ *
+ * 只擋「未登入 × 還沒有任何對話」這一格：聊天視窗照樣打得開，
+ * 按下送出才要求身分，售前問價的人不會一進來就撞到登入牆。
+ * 回頭的訪客靠 sagon_chat cookie 找得到舊對話，不再追問第二次。
+ */
+export function needsGuestContact(viewer: ChatViewer, conversationId: string | null): boolean {
+  return !viewer.userId && conversationId === null
+}
+
 export type PostResult =
   | { ok: true; conversationId: string; message: ChatMessageData }
-  | { ok: false; error: 'EMPTY' | 'NO_IDENTITY' | 'RATE_LIMITED' | 'CLOSED' }
+  | {
+      ok: false
+      error: 'EMPTY' | 'NO_IDENTITY' | 'RATE_LIMITED' | 'CLOSED' | 'CONTACT_REQUIRED' | 'CONTACT_INVALID'
+    }
 
 /**
  * 訪客送出一則訊息，必要時開新對話。
@@ -192,9 +207,20 @@ export async function postCustomerMessage(input: {
   if (!viewer.userId && !viewer.anonId) return { ok: false, error: 'NO_IDENTITY' }
 
   const guestName = sanitizeMessageBody(input.guestName)?.slice(0, 60) ?? null
-  const guestContact = sanitizeMessageBody(input.guestContact)?.slice(0, 120) ?? null
+
+  // 有填就一定要填對，不管是開新對話還是補在既有對話上 ——
+  // 存下一個亂填的號碼比留白更糟，客服會以為聯絡得到。
+  const rawContact = sanitizeMessageBody(input.guestContact)
+  const contact = rawContact ? normalizeGuestContact(rawContact) : null
+  if (rawContact && !contact) return { ok: false, error: 'CONTACT_INVALID' }
 
   const existingId = await findViewerConversationId(viewer)
+
+  if (needsGuestContact(viewer, existingId) && !contact) {
+    return { ok: false, error: 'CONTACT_REQUIRED' }
+  }
+
+  const guestContact = contact?.value ?? null
 
   if (existingId) {
     const since = new Date(Date.now() - RATE_WINDOW_MS)

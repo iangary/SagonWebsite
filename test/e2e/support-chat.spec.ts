@@ -66,6 +66,21 @@ async function openVisitor(browser: Browser) {
   return { context, page }
 }
 
+/**
+ * 未登入訪客的第一則訊息會被聯絡方式表單擋住，填完才送得出去。
+ *
+ * 表單只在「沒有任何對話」時出現，所以這個 helper 只用在每輪的第一則。
+ */
+async function fillGuestContact(panel: ReturnType<Page['getByRole']>, token: string) {
+  // 表單由開場 API（或伺服器的 CONTACT_REQUIRED）觸發，兩者都是非同步的，
+  // 先等它出現再填 —— 直接 fill 會跟 bootstrap 賽跑。
+  const contact = panel.getByPlaceholder('Email 或手機號碼')
+  await expect(contact).toBeVisible()
+
+  await panel.getByPlaceholder('怎麼稱呼您（選填）').fill(`E2E 訪客 ${token}`)
+  await contact.fill(`e2e-${token.toLowerCase()}@example.com`)
+}
+
 test.describe('站內客服聊天', () => {
   // 這條動線會走過前台、後台列表、後台對話頁，dev 模式每個路由都要即時編譯
   test.describe.configure({ timeout: 180_000 })
@@ -91,11 +106,21 @@ test.describe('站內客服聊天', () => {
       // 歡迎詞是前端寫死的，不經過資料庫
       await expect(panel).toContainText('關於商品、訂單或運送有任何問題')
 
-      await panel.getByRole('textbox').fill(question)
+      // 未登入的第一則訊息要先留聯絡方式；沒填就按送出只會拿到錯誤，不會建立對話
+      const composer = panel.getByPlaceholder('輸入訊息…', { exact: false })
+      await composer.fill(question)
+      await panel.getByRole('button', { name: '送出' }).click()
+      // 訊息可能是前端先擋下的，也可能是伺服器回的 CONTACT_REQUIRED
+      //（開場 API 還沒回來時就是後者），兩句都含這段字
+      await expect(panel.getByRole('alert')).toContainText('Email 或手機號碼')
+
+      await fillGuestContact(panel, token)
       await panel.getByRole('button', { name: '送出' }).click()
 
       // 自己的訊息要立刻出現（POST 回傳後樂觀更新）
       await expect(panel).toContainText(question)
+      // 送出成功後表單收起來，後續發言不再追問
+      await expect(panel.getByPlaceholder('Email 或手機號碼')).toBeHidden()
 
       // --- 客服在後台看到 ---
       await loginAsAdmin(admin)
@@ -106,6 +131,8 @@ test.describe('站內客服聊天', () => {
       await expect(row).toContainText('待回覆')
       // 未登入訪客要標示出來，客服才知道沒有帳號資料可查
       await expect(row).toContainText('未登入')
+      // 這正是要求留聯絡方式的目的：客服離線時還回得到人
+      await expect(row).toContainText(`e2e-${token.toLowerCase()}@example.com`)
 
       await row.getByRole('link').first().click()
       await admin.waitForURL(/\/admin\/chat\/[a-z0-9]+$/)
@@ -139,7 +166,7 @@ test.describe('站內客服聊天', () => {
 
       // --- 客人再發言應該自動重新開啟，不會另開一串 ---
       const followUp = `${MARKER} ${token} — 那幫我留一件`
-      await panel.getByRole('textbox').fill(followUp)
+      await composer.fill(followUp)
       await panel.getByRole('button', { name: '送出' }).click()
       // 先確認真的送出去了，再去後台看，免得競爭到還沒寫進資料庫
       await expect(panel).toContainText(followUp)
@@ -164,7 +191,8 @@ test.describe('站內客服聊天', () => {
     try {
       await first.getByRole('button', { name: '聯絡客服' }).click()
       const firstPanel = first.getByRole('region', { name: '客服訊息' })
-      await firstPanel.getByRole('textbox').fill(secret)
+      await firstPanel.getByPlaceholder('輸入訊息…', { exact: false }).fill(secret)
+      await fillGuestContact(firstPanel, token)
       await firstPanel.getByRole('button', { name: '送出' }).click()
       await expect(firstPanel).toContainText(secret)
 

@@ -21,6 +21,14 @@ export async function SupportChat() {
     you: t('you'),
     systemName: t('systemName'),
     failed: t('failed'),
+    contactIntro: t('contactIntro'),
+    nameLabel: t('nameLabel'),
+    namePlaceholder: t('namePlaceholder'),
+    contactLabel: t('contactLabel'),
+    contactPlaceholder: t('contactPlaceholder'),
+    contactRequired: t('contactRequired'),
+    loginPrompt: t('loginPrompt'),
+    loginCta: t('loginCta'),
   }
 
   return <SupportChatWidget labels={labels} />

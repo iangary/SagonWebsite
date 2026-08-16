@@ -17,6 +17,11 @@ const MESSAGES: Record<string, { status: number; message: string }> = {
   NO_IDENTITY: { status: 400, message: '無法識別瀏覽器，請重新整理頁面後再試' },
   RATE_LIMITED: { status: 429, message: '訊息送太快了，請稍等一下再送' },
   CLOSED: { status: 409, message: '這則對話已結束' },
+  CONTACT_REQUIRED: { status: 400, message: '請先留下 Email 或手機號碼，我們才回覆得到您' },
+  CONTACT_INVALID: {
+    status: 400,
+    message: '請填寫正確的 Email，或 09 開頭 10 碼的手機號碼',
+  },
 }
 
 export async function POST(request: Request) {
@@ -44,7 +49,12 @@ export async function POST(request: Request) {
 
     if (!result.ok) {
       const failure = MESSAGES[result.error]
-      return NextResponse.json({ error: failure.message }, { status: failure.status })
+      // 一併回傳機器判讀得了的 code：開場 API 還沒回來時前端不知道該不該顯示
+      // 聯絡方式表單，這裡的拒絕就是它把表單叫出來的依據。
+      return NextResponse.json(
+        { error: failure.message, code: result.error },
+        { status: failure.status },
+      )
     }
 
     return NextResponse.json(

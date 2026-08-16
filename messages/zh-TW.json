@@ -474,7 +474,15 @@
     "agentFallbackName": "客服",
     "you": "您",
     "systemName": "莎岡選品店",
-    "failed": "暫時無法送出訊息，請稍後再試"
+    "failed": "暫時無法送出訊息，請稍後再試",
+    "contactIntro": "第一次留言請留下聯絡方式，客服不在線上時才回覆得到您。",
+    "nameLabel": "稱呼",
+    "namePlaceholder": "怎麼稱呼您（選填）",
+    "contactLabel": "Email 或手機號碼",
+    "contactPlaceholder": "Email 或手機號碼",
+    "contactRequired": "請留下 Email 或手機號碼",
+    "loginPrompt": "已經有帳號？",
+    "loginCta": "登入"
   },
   "errors": {
     "invalidParams": "參數不正確",

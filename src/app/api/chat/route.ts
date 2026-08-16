@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { CHAT_MESSAGE_SELECT, chatViewer, findViewerConversationId, toWire } from '@/lib/chat'
+import {
+  CHAT_MESSAGE_SELECT,
+  chatViewer,
+  findViewerConversationId,
+  needsGuestContact,
+  toWire,
+} from '@/lib/chat'
 import { formatCursor } from '@/lib/chat/cursor'
 
 export const dynamic = 'force-dynamic'
@@ -21,9 +27,12 @@ export async function GET() {
   }
 
   const conversationId = await findViewerConversationId(viewer)
+  // 未登入又還沒開過對話的人，送出時要先留聯絡方式；前端據此顯示表單。
+  const requiresContact = needsGuestContact(viewer, conversationId)
+
   if (!conversationId) {
     return NextResponse.json(
-      { conversationId: null, messages: [], cursor: null, unread: 0 },
+      { conversationId: null, messages: [], cursor: null, unread: 0, requiresContact },
       { headers: { 'Cache-Control': 'no-store' } },
     )
   }
@@ -50,6 +59,7 @@ export async function GET() {
       conversationId,
       status: conversation.status,
       unread: conversation.unreadForCustomer,
+      requiresContact,
       cursor: last ? formatCursor({ createdAt: last.createdAt, id: last.id }) : null,
       messages: ordered.map(toWire),
     },

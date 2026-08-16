@@ -474,7 +474,15 @@
     "agentFallbackName": "Support",
     "you": "You",
     "systemName": "Sagon Select",
-    "failed": "Could not send your message. Please try again."
+    "failed": "Could not send your message. Please try again.",
+    "contactIntro": "Leave your contact details so we can reach you when no agent is online.",
+    "nameLabel": "Name",
+    "namePlaceholder": "Your name (optional)",
+    "contactLabel": "Email or mobile number",
+    "contactPlaceholder": "Email or mobile number",
+    "contactRequired": "Please leave an email address or mobile number",
+    "loginPrompt": "Already have an account?",
+    "loginCta": "Sign in"
   },
   "errors": {
     "invalidParams": "Invalid request",
