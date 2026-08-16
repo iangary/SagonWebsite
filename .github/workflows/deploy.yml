@@ -38,7 +38,7 @@ jobs:
             suffix: migrate
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: 計算 image 名稱（GHCR 只吃小寫）
         id: meta
