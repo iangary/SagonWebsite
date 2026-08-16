@@ -4,6 +4,9 @@ import { ArrowRight } from 'lucide-react'
 import { Link } from '@/i18n/routing'
 import { defaultLocale } from '@/i18n/config'
 import { Button } from '@/components/ui/button'
+import { Reveal } from '@/components/ui/reveal'
+import { BrandMarquee } from '@/components/layout/brand-marquee'
+import { HeroVisual } from '@/components/hero/hero-visual'
 import { ProductGrid } from '@/components/product/product-card'
 import { getFeaturedProducts, getHeroBanner, listBrands, listProducts } from '@/lib/catalog/queries'
 import { shopName } from '@/lib/shop-config'
@@ -46,28 +49,41 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             className="object-cover object-center"
           />
         )}
+        {/* 絲綢動態層：半透明疊在 Banner 圖上，等首屏 LCP 完成後才載入淡入 */}
+        <HeroVisual />
         <div className="absolute inset-0 bg-gradient-to-r from-cream-50/90 via-cream-50/60 to-transparent" />
 
         <div className="relative mx-auto w-full max-w-7xl px-6">
           <div className="max-w-lg">
-            <p className="text-xs tracking-[0.35em] text-taupe-600 uppercase">Sagan Select</p>
-            <h1 className="mt-5 text-3xl leading-[1.4] text-ink-900 sm:text-4xl sm:leading-[1.4]">
+            <p className="fade-up text-xs tracking-[0.35em] text-taupe-600 uppercase [animation-delay:150ms]">
+              Sagan Select
+            </p>
+            <h1 className="fade-up mt-5 text-3xl leading-[1.4] text-ink-900 [animation-delay:300ms] sm:text-4xl sm:leading-[1.4]">
               {heroTitle}
             </h1>
-            <p className="mt-4 text-sm leading-relaxed text-ink-700 sm:text-base">{heroSubtitle}</p>
-            <Button asChild size="lg" className="mt-9">
-              <Link href={hero?.linkUrl ?? '/product/all'}>
-                {t('heroCta')}
-                <ArrowRight size={16} />
-              </Link>
-            </Button>
+            <p className="fade-up mt-4 text-sm leading-relaxed text-ink-700 [animation-delay:450ms] sm:text-base">
+              {heroSubtitle}
+            </p>
+            <div className="fade-up [animation-delay:600ms]">
+              <Button asChild size="lg" className="group mt-9 hover:tracking-[0.12em]">
+                <Link href={hero?.linkUrl ?? '/product/all'}>
+                  {t('heroCta')}
+                  <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+                </Link>
+              </Button>
+            </div>
           </div>
         </div>
       </section>
 
+      {/* 品牌跑馬燈 */}
+      <BrandMarquee items={brands.map((brand) => brand.name)} />
+
       {/* 品牌 */}
       <section className="mx-auto max-w-7xl px-6 py-16 sm:py-20">
-        <SectionHeading title={t('shopByBrand')} />
+        <Reveal>
+          <SectionHeading title={t('shopByBrand')} />
+        </Reveal>
         <div className="no-scrollbar -mx-6 mt-8 flex gap-3 overflow-x-auto px-6 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0 lg:grid-cols-4">
           {brands.map((brand) => (
             <Link
@@ -90,7 +106,9 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
       {/* 精選 */}
       <section className="mx-auto max-w-7xl px-6 pb-16 sm:pb-20">
-        <SectionHeading title={t('featured')} href="/product/all" linkLabel={t('viewAll')} />
+        <Reveal>
+          <SectionHeading title={t('featured')} href="/product/all" linkLabel={t('viewAll')} />
+        </Reveal>
         <div className="mt-8">
           <ProductGrid products={featured} />
         </div>
@@ -98,19 +116,21 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
       {/* 品牌敘事 */}
       <section className="bg-cream-100 py-20">
-        <div className="mx-auto max-w-2xl px-6 text-center">
+        <Reveal className="mx-auto max-w-2xl px-6 text-center">
           <p className="text-xs tracking-[0.3em] text-taupe-600 uppercase">About</p>
           <h2 className="mt-5 text-2xl leading-relaxed">{t('aboutTitle')}</h2>
           <p className="mt-5 text-sm leading-loose text-ink-700">{t('aboutBody', { shop })}</p>
           <Button asChild variant="outline" className="mt-8">
             <Link href="/about">{t('aboutCta', { shop })}</Link>
           </Button>
-        </div>
+        </Reveal>
       </section>
 
       {/* 新品 */}
       <section className="mx-auto max-w-7xl px-6 py-16 sm:py-20">
-        <SectionHeading title={t('newArrivals')} href="/product/all" linkLabel={t('viewAll')} />
+        <Reveal>
+          <SectionHeading title={t('newArrivals')} href="/product/all" linkLabel={t('viewAll')} />
+        </Reveal>
         <div className="mt-8">
           <ProductGrid products={newest.items.slice(0, 8)} priorityCount={0} />
         </div>

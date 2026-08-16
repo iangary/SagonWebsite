@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import { useLocale, useTranslations } from 'next-intl'
 import { Link } from '@/i18n/routing'
+import { Reveal } from '@/components/ui/reveal'
 import { Badge } from '@/components/ui/badge'
 import { formatTWD } from '@/lib/utils'
 import { isPurchasable, type ProductCardData } from '@/lib/catalog/queries'
@@ -31,7 +32,7 @@ export function ProductCard({
               fill
               sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
               priority={priority}
-              className="object-cover transition-opacity duration-500 group-hover:opacity-0"
+              className="object-cover transition-[opacity,transform] duration-500 ease-out group-hover:scale-105 group-hover:opacity-0"
             />
             {/* 第二張圖預先疊在下面，hover 時淡入，不需要等載入 */}
             {secondary && (
@@ -41,7 +42,7 @@ export function ProductCard({
                 fill
                 sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
                 aria-hidden
-                className="object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+                className="object-cover opacity-0 transition-[opacity,transform] duration-500 ease-out group-hover:scale-105 group-hover:opacity-100"
               />
             )}
           </>
@@ -91,7 +92,10 @@ export function ProductGrid({
   return (
     <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
       {products.map((product, i) => (
-        <ProductCard key={product.id} product={product} priority={i < priorityCount} />
+        // 延遲用 i % 4：同一排的卡片做出時間差，跨排進場時不會等前面整串跑完
+        <Reveal key={product.id} delay={(i % 4) * 60}>
+          <ProductCard product={product} priority={i < priorityCount} />
+        </Reveal>
       ))}
     </div>
   )

@@ -42,6 +42,7 @@
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-toast": "^1.2.14",
+    "@react-three/fiber": "^9.7.0",
     "bullmq": "^5.58.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -56,6 +57,7 @@
     "server-only": "^0.0.1",
     "sharp": "^0.35.3",
     "tailwind-merge": "^3.3.1",
+    "three": "^0.185.1",
     "undici": "^7.16.0",
     "zod": "^4.1.11"
   },
@@ -66,6 +68,7 @@
     "@types/nodemailer": "^7.0.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "@types/three": "^0.185.4",
     "cheerio": "^1.1.2",
     "eslint": "^9.36.0",
     "eslint-config-next": "^16.3.0",

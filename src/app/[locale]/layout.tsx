@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Noto_Sans_TC, Noto_Serif_TC } from 'next/font/google'
 import { notFound } from 'next/navigation'
 import { NextIntlClientProvider, hasLocale } from 'next-intl'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
@@ -12,6 +13,24 @@ import { ToastProvider } from '@/components/ui/toast'
 import { CartCountProvider } from '@/components/cart/cart-count-provider'
 import { SupportChat } from '@/components/chat/support-chat'
 import '@/styles/globals.css'
+
+/*
+ * 自架 Noto TC 字體，不再賭訪客系統有沒有裝（Windows 沒有 Noto Serif TC，
+ * 標題會整個退回 Georgia）。CJK 字體會被切成上百個 unicode-range 分片，
+ * preload 全部分片反而拖慢首屏，所以關掉 preload，讓瀏覽器按需載入。
+ */
+const serifDisplay = Noto_Serif_TC({
+  weight: ['400', '500', '600'],
+  variable: '--font-noto-serif-tc',
+  display: 'swap',
+  preload: false,
+})
+const sansBody = Noto_Sans_TC({
+  weight: ['400', '500', '700'],
+  variable: '--font-noto-sans-tc',
+  display: 'swap',
+  preload: false,
+})
 
 /**
  * 刻意不提供 generateStaticParams。
@@ -65,7 +84,11 @@ export default async function LocaleLayout({
   setRequestLocale(locale)
 
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html
+      lang={locale}
+      suppressHydrationWarning
+      className={`${serifDisplay.variable} ${sansBody.variable}`}
+    >
       <body className="flex min-h-screen flex-col">
         <NextIntlClientProvider>
           <SessionProvider>
