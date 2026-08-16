@@ -2,17 +2,20 @@
 
 import * as React from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { Menu, X } from 'lucide-react'
-import { Link } from '@/i18n/routing'
+import { Menu, X, Globe } from 'lucide-react'
+import { Link, locales } from '@/i18n/routing'
+import { cn } from '@/lib/utils'
+import { LOCALE_LABELS, useLocaleSwitch } from './use-locale-switch'
 
 export function MobileNav({
   links,
   labels,
 }: {
   links: { href: string; label: string }[]
-  labels: { menu: string; open: string; close: string }
+  labels: { menu: string; open: string; close: string; switchLanguage: string }
 }) {
   const [open, setOpen] = React.useState(false)
+  const { locale, pending, switchTo } = useLocaleSwitch()
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -48,6 +51,39 @@ export function MobileNav({
               ))}
             </ul>
           </nav>
+
+          {/*
+            手機唯一的語言入口 —— header 的地球圖示是 sm 以上才出現的（見 locale-switcher.tsx），
+            這裡沒有的話 640px 以下就完全切不了語言。
+          */}
+          <div className="border-t border-cream-200 px-5 py-4">
+            <p className="flex items-center gap-2 pb-2 text-xs tracking-wide text-taupe-500">
+              <Globe size={14} strokeWidth={1.5} />
+              {labels.switchLanguage}
+            </p>
+            <div className="flex gap-2">
+              {locales.map((l) => (
+                <button
+                  key={l}
+                  type="button"
+                  disabled={pending}
+                  aria-current={l === locale ? 'true' : undefined}
+                  onClick={() => {
+                    setOpen(false)
+                    switchTo(l)
+                  }}
+                  className={cn(
+                    'flex-1 border px-3 py-2 text-sm transition-colors disabled:opacity-50',
+                    l === locale
+                      ? 'border-ink-900 text-ink-900'
+                      : 'border-cream-300 text-taupe-500 hover:border-taupe-400',
+                  )}
+                >
+                  {LOCALE_LABELS[l]}
+                </button>
+              ))}
+            </div>
+          </div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

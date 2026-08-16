@@ -20,6 +20,16 @@ export const routing = defineRouting({
    * 既有的 /en/* 連結由 next-intl 自動 307 到無前綴網址，不會死掉。
    */
   localePrefix: 'never',
+
+  /**
+   * next-intl 的預設 cookie 沒有 maxAge，是關掉瀏覽器就消失的 session cookie。
+   * 語系既然只剩 cookie 這一個載體，那等於每次重開瀏覽器都退回 Accept-Language 判斷 ——
+   * 手機的分頁被系統回收得更兇，體感就是「選了英文，過一下又變回中文」。
+   *
+   * 登入的會員另外把語系存在 users.locale，由 proxy 從 JWT 補回 cookie；
+   * 但訪客只有這個 cookie，所以 maxAge 不能省。
+   */
+  localeCookie: { maxAge: 60 * 60 * 24 * 365 },
 })
 
 export const { Link, redirect, usePathname, useRouter, getPathname } = createNavigation(routing)

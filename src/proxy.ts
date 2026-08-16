@@ -31,8 +31,24 @@ async function readSession(req: NextRequest) {
     // `__Secure-authjs.session-token`；本機 http 是不帶前綴的版本。給錯會全站變成未登入。
     secureCookie: process.env.NODE_ENV === 'production',
   })
-  // role 的型別來自 src/types/next-auth.d.ts 對 JWT 的擴充，不用再轉型
-  return { isLoggedIn: Boolean(token), role: token?.role }
+  // role 與 locale 的型別來自 src/types/next-auth.d.ts 對 JWT 的擴充，不用再轉型
+  return { isLoggedIn: Boolean(token), role: token?.role, locale: token?.locale }
+}
+
+const LOCALE_COOKIE = 'NEXT_LOCALE'
+const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
+
+/**
+ * 會員在別台裝置選的語系，用 JWT 帶回來補上 NEXT_LOCALE。
+ *
+ * 順序很要緊：一定要在 intlMiddleware(req) **之前**改 req 上的 cookie。
+ * next-intl 是讀請求裡的 cookie 決定這次要 render 哪個語系的，
+ * 只寫 response 的話這次仍然是舊語系、下次才對，畫面會閃一下。
+ */
+function applyAccountLocale(req: NextRequest, locale: string | null | undefined) {
+  if (!locale || req.cookies.get(LOCALE_COOKIE)?.value === locale) return null
+  req.cookies.set(LOCALE_COOKIE, locale)
+  return locale
 }
 
 const LOCALE_PREFIX = new RegExp(`^/(${locales.join('|')})(?=/|$)`)
@@ -89,7 +105,7 @@ function ensureVisitorCookies(req: NextRequest, res: NextResponse) {
 
 export default async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
-  const { isLoggedIn, role } = await readSession(req)
+  const { isLoggedIn, role, locale } = await readSession(req)
 
   // 後台不做多語系，直接走 role 檢查
   if (pathname.startsWith('/admin')) {
@@ -117,7 +133,16 @@ export default async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL('/account', req.nextUrl.origin))
   }
 
-  return ensureVisitorCookies(req, intlMiddleware(req))
+  const restored = applyAccountLocale(req, locale)
+  const res = ensureVisitorCookies(req, intlMiddleware(req))
+  if (restored) {
+    res.cookies.set(LOCALE_COOKIE, restored, {
+      sameSite: 'lax',
+      path: '/',
+      maxAge: LOCALE_COOKIE_MAX_AGE,
+    })
+  }
+  return res
 }
 
 export const config = {

@@ -12,6 +12,7 @@ import { authConfig } from './config'
 import { verifyPassword } from './password'
 import { verifyOtp } from './otp'
 import { normalizeTwMobile } from '@/lib/sms/provider'
+import { toLocale } from '@/i18n/config'
 
 const emailSchema = z.object({
   email: z.string().email(),
@@ -93,6 +94,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           image: user.image,
           role: user.role,
           phone: user.phone,
+          // 資料庫是 TEXT，收斂成 Locale 才對得上 next-auth.d.ts 的字面量聯集
+          locale: toLocale(user.locale),
         }
       },
     }),
@@ -130,6 +133,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           image: user.image,
           role: user.role,
           phone: user.phone,
+          // 資料庫是 TEXT，收斂成 Locale 才對得上 next-auth.d.ts 的字面量聯集
+          locale: toLocale(user.locale),
         }
       },
     }),

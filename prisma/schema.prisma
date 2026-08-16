@@ -38,6 +38,10 @@ model User {
   passwordHash  String?
 
   role      UserRole @default(CUSTOMER)
+
+  /// 會員自己選過的介面語系（'zh-TW' / 'en'）。null = 沒選過，跟著 Accept-Language 走。
+  /// 不用 enum，多一個語系就得跑一次 migration；值域由 src/i18n/config.ts 的 locales 把關。
+  locale    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

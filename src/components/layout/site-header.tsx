@@ -59,7 +59,12 @@ export async function SiteHeader() {
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
         <MobileNav
           links={navLinks}
-          labels={{ menu: t('menu'), open: t('openMenu'), close: t('closeMenu') }}
+          labels={{
+            menu: t('menu'),
+            open: t('openMenu'),
+            close: t('closeMenu'),
+            switchLanguage: t('switchLanguage'),
+          }}
         />
 
         <Link href="/" className="shrink-0">

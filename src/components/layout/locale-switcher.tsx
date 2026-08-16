@@ -1,30 +1,19 @@
 'use client'
 
-import { useLocale } from 'next-intl'
-import { useTransition } from 'react'
 import { Globe } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { usePathname, useRouter, locales, type Locale } from '@/i18n/routing'
+import { locales } from '@/i18n/routing'
 import { cn } from '@/lib/utils'
+import { LOCALE_LABELS, useLocaleSwitch } from './use-locale-switch'
 
-const LABELS: Record<Locale, string> = {
-  'zh-TW': '繁體中文',
-  en: 'English',
-}
-
+/**
+ * 桌機的語言切換。
+ *
+ * 640px 以下刻意不顯示：那個寬度的 header 已經是漢堡 + logo + 四顆圖示，
+ * 搜尋框一展開就爆版。手機的入口在漢堡抽屜裡（見 mobile-nav.tsx）。
+ */
 export function LocaleSwitcher({ label }: { label: string }) {
-  const locale = useLocale() as Locale
-  const pathname = usePathname()
-  const router = useRouter()
-  const [pending, startTransition] = useTransition()
-
-  function switchTo(next: Locale) {
-    if (next === locale) return
-    startTransition(() => {
-      // usePathname 回傳的是去掉語系前綴的路徑，交給 router 補上新語系
-      router.replace(pathname, { locale: next })
-    })
-  }
+  const { locale, pending, switchTo } = useLocaleSwitch()
 
   return (
     <DropdownMenu.Root>
@@ -50,7 +39,7 @@ export function LocaleSwitcher({ label }: { label: string }) {
                 l === locale ? 'text-ink-900' : 'text-taupe-500',
               )}
             >
-              {LABELS[l]}
+              {LOCALE_LABELS[l]}
             </DropdownMenu.Item>
           ))}
         </DropdownMenu.Content>
