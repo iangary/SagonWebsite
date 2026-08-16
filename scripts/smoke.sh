@@ -39,10 +39,15 @@ fi
 PRODUCT_SLUG=${PRODUCT_SLUG:-$(db_query "select slug from products where status='ACTIVE' limit 1" || true)}
 CATEGORY_SLUG=${CATEGORY_SLUG:-$(db_query "select slug from categories limit 1" || true)}
 
+# 第四個參數是要帶的 Cookie，給語系檢查用（見下面 NEXT_LOCALE 那兩條）
 check() {
-  local path=$1 expect=$2 label=${3:-$1}
+  local path=$1 expect=$2 label=${3:-$1} cookie=${4:-}
   local code
-  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time "$TIMEOUT" "$BASE$path" || echo 000)
+  if [ -n "$cookie" ]; then
+    code=$(curl -s -o /dev/null -w '%{http_code}' --max-time "$TIMEOUT" -H "Cookie: $cookie" "$BASE$path" || echo 000)
+  else
+    code=$(curl -s -o /dev/null -w '%{http_code}' --max-time "$TIMEOUT" "$BASE$path" || echo 000)
+  fi
   if [ "$code" = "$expect" ]; then
     printf '  ✓ %-42s %s\n' "$label" "$code"
     pass=$((pass + 1))
@@ -58,10 +63,15 @@ echo
 
 # --- 靜態與一般頁面 ---
 check /                       200
-check /en                     200
 check /about                  200
 check /product/all            200
 check /api/health             200
+
+# --- 語系。localePrefix 是 never：英文沒有自己的網址，語言在 NEXT_LOCALE cookie 上。
+#     第一條抓「cookie 沒被讀到」，第二條抓「舊的 /en 連結死掉」——
+#     2026-08 之前英文站在 /en，那批連結已經散出去了，不能變成 404。 ---
+check /       200 "/（NEXT_LOCALE=en 也要 200）" "NEXT_LOCALE=en"
+check /en/about 307 "/en/about（舊連結應導回 /about）"
 
 # --- 走 ISR 的動態路由。這兩條是最容易壞又最不容易被發現的 ---
 if [ -n "${CATEGORY_SLUG:-}" ]; then
