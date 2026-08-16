@@ -5,6 +5,8 @@ dist
 .git
 .env
 .env.local
+.env.production
+.env.production.*
 public/uploads
 prisma/seed-data
 coverage

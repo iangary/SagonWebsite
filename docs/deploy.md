@@ -141,17 +141,24 @@ mkdir -p /srv/sagon
 在**你自己的電腦**上，於 repo 根目錄執行：
 
 ```bash
-scp docker-compose.prod.yml Caddyfile root@103.1.221.67:/srv/sagon/
+scp docker-compose.prod.yml Caddyfile scripts/smoke.sh scripts/backup.sh root@103.1.221.67:/srv/sagon/
 ```
 
-順手把環境變數的範本也傳上去，等下直接改它比從頭打快：
-
-```bash
-scp .env.production.example root@103.1.221.67:/srv/sagon/.env.production
-```
+`smoke.sh` 是部署後的驗證腳本（§7.5），`backup.sh` 是備份（§8）—— 主機上沒有原始碼，
+這兩支要跟設定檔一起傳。repo 裡改過它們之後記得重傳。
 
 > 不建議用 `git clone`：會把整份原始碼與歷史搬上主機（用不到），而且私有 repo
 > 得在主機上放金鑰或 token，多開一個沒必要的權限缺口。
+
+環境變數檔沒有範本可抄（範本會跟程式脫節，反而誤導）。必填清單以
+[src/lib/env.ts](../src/lib/env.ts) 為準 —— 那是容器啟動時真正做驗證的地方。
+用這行把當下的必填欄位列出來，當作 6.4 的檢查表：
+
+```bash
+node -e 'const s=require("fs").readFileSync("src/lib/env.ts","utf8"),b=s.slice(s.indexOf("z.object("),s.indexOf("function load"));for(const m of b.matchAll(/^\s{2}([A-Z][A-Z0-9_]+):\s*(.*)$/gm))if(!/\.default\(|\.optional\(|intFromString\(/.test(m[2]))console.log(m[1])'
+```
+
+`scripts/check-drift.sh` 用的是同一份推導，所以文件不會跟程式脫節。
 
 ### 6.3 建 `/srv/sagon/.env`
 
@@ -189,8 +196,7 @@ echo "$PGPASS"
 
 ### 6.4 填 `/srv/sagon/.env.production`
 
-這個檔給**容器內的應用程式**。6.2 已經把範本傳成這個檔名了，現在把裡面所有
-`__CHANGE_ME__` 換成真實值（網域、運費、商店名稱已經預先填好，不用動）：
+這個檔給**容器內的應用程式**，在主機上直接寫。照 6.2 列出的必填清單逐項填：
 
 ```bash
 nano /srv/sagon/.env.production
@@ -357,9 +363,31 @@ docker compose -f docker-compose.prod.yml ps
 
 ### 7.5 驗證
 
+**只 curl 首頁不算驗證。** 首頁是少數不走 ISR 的頁面 —— 2026-08 有一次
+`/category/*` 與 `/product/[slug]` 全部 500，首頁照樣 200，整整一週沒被發現。
+
+跑煙霧測試，它會把每一類路由都打一次，包含「找不到的資源要回 404 而不是 500」：
+
 ```bash
-curl -I https://chenkuanyi.com.tw          # 應該 200 且是有效憑證
-docker compose -f docker-compose.prod.yml logs -f worker   # 應看到「已就緒，concurrency=4」
+cd /srv/sagon && bash smoke.sh
+```
+
+非零結束就是部署失敗，先看 log 再說：
+
+```bash
+docker compose -f docker-compose.prod.yml logs --tail=60 web
+```
+
+確認 migration 真的套用了（`Exited (0)` 只代表容器結束，不代表 schema 是最新的）：
+
+```bash
+docker compose -f docker-compose.prod.yml run --rm migrate npx prisma migrate status
+```
+
+worker 有沒有起來：
+
+```bash
+docker compose -f docker-compose.prod.yml logs --tail=20 worker   # 應看到「已就緒，concurrency=4」
 ```
 
 憑證沒簽出來就看 caddy 的日誌：
@@ -370,20 +398,82 @@ docker compose -f docker-compose.prod.yml logs caddy
 
 ### 7.6 之後要更新版本
 
-改完程式碼、image 重新建好推上 GHCR 之後，主機上跑：
+固定五步，不要跳：
+
+**1. 推上 `main`，等 Actions 三個 job 全綠。** tag 是 `latest`，太早 pull 會拿到舊版，
+而且因為 tag 名稱沒變，`up -d` 會判定「沒變化」而什麼都不做 —— 看起來像部署成功了。
+
+**2. 檢查主機設定檔有沒有漂移**（本機執行，只讀不寫）：
 
 ```bash
-cd /srv/sagon
-docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d
+bash scripts/check-drift.sh
+```
+
+repo 改過 `Caddyfile` / `docker-compose.prod.yml`，或 `src/lib/env.ts`
+新增了必填變數時，這步會擋下來。`docker-compose.prod.yml` 就曾經在主機上停留舊版
+一週而沒人發現。有漂移就先 `scp` 更新再往下走。
+
+**3. 拉新版並重啟**：
+
+```bash
+cd /srv/sagon && docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d
+```
+
+**4. 驗證**（見 §7.5，非零結束就是失敗）：
+
+```bash
+cd /srv/sagon && bash smoke.sh
+```
+
+**5. 清掉舊 image**：
+
+```bash
 docker image prune -af --filter "until=168h"
 ```
 
-最後那行是必要的，不是選配 —— 舊 image 會累積，50GB 的磁碟撐不了幾十次部署。
+最後這步是必要的，不是選配 —— 舊 image 會累積，50GB 的磁碟撐不了幾十次部署。
+
+> **上架商品圖之後要重啟 web。** Next.js 只在伺服器啟動時掃描一次 `public/`
+> （見 `node_modules/next/dist/server/lib/router-utils/filesystem.js` 的
+> `publicFolderItems`），執行期新增的檔案一律 404。後台上傳完圖片要跑
+> `docker compose -f docker-compose.prod.yml restart web`，`smoke.sh` 的商品圖那條會抓到漏掉的情況。
 
 `.env` 裡的 `IMAGE_TAG=latest` 表示每次都拉最新。想要能明確回退的話，
 把 tag 改成 commit SHA（CI 會同時推 `latest` 和 `<sha>` 兩個 tag），
 出事就把 `IMAGE_TAG` 改回上一個 SHA 再 `up -d`。
+
+### 7.7 上線前檢查清單
+
+站跑起來 ≠ 可以開賣。下面每一項都是「不做就會在真實訂單上出事」的，
+按風險排序 —— 前三項在接第一筆真實訂單**之前**必須完成。
+
+| # | 項目 | 不做的後果 | 章節 |
+|---|---|---|---|
+| 1 | 設定備份並做一次還原演練 | 這台沒有主機層備份，volume 掛了訂單全沒 | §8 |
+| 2 | 建立 swap | 4GB 無 swap，尖峰時 OOM killer 會砍掉 PostgreSQL | §4 |
+| 3 | 綠界後台的 callback 網址指向正式網域 | 客人付了錢但訂單停在未付款，且不會有錯誤訊息 | — |
+| 4 | `ECPAY_*` / `TCAT_*` 換成正式金鑰，`ECPAY_ENV=production` | 金流走測試站，等於沒收到錢 | §6.4 |
+| 5 | 填 `SMTP_PASS` 並設定 SPF / DKIM / DMARC | 訂單通知信寄不出去或進垃圾桶 | §6 |
+| 6 | 填 `SHOP_TAX_ID` | 電子收據上的統編是錯的 | §6.4 |
+| 7 | `SMS_PROVIDER=mitake` 並填三竹帳密 | 手機 OTP 發不出去，新會員卡在驗證 | §6.4 |
+| 8 | 停用 seed 建立的 demo 優惠券、刪掉測試會員 | `WELCOME100` 之類的代碼客人猜得到就能用 | §7.8 |
+| 9 | 換掉爬蟲來的商品素材 | 他人著作權，不得對外營運 | README |
+| 10 | 設定監控 | 站掛了要等客人告訴你 | §9 |
+
+### 7.8 清掉 seed 的測試資料
+
+`prisma/seed.ts` 除了管理員之外還會建三張**立即可用**的優惠券和一個測試會員，
+而那個測試會員的密碼跟管理員是同一組。跑過 seed 就要清：
+
+```bash
+docker compose -f docker-compose.prod.yml exec db psql -U sagon -d sagon -c "update coupons set \"isActive\"=false where code in ('WELCOME100','SPRING10','FREESHIP');"
+```
+
+```bash
+docker compose -f docker-compose.prod.yml exec db psql -U sagon -d sagon -c "delete from users where email='customer@sagon.local';"
+```
+
+優惠券用停用而不是刪除 —— 保留紀錄，日後想用再開。
 
 ## 8. 備份（必做）
 
