@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { PRODUCT_CARD } from './helpers/checkout'
+import { useEnglish } from './helpers/locale'
 
 /**
  * 全站品質 smoke：console 錯誤、i18n 洩漏、基本 a11y 結構。
@@ -41,7 +42,8 @@ test.describe('全站品質 smoke', () => {
   })
 
   test('英文版頁面沒有未翻譯的 i18n key', async ({ page }) => {
-    for (const route of ['/en', '/en/product/all', '/en/cart', '/en/login']) {
+    await useEnglish(page)
+    for (const route of ['/', '/product/all', '/cart', '/login']) {
       await page.goto(route)
       const body = (await page.locator('main').textContent()) ?? ''
 
@@ -53,7 +55,8 @@ test.describe('全站品質 smoke', () => {
   test('英文版介面骨架沒有殘留中文', async ({ page }) => {
     // 公告列、頁尾、分類名稱（Category.nameEn）都要跟著語系走。
     // 商品名稱是資料不算，所以只掃 header 與 footer 這兩塊介面骨架。
-    for (const route of ['/en', '/en/product/all', '/en/cart']) {
+    await useEnglish(page)
+    for (const route of ['/', '/product/all', '/cart']) {
       await page.goto(route)
       const chrome = `${await page.locator('header').first().textContent()}${await page.locator('footer').first().textContent()}`
       const chinese = chrome.match(/[一-鿿]{2,}/g) ?? []

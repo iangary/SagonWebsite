@@ -43,9 +43,12 @@ async function syncBasePrice(productId: string): Promise<void> {
 /**
  * 改完商品後要讓前台的快取失效。
  *
- * 商品頁是 `revalidate = 300` 的 ISR，不主動失效的話營運改完要等五分鐘才看得到。
- * localePrefix 是 as-needed，繁中在 `/product/x`、英文在 `/en/product/x`，
- * 兩條路徑都要清 —— 只清一條會出現「中文改好了、英文還是舊的」。
+ * 前台商品頁現在走動態渲染（見 [locale]/product/[slug]/page.tsx），這幾個 revalidatePath
+ * 對它其實已經是多餘的，留著是為了 /admin 那兩條，以及日後若把商品頁改回 ISR 時不會漏。
+ *
+ * 語系網址已經沒有前綴（localePrefix: never），但**內部**路徑仍然是 `/zh-TW/...`
+ * 與 `/en/...` —— proxy 會把 `/product/x` 改寫成其中一條。要清就得清內部路徑，
+ * 清 `/product/x` 是清不到東西的。
  */
 async function revalidateProduct(productId: string): Promise<void> {
   const product = await db.product.findUnique({
@@ -55,7 +58,7 @@ async function revalidateProduct(productId: string): Promise<void> {
   revalidatePath('/admin/products')
   revalidatePath(`/admin/products/${productId}`)
   if (product) {
-    revalidatePath(`/product/${product.slug}`)
+    revalidatePath(`/zh-TW/product/${product.slug}`)
     revalidatePath(`/en/product/${product.slug}`)
   }
 }

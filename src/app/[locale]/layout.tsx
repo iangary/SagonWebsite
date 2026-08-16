@@ -45,10 +45,9 @@ export async function generateMetadata({
       description: t('heroSubtitle'),
       locale: locale === 'en' ? 'en_US' : 'zh_TW',
     },
-    alternates: {
-      canonical: '/',
-      languages: { 'zh-Hant': '/', en: '/en' },
-    },
+    // 不列 languages：localePrefix 是 never，兩個語系共用同一組網址，
+    // 沒有「英文版的網址」可以指（見 i18n/routing.ts）
+    alternates: { canonical: '/' },
   }
 }
 

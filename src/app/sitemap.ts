@@ -7,8 +7,10 @@ import { env } from '@/lib/env'
 export const dynamic = 'force-dynamic'
 
 /**
- * 兩個語系都列出來，並用 alternates.languages 互相指向，
- * 讓搜尋引擎知道 / 與 /en 是同一頁的不同語言版本。
+ * 只列一組網址，不做語系 alternates。
+ *
+ * localePrefix 是 never（見 i18n/routing.ts）：兩個語系共用同一組網址、
+ * 靠 NEXT_LOCALE cookie 區分，所以沒有「英文版的網址」可以指。
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = env.APP_URL.replace(/\/$/, '')
@@ -23,12 +25,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified,
     changeFrequency,
     priority,
-    alternates: {
-      languages: {
-        'zh-Hant': `${base}${path}`,
-        en: `${base}/en${path === '/' ? '' : path}`,
-      },
-    },
   })
 
   const staticPages: MetadataRoute.Sitemap = [

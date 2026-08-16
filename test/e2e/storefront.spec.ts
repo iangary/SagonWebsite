@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { useEnglish } from './helpers/locale'
 
 /**
  * 前台的瀏覽動線。不依賴特定商品，從首頁一路點進去，
@@ -93,8 +94,15 @@ test('非管理員看不到後台', async ({ page }) => {
 })
 
 test('英文語系可用且導覽列翻譯正確', async ({ page }) => {
-  await page.goto('/en')
+  await useEnglish(page)
+  await page.goto('/')
   await expect(page.getByRole('link', { name: 'All Products' }).first()).toBeVisible()
+})
+
+test('舊的 /en 連結會導回無前綴網址', async ({ page }) => {
+  // localePrefix 從 as-needed 換成 never 之後，已經發出去的 /en/* 連結不能死掉
+  await page.goto('/en/about')
+  await expect(page).toHaveURL(/\/about$/)
 })
 
 test('sitemap 與 robots 可存取', async ({ request }) => {
