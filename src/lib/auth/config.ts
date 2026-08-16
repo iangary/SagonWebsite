@@ -21,7 +21,9 @@ export const authConfig = {
       // 首次登入時 user 才有值，把要放進 session 的欄位釘進 token
       if (user) {
         token.id = user.id as string
-        token.role = (user as { role?: string }).role ?? 'CUSTOMER'
+        // 這裡要跟 JWT.role 的型別一致（見 types/next-auth.d.ts），不能寫成 string ——
+        // 寫寬了 `next build` 的型別檢查會擋下整個 image 建置。值域來自 schema 的 UserRole。
+        token.role = (user as { role?: 'CUSTOMER' | 'ADMIN' }).role ?? 'CUSTOMER'
         token.phone = (user as { phone?: string | null }).phone ?? null
       }
       // 會員在 /account 改完資料後呼叫 update()，讓 token 立刻反映新值
