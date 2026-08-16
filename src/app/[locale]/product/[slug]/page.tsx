@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Link } from '@/i18n/routing'
-import { db } from '@/lib/db'
 import { env } from '@/lib/env'
 import { formatTWD, truncate } from '@/lib/utils'
 import { getProductBySlug, getRelatedProducts } from '@/lib/catalog/queries'
@@ -14,21 +13,18 @@ import { ProductGrid } from '@/components/product/product-card'
 import { ProductReviews } from '@/components/product/product-reviews'
 import { Badge } from '@/components/ui/badge'
 
-export const revalidate = 300
-
-export async function generateStaticParams() {
-  // 在容器裡建置時連不到資料庫，這時回空陣列讓所有商品頁改成第一次被請求時
-  // 才渲染，之後照 revalidate 快取。有資料庫的話就照舊預先產生。
-  try {
-    const products = await db.product.findMany({
-      where: { status: 'ACTIVE' },
-      select: { slug: true },
-    })
-    return products.map((p) => ({ slug: p.slug }))
-  } catch {
-    return []
-  }
-}
+/**
+ * 刻意不提供 generateStaticParams，也不設 revalidate —— 這頁走動態渲染。
+ *
+ * 父層 `[locale]` 沒有 generateStaticParams（原因見 [locale]/layout.tsx），
+ * 少了語系那一段就拼不出完整路徑，Next 一頁都預渲染不出來，只會把整條路由
+ * 登記成「請求時才做靜態產生」（prerender-manifest 的 fallback: blocking）。
+ * 而在那條路徑上，未知的 params 本身就算動態存取，每個請求都會拋
+ * DYNAMIC_SERVER_USAGE 並回 500 —— 正式站的商品頁與分類頁就是這樣全掛的。
+ *
+ * 補在 layout 上也救不了：容器建置階段沒有資料庫，generateStaticParams 一樣
+ * 回空陣列，繞回同一個 500。
+ */
 
 export async function generateMetadata({
   params,

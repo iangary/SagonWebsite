@@ -1,22 +1,14 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { setRequestLocale } from 'next-intl/server'
-import { db } from '@/lib/db'
 import { getCategoryBySlug } from '@/lib/catalog/queries'
 import { localizedName } from '@/lib/i18n/localized'
 import { ProductListing, type ListingSearchParams } from '@/components/product/product-listing'
 
-export const revalidate = 300
-
-export async function generateStaticParams() {
-  // 同商品頁：建置階段連不到資料庫就回空陣列，改由 ISR 在執行期產生
-  try {
-    const categories = await db.category.findMany({ select: { slug: true } })
-    return categories.map((c) => ({ slug: c.slug }))
-  } catch {
-    return []
-  }
-}
+// 同商品頁：不提供 generateStaticParams，也不設 revalidate，
+// 否則整條路由會落進 fallback: blocking 而每個請求都回 500。理由寫在
+// product/[slug]/page.tsx。這頁還多讀 searchParams（篩選、分頁），
+// 本來就不該靜態化。
 
 export async function generateMetadata({
   params,
