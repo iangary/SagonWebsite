@@ -7,6 +7,14 @@
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "// ": "正式模式（next start）。public/ 的檔案清單只在啟動時掃一次，dev 有 fs fallback 而它沒有 —— 上傳、圖片這類「跑起來之後才產生的檔案」只有在這裡才驗得出真相。需先 npm run build。",
+      "name": "prod",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start"],
+      "port": 3000,
+      "autoPort": true
     }
   ]
 }

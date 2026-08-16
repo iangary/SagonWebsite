@@ -1,6 +1,6 @@
 import 'server-only'
 import { randomUUID } from 'node:crypto'
-import { mkdir, rm, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import sharp from 'sharp'
 
@@ -14,6 +14,7 @@ import sharp from 'sharp'
  *     原檔直接上架會讓商品頁重到不能用。
  *   - **存在本機磁碟**（`public/uploads/`）。正式環境 compose 已經把這個路徑
  *     掛成 docker volume，重建容器不會掉圖。要換 S3/R2 只需改這一個模組。
+ *   - **讀取一律走 `readUpload()`，不靠 Next 的 public 靜態服務**。理由見該函式。
  */
 
 /** 單張圖片大小上限。next.config.ts 的 serverActions.bodySizeLimit 是 8mb，留一點餘裕給表單其他欄位。 */
@@ -122,6 +123,68 @@ export async function saveProductImages(
   }
 
   return { saved, failed }
+}
+
+/**
+ * 可以送出去的副檔名 → Content-Type。
+ *
+ * 白名單而不是查表失敗就給 octet-stream —— 上傳目錄裡只該有圖片，
+ * 萬一哪天有別的東西被寫進去（或是路徑組出了預期外的檔案），
+ * 這裡直接當成不存在，而不是把它變成本站網域上的可下載檔案。
+ * **`.svg` 刻意不在清單裡**：SVG 可以夾帶 <script>，從自家網域送出去等於儲存型 XSS。
+ * 上傳一律轉成 WebP（見 saveProductImages），其餘幾種是舊種子資料 /uploads/seed/ 留下的。
+ */
+const SERVED_TYPES: Record<string, string> = {
+  '.webp': 'image/webp',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.avif': 'image/avif',
+  '.gif': 'image/gif',
+}
+
+export type UploadedFile = { data: Buffer; contentType: string }
+
+/**
+ * 讀出上傳目錄裡的圖片，給 `app/uploads/[...path]/route.ts` 送出。
+ *
+ * **為什麼不直接讓 Next 的 public 靜態服務處理？**
+ * 正式模式（`!dev`）下 Next 只在**啟動當下**掃一次 public 目錄，把檔名收進
+ * `publicFolderItems` 這個 Set，之後不再重掃也沒有 watcher；命中判斷是
+ * `if (matchedItem || opts.dev)`，那段「動態去 fs 確認檔案在不在」的 fallback
+ * 註解寫明只給 dev 用（node_modules/next/dist/server/lib/router-utils/filesystem.js）。
+ * 也就是說：**容器啟動後才上傳的圖片，正式站永遠 404，重啟容器才會出現**。
+ * 而 `npm run dev` 有那個 fallback，所以開發期完全看不出問題。
+ *
+ * 順帶一提，這道關卡不能改用 Caddy 直接吃 `/uploads/*` 解決 —— `/_next/image`
+ * 對本機路徑走的是 image-optimizer 的 `fetchInternalImage()`，它用 mock request
+ * 在 Next 進程內部打自己的 router，封包根本不出容器，Caddy 攔不到。
+ *
+ * 回傳 null 代表 404：檔案不存在、是目錄、或副檔名不在白名單內。
+ */
+export async function readUpload(segments: string[]): Promise<UploadedFile | null> {
+  const root = path.resolve(UPLOAD_ROOT)
+  const target = path.resolve(root, ...segments)
+
+  // 網址片段由 Next 解碼後交進來，可能含 ..；解析後再確認仍落在上傳目錄內
+  if (!target.startsWith(root + path.sep)) {
+    console.warn('[upload] 拒絕讀取上傳目錄外的路徑：', segments.join('/'))
+    return null
+  }
+
+  const contentType = SERVED_TYPES[path.extname(target).toLowerCase()]
+  if (!contentType) return null
+
+  try {
+    return { data: await readFile(target), contentType }
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    // ENOENT/EISDIR 是正常的 404，不值得留日誌
+    if (code !== 'ENOENT' && code !== 'EISDIR') {
+      console.error('[upload] 讀取上傳檔案失敗', segments.join('/'), error)
+    }
+    return null
+  }
 }
 
 /**

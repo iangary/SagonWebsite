@@ -14,6 +14,8 @@ let originalCwd: string
 let saveProductImages: typeof import('./uploads').saveProductImages
 let deleteUploadedFile: typeof import('./uploads').deleteUploadedFile
 let deleteProductImageDir: typeof import('./uploads').deleteProductImageDir
+let readUpload: typeof import('./uploads').readUpload
+let serveUpload: typeof import('@/app/uploads/[...path]/route').GET
 let MAX_UPLOAD_BYTES: number
 
 beforeAll(async () => {
@@ -25,7 +27,13 @@ beforeAll(async () => {
   saveProductImages = mod.saveProductImages
   deleteUploadedFile = mod.deleteUploadedFile
   deleteProductImageDir = mod.deleteProductImageDir
+  readUpload = mod.readUpload
   MAX_UPLOAD_BYTES = mod.MAX_UPLOAD_BYTES
+
+  // route 只是 readUpload 的薄殼，但「上傳完就能取得圖」是整個模組存在的理由，
+  // 所以連同它一起測。要在 chdir 之後才 import —— 它會連帶載入 uploads.ts，
+  // 而上傳目錄是在該模組載入時由 process.cwd() 決定的。
+  serveUpload = (await import('@/app/uploads/[...path]/route')).GET
 })
 
 afterAll(async () => {
@@ -132,6 +140,76 @@ describe('saveProductImages', () => {
 
     expect(result.saved).toHaveLength(2)
     expect(result.saved[0]!.url).not.toBe(result.saved[1]!.url)
+  })
+})
+
+/** 把 /uploads/... 的網址切成 route 拿到的 catch-all 片段 */
+function segmentsOf(url: string) {
+  return url.replace(/^\/uploads\//, '').split('/')
+}
+
+describe('readUpload', () => {
+  it('讀得回剛上傳的圖，並判出 Content-Type', async () => {
+    const { saved } = await saveProductImages('prod-read', [
+      toFile(await makeImage(240, 240), 'r.png'),
+    ])
+    const url = saved[0]!.url
+
+    const file = await readUpload(segmentsOf(url))
+
+    expect(file?.contentType).toBe('image/webp')
+    expect(file?.data.equals(await readFile(diskPath(url)))).toBe(true)
+  })
+
+  it('檔案不存在時回 null', async () => {
+    expect(await readUpload(['products', 'nope', 'missing.webp'])).toBeNull()
+  })
+
+  it('拒絕用 ../ 讀上傳目錄以外的檔案', async () => {
+    const secret = path.join(workdir, 'public', 'secret.png')
+    await mkdir(path.dirname(secret), { recursive: true })
+    await writeFile(secret, 'not yours')
+
+    expect(await readUpload(['..', 'secret.png'])).toBeNull()
+  })
+
+  it('副檔名不在白名單的檔案不會被送出（.svg 可夾帶 script）', async () => {
+    const dir = path.join(workdir, 'public', 'uploads', 'products', 'prod-svg')
+    await mkdir(dir, { recursive: true })
+    await writeFile(path.join(dir, 'x.svg'), '<svg onload="alert(1)"/>')
+    await writeFile(path.join(dir, 'x.html'), '<script>alert(1)</script>')
+
+    expect(await readUpload(['products', 'prod-svg', 'x.svg'])).toBeNull()
+    expect(await readUpload(['products', 'prod-svg', 'x.html'])).toBeNull()
+  })
+})
+
+describe('GET /uploads/[...path]', () => {
+  function serve(url: string) {
+    return serveUpload(new Request(`http://localhost${url}`), {
+      params: Promise.resolve({ path: segmentsOf(url) }),
+    })
+  }
+
+  it('送出剛上傳的圖 —— 正式模式的 Next 不會服務啟動後才出現的 public 檔案，這支路由就是為此存在', async () => {
+    const { saved } = await saveProductImages('prod-route', [
+      toFile(await makeImage(320, 200), 'route.png'),
+    ])
+    const url = saved[0]!.url
+
+    const res = await serve(url)
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Content-Type')).toBe('image/webp')
+    expect(res.headers.get('Cache-Control')).toContain('immutable')
+
+    const body = Buffer.from(await res.arrayBuffer())
+    expect(body.equals(await readFile(diskPath(url)))).toBe(true)
+  })
+
+  it('檔案不存在時回 404', async () => {
+    const res = await serve('/uploads/products/prod-route/does-not-exist.webp')
+    expect(res.status).toBe(404)
   })
 })
 
