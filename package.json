@@ -50,7 +50,7 @@
     "lucide-react": "^0.544.0",
     "next": "^16.3.0",
     "next-auth": "^5.0.0-beta.29",
-    "next-intl": "^4.3.6",
+    "next-intl": "^4.13.6",
     "nodemailer": "^7.0.6",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -74,7 +74,7 @@
     "eslint-config-next": "^16.3.0",
     "prisma": "^6.16.2",
     "tailwindcss": "^4.1.13",
-    "tsx": "^4.20.5",
+    "tsx": "^4.23.12",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   }
