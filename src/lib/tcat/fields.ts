@@ -102,6 +102,46 @@ export function normalizeTel(tel: string | null | undefined): string {
   return truncate(tel.replace(/[^\d\-#,]/g, ''), 30)
 }
 
+export interface TcatTelParts {
+  /** String(4)，1~4 碼數字 */
+  area: string
+  /** String(8)，1~8 碼數字 */
+  number: string
+  /** String(8)，1~8 碼數字 */
+  ext: string
+}
+
+/**
+ * 市話拆成區碼／號碼／分機（規格 2.6.1 第 6~8 項）。
+ *
+ * 「呼叫黑貓」跟建託運單不一樣 —— 那邊市話是一整欄，這邊硬要拆成三欄，
+ * 而且每欄都限定「非空白時只允許 N 碼數字」，塞整串 0227091234 會被退。
+ *
+ * 區碼一律取前兩碼：037、0826 這類三、四碼區碼會被拆成「03 + 7123456」，
+ * 但兩欄接回去仍是同一個號碼，客服中心照樣打得通，不值得為此維護一份區碼表。
+ */
+export function splitTel(tel: string | null | undefined): TcatTelParts {
+  const empty: TcatTelParts = { area: '', number: '', ext: '' }
+  if (!tel) return empty
+
+  // 分機可能寫成 #123、ext.123、轉123、分機 123
+  const [head = '', tail = ''] = tel.split(/#|ext\.?|轉|分機/i)
+  const ext = tail.replace(/\D/g, '').slice(0, 8)
+
+  const digits = head.replace(/\D/g, '')
+  if (!digits) return { ...empty, ext }
+  // 市話欄位被填成手機時整串丟掉，不然會拆出「09」這個不存在的區碼。
+  // 手機有自己的欄位（ContactMobile），那邊會收到它。
+  if (/^09\d{8}$/.test(digits)) return { ...empty, ext }
+
+  // 有前導 0 才是區碼；使用者只填了 8 碼本地號碼時整串當號碼
+  const hasAreaCode = digits.startsWith('0') && digits.length > 8
+  const area = hasAreaCode ? digits.slice(0, 2) : ''
+  const number = (hasAreaCode ? digits.slice(2) : digits).slice(0, 8)
+
+  return { area, number, ext }
+}
+
 /** 手機 String(10)：非空白時必須是 09 開頭的十碼。不合格就回空字串。 */
 export function normalizeMobile(mobile: string | null | undefined): string {
   if (!mobile) return ''

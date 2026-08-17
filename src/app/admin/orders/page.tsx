@@ -6,6 +6,8 @@ import { ORDER_STATUS_LABEL } from '@/lib/orders/labels'
 import { PageHeader, DataTable, Td, AdminPagination } from '@/components/admin/ui'
 import { Badge, ORDER_STATUS_TONE } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { pendingTcatParcelCount, todayPickupCall } from '@/lib/orders/tcat-pickup'
+import { PickupButton } from './pickup-button'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: '訂單' }
@@ -39,7 +41,7 @@ export default async function AdminOrdersPage({
     ]
   }
 
-  const [orders, total] = await Promise.all([
+  const [orders, total, pendingParcels, pickupCall] = await Promise.all([
     db.order.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -52,11 +54,31 @@ export default async function AdminOrdersPage({
       },
     }),
     db.order.count({ where }),
+    pendingTcatParcelCount(),
+    todayPickupCall(),
   ])
 
   return (
     <>
-      <PageHeader title="訂單" description={`共 ${total} 筆`} />
+      <PageHeader
+        title="訂單"
+        description={`共 ${total} 筆`}
+        // 叫車是「今天倉庫要交寄」的動作，不屬於任何一張訂單，所以放在列表頁而不是訂單頁
+        action={
+          <PickupButton
+            pendingCount={pendingParcels}
+            calledToday={
+              pickupCall
+                ? {
+                    quantity: pickupCall.quantity,
+                    message: pickupCall.message,
+                    createdAt: pickupCall.createdAt,
+                  }
+                : null
+            }
+          />
+        }
+      />
 
       <div className="mb-5 space-y-4">
         <form method="get" className="flex gap-2">

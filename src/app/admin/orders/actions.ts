@@ -7,6 +7,7 @@ import { db } from '@/lib/db'
 import { requireAdmin } from '@/lib/auth'
 import { audit } from '@/lib/audit'
 import { createShipmentForOrder } from '@/lib/orders/logistics'
+import { callTcatPickup } from '@/lib/orders/tcat-pickup'
 import { issueReceiptForOrder, voidReceiptForOrder } from '@/lib/orders/receipt'
 import { releaseOrderReservations } from '@/lib/orders/stock'
 import { enqueue } from '@/lib/queue'
@@ -103,6 +104,50 @@ export async function adminRecordTcatShipment(
     revalidatePath(`/admin/orders/${orderId}`)
     revalidatePath('/admin/orders')
     return '已回填托運單號並標記為已出貨'
+  })
+}
+
+/**
+ * 呼叫黑貓派車來收貨（規格 2.6）。
+ *
+ * 這不是針對單一訂單，而是「今天倉庫有貨要交寄」的一次性通知：
+ * 黑貓每個收貨點一天只受理一次，也不能指定時段，司機依當日路線過來。
+ * 所以按下去之前包裹要先打包好貼好託運單。每日一次的鎖在 callTcatPickup 裡。
+ */
+const pickupSchema = z.object({
+  quantity: z.number().int().min(1, '出貨件數至少 1 件').max(999, '一次最多 999 件'),
+  memo: z.string().trim().max(100, '備註最多 100 字').optional(),
+})
+
+export async function adminCallTcatPickup(
+  quantity: number,
+  memo?: string,
+): Promise<AdminActionResult> {
+  const admin = await requireAdmin()
+
+  const parsed = pickupSchema.safeParse({ quantity, memo })
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? '參數錯誤' }
+  }
+
+  return run('呼叫黑貓收貨', async () => {
+    const call = await callTcatPickup({
+      quantity: parsed.data.quantity,
+      memo: parsed.data.memo,
+      requestedById: admin.id,
+    })
+
+    await audit({
+      userId: admin.id,
+      action: 'shipment.tcat.pickup',
+      entity: 'TcatPickupCall',
+      entityId: call.id,
+      after: { quantity: call.quantity, srvTranId: call.srvTranId },
+    })
+
+    revalidatePath('/admin/orders')
+    // 黑貓的回覆會寫「司機將於 X 點後前往取件」，原樣顯示比我們自己編有用
+    return call.message ?? '集貨通知已送出'
   })
 }
 

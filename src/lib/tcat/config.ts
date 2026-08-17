@@ -31,6 +31,7 @@ export type TcatService =
   | 'ParsingAddress'
   | 'PrintOBT'
   | 'DownloadOBT'
+  | 'Call'
   | 'OBTStatus'
 
 export const tcatConfig = {
@@ -42,6 +43,17 @@ export const tcatConfig = {
   defaultSpec: env.TCAT_DEFAULT_SPEC,
   specQtyStep: env.TCAT_SPEC_QTY_STEP,
   isStage: IS_STAGE,
+}
+
+/**
+ * 呼叫黑貓來收貨（規格 2.6）的固定設定。
+ * 聯絡人留白時由呼叫端補上寄件人資料 —— 收貨地點本來就是寄件地址。
+ */
+export const tcatPickupConfig = {
+  contactName: env.TCAT_PICKUP_CONTACT_NAME,
+  contactGender: env.TCAT_PICKUP_CONTACT_GENDER,
+  isContact: env.TCAT_PICKUP_IS_CONTACT,
+  isTrolley: env.TCAT_PICKUP_IS_TROLLEY,
 }
 
 /**

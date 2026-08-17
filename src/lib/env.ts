@@ -84,6 +84,17 @@ export const envSchema = z.object({
    * 之後要調整級距規則改這個值就好，不用動程式。
    */
   TCAT_SPEC_QTY_STEP: intFromString(9999),
+  /**
+   * 呼叫黑貓來收貨（規格 2.6）時填的聯絡人。留白就沿用 ECPAY_SENDER_*，
+   * 因為收貨地點本來就是寄件地址 —— 只有「找誰」跟寄件人不同時才需要設。
+   */
+  TCAT_PICKUP_CONTACT_NAME: z.string().optional().default(''),
+  /** 聯絡人性別代碼：01 男、02 女。黑貓標為非必填，留白即可 */
+  TCAT_PICKUP_CONTACT_GENDER: z.enum(['', '01', '02']).default(''),
+  /** 司機出發前是否先打電話 */
+  TCAT_PICKUP_IS_CONTACT: boolish.default(true),
+  /** 司機是否要帶推車（件數多、或要下樓搬時才需要） */
+  TCAT_PICKUP_IS_TROLLEY: boolish.default(false),
 
   SMS_PROVIDER: z.enum(['console', 'mitake']).default('console'),
   MITAKE_USERNAME: z.string().optional().default(''),

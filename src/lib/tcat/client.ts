@@ -208,6 +208,54 @@ export async function downloadObt(fileNo: string, obtNumbers?: string[]): Promis
 }
 
 // ---------------------------------------------------------------------------
+// 2.6 呼叫黑貓 Call
+// ---------------------------------------------------------------------------
+
+/** 規格 2.6.1。欄位名照抄規格書。 */
+export interface TcatPickupRequest {
+  CustomerName: string
+  ContactName: string
+  ContactGender: string
+  ContactTelArea: string
+  ContactTelNumber: string
+  ContactTelExt: string
+  ContactMobile: string
+  ContactAddress: string
+  NormalQuantity: number
+  ColdQuantity: number
+  FreezeQuantity: number
+  IsContact: 'Y' | 'N'
+  IsTrolley: 'Y' | 'N'
+  Memo: string
+}
+
+export interface TcatPickupResult {
+  srvTranId: string
+  /** 例：「集貨通知已送出成功，司機將於 3 點後前往取件…」，值得原樣顯示給後台 */
+  message: string
+}
+
+/**
+ * 通知黑貓派車來收貨。
+ *
+ * ⚠️ 這支 API **有真實世界的副作用**：成功之後司機會依當日路線過來，
+ * 而且規格明講「每個收貨點每日僅能使用一次」、無法預約時段。
+ * 所以呼叫端必須自己擋重複（見 lib/orders/tcat-pickup.ts 的每日一次鎖），
+ * 絕對不要放進會自動重試的佇列。
+ *
+ * 回應沒有 Data，成敗只看 IsOK。
+ */
+export async function callPickup(request: TcatPickupRequest): Promise<TcatPickupResult> {
+  const res = await callTcat<never>('Call', request)
+
+  if (res.IsOK !== 'Y') {
+    throw new TcatApiError('Call', res.Message, res.SrvTranId)
+  }
+
+  return { srvTranId: res.SrvTranId, message: res.Message }
+}
+
+// ---------------------------------------------------------------------------
 // 2.11 查詢託運單貨態 OBTStatus
 // ---------------------------------------------------------------------------
 

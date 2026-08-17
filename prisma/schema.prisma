@@ -53,6 +53,7 @@ model User {
   reviews       Review[]
   redemptions   CouponRedemption[]
   auditLogs     AuditLog[]
+  pickupCalls   TcatPickupCall[]
   conversations Conversation[]     @relation("UserConversations")
   chatMessages  ChatMessage[]      @relation("UserChatMessages")
 
@@ -643,6 +644,38 @@ model LogisticsStatusLog {
 
   @@index([shipmentId, occurredAt])
   @@map("logistics_status_logs")
+}
+
+/// 「呼叫黑貓」（規格 2.6 Call）的紀錄。
+///
+/// 這張表同時是那支 API 的互斥鎖 —— 規格明講「每個收貨點每日僅能使用一次」，
+/// 所以呼叫前先在這裡佔位，佔不到就代表今天已經叫過車了。
+model TcatPickupCall {
+  id String @id @default(cuid())
+
+  /// 台北時區的 yyyyMMdd。含失敗的嘗試，純粹是歷程。
+  callDate String
+
+  /// 成功那一次的 yyyyMMdd，唯一鍵。失敗時寫回 null 讓當天可以重試 ——
+  /// Postgres 的唯一索引不管 NULL，所以同一天可以有多筆失敗、只能有一筆成功。
+  /// （分成兩欄是因為 Prisma schema 寫不出 partial unique index。）
+  succeededDate String? @unique
+
+  /// 告訴黑貓要收幾件（常溫）。我們沒有低溫商品，冷藏冷凍固定 0。
+  quantity Int
+  memo     String?
+
+  /// 黑貓的電文交易序號與回覆訊息，出事時客服拿這個跟黑貓對帳
+  srvTranId String?
+  message   String?
+
+  requestedById String?
+  createdAt     DateTime @default(now())
+
+  requestedBy User? @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+
+  @@index([callDate])
+  @@map("tcat_pickup_calls")
 }
 
 // ===========================================================================
