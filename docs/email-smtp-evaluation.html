@@ -1,0 +1,467 @@
+<title>正式 SMTP 寄信服務評估（L-05）</title>
+<style>
+  :root {
+    --bg: #fbfaf8;
+    --surface: #ffffff;
+    --surface-2: #f4f2ee;
+    --border: #e2ddd4;
+    --text: #1f1b16;
+    --text-dim: #6b6459;
+    --accent: #8a5a2b;
+    --accent-soft: #f0e6d8;
+    --good: #1a7f4b;
+    --good-bg: #e8f5ed;
+    --bad: #b3261e;
+    --bad-bg: #fdeceb;
+    --warn: #9a6700;
+    --warn-bg: #fdf6e3;
+    --neutral: #57606a;
+    --neutral-bg: #f0f2f4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #16140f; --surface: #1e1b16; --surface-2: #262219; --border: #3a342a;
+      --text: #ece7de; --text-dim: #a09a8e; --accent: #d9a86c; --accent-soft: #2f2820;
+      --good: #6ee7a8; --good-bg: #17311f; --bad: #ff8a80; --bad-bg: #3a1f1c;
+      --warn: #e5c07b; --warn-bg: #332b18; --neutral: #a8b1bb; --neutral-bg: #2a2d31;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #16140f; --surface: #1e1b16; --surface-2: #262219; --border: #3a342a;
+    --text: #ece7de; --text-dim: #a09a8e; --accent: #d9a86c; --accent-soft: #2f2820;
+    --good: #6ee7a8; --good-bg: #17311f; --bad: #ff8a80; --bad-bg: #3a1f1c;
+    --warn: #e5c07b; --warn-bg: #332b18; --neutral: #a8b1bb; --neutral-bg: #2a2d31;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    line-height: 1.7;
+    margin: 0;
+    padding: 0 1.25rem 6rem;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; }
+
+  header.page { padding: 3rem 0 1.5rem; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
+  h1 { font-size: clamp(1.6rem, 4vw, 2.15rem); margin: 0 0 .5rem; letter-spacing: -.01em; }
+  .sub { color: var(--text-dim); font-size: .93rem; margin: .35rem 0 0; }
+
+  h2 {
+    font-size: 1.22rem; margin: 3rem 0 .5rem; padding-top: 1.25rem;
+    border-top: 1px solid var(--border); scroll-margin-top: 1rem;
+  }
+  h3 { font-size: 1rem; margin: 1.8rem 0 .4rem; color: var(--accent); scroll-margin-top: 1rem; }
+  p { margin: .5rem 0 1rem; }
+  ul, ol { padding-left: 1.35rem; }
+  li { margin-bottom: .35rem; }
+  code {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px;
+    padding: .08em .35em; font-size: .86em;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  pre {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: .9rem 1rem; overflow-x: auto; font-size: .84rem; line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; }
+  a { color: var(--accent); }
+
+  .tw { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); margin: .9rem 0 1.6rem; }
+  table { border-collapse: collapse; width: 100%; min-width: 680px; font-size: .875rem; }
+  thead th {
+    text-align: left; font-size: .73rem; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--text-dim); font-weight: 600; padding: .6rem .7rem;
+    border-bottom: 1px solid var(--border); background: var(--surface-2); white-space: nowrap;
+  }
+  tbody td { padding: .6rem .7rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  th.num, td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  tr.pick td { background: var(--accent-soft); }
+
+  .tag { display: inline-block; font-size: .72rem; font-weight: 600; padding: .1rem .45rem; border-radius: 5px; white-space: nowrap; }
+  .t-good { color: var(--good); background: var(--good-bg); }
+  .t-bad { color: var(--bad); background: var(--bad-bg); }
+  .t-warn { color: var(--warn); background: var(--warn-bg); }
+  .t-neu { color: var(--neutral); background: var(--neutral-bg); }
+
+  .callout { border-left: 3px solid var(--accent); background: var(--surface); padding: .85rem 1.05rem; border-radius: 0 8px 8px 0; margin: 1.1rem 0 1.6rem; }
+  .callout.warn { border-left-color: var(--bad); }
+  .callout.ok { border-left-color: var(--good); }
+  .callout p:first-child { margin-top: 0; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  nav.toc { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 2rem; }
+  nav.toc ol { margin: 0; padding-left: 1.2rem; columns: 2; column-gap: 2rem; font-size: .9rem; }
+  @media (max-width: 620px) { nav.toc ol { columns: 1; } }
+
+  .verdict { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .8rem; margin: 1.5rem 0 2rem; }
+  .vcard { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.1rem; }
+  .vcard h4 { margin: 0 0 .3rem; font-size: .95rem; }
+  .vcard p { margin: 0; font-size: .87rem; color: var(--text-dim); }
+  .vcard.yes { border-color: var(--good); }
+  .vcard.no { border-color: var(--bad); }
+
+  footer.src { margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid var(--border); font-size: .84rem; color: var(--text-dim); }
+  footer.src li { margin-bottom: .2rem; }
+
+  @media print {
+    nav.toc { display: none; }
+    body { background: #fff; color: #000; padding: 0; }
+    tbody tr { break-inside: avoid; }
+  }
+</style>
+
+<div class="wrap">
+
+<header class="page">
+  <h1>正式 SMTP 寄信服務評估（L-05）</h1>
+  <p class="sub">2026-08-17 ｜ 對應 <code>docs/test-checklist.html</code> L-05、<code>docs/manual-test-stage.md</code> M-8 ｜ 分支 <code>main</code></p>
+  <p class="sub">問題：<b>台灣有沒有合適的寄信服務？改用 Google 的服務可不可以？</b>本文把兩條路都查完，跟目前 <code>docs/deploy.md</code> §6 已寫的 Resend 放在一起比。</p>
+</header>
+
+<div class="verdict">
+  <div class="vcard no">
+    <h4>🇹🇼 台灣本土 — 不建議當主力</h4>
+    <p>能算數的只有<b>電子豹 Surenotify</b> 一家。它<b>沒有 SMTP relay，只有 HTTP API</b>，等於要改掉 <code>src/lib/email.ts</code> 的 nodemailer；單價還貴 40–80 倍。</p>
+  </div>
+  <div class="vcard no">
+    <h4>🔵 Google — 買來收信可以，寄程式信不行</h4>
+    <p>Workspace 值得買一組 <code>service@chenkuanyi.com.tw</code> 當客服信箱。但 <code>smtp.gmail.com</code> / <code>smtp-relay.gmail.com</code> <b>沒有退信 webhook、額度按收件人算、超額鎖 24 小時</b>，訂單信不能押在上面。</p>
+  </div>
+  <div class="vcard yes">
+    <h4>✅ 維持 Resend，SES 當備援</h4>
+    <p>免費 3,000 封/月已覆蓋現在的量，有 SMTP relay、有東京節點。<b>但免費方案有 100 封/日上限</b>——建議一開站就升 Pro（US$20/月）或先把 SES 開好。</p>
+  </div>
+</div>
+
+<nav class="toc">
+  <b style="font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim)">目錄</b>
+  <ol>
+    <li><a href="#s1">1. 我們到底要寄什麼（需求盤點）</a></li>
+    <li><a href="#s2">2. 台灣本土的選項</a></li>
+    <li><a href="#s3">3. Google 的三條路</a></li>
+    <li><a href="#s4">4. 國際交易信服務比較</a></li>
+    <li><a href="#s5">5. 費用試算</a></li>
+    <li><a href="#s6">6. 建議</a></li>
+    <li><a href="#s7">7. 落地步驟</a></li>
+    <li><a href="#s8">8. 需要你決定的事</a></li>
+  </ol>
+</nav>
+
+<h2 id="s1">1. 我們到底要寄什麼（需求盤點）</h2>
+
+<p>先把需求釘死，不然比較表會失焦。從原始碼盤點：</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>項目</th><th>現況</th><th>出處</th></tr></thead>
+<tbody>
+<tr><td>信件種類</td><td>只有 4 種訂單通知信：付款成功、繳費資訊、已出貨、訂單取消。<b>沒有行銷信、沒有電子報</b></td><td><code>src/lib/email.ts:30</code></td></tr>
+<tr><td>每筆訂單幾封</td><td>刷卡：2 封（付款成功＋已出貨）。ATM／超商代碼：3 封（多一封繳費資訊）。逾期取消：1–2 封</td><td><code>src/lib/orders/payment.ts:117,147</code>、<code>logistics.ts:384</code>、<code>admin/orders/actions.ts:102,269,314</code></td></tr>
+<tr><td>寄送方式</td><td>BullMQ worker → nodemailer → <b>SMTP</b>（<code>SMTP_HOST/PORT/USER/PASS/SECURE</code>）</td><td><code>src/lib/email.ts:10-28</code>、<code>src/worker/index.ts:32</code></td></tr>
+<tr><td>失敗重試</td><td>指數退避最多 5 次，內容每次從 DB 重新組（L-03）</td><td><code>src/lib/queue.ts</code></td></tr>
+<tr><td>寄件位址</td><td><code>MAIL_FROM</code>，規劃用子網域 <code>no-reply@mail.chenkuanyi.com.tw</code>（行銷信日後被檢舉不拖累訂單信網域信譽）</td><td><code>docs/deploy.md</code> §6</td></tr>
+<tr><td>OTP 簡訊</td><td>走三竹，<b>不走 email</b>，不影響本評估</td><td><code>MITAKE_*</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>量級估算。</b>沒有實際營運數字，用訂單數推：</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>每月訂單</th><th class="num">通知信封數／月</th><th>備註</th></tr></thead>
+<tbody>
+<tr><td>50 筆（開站初期）</td><td class="num">約 120 封</td><td>含少量取消信</td></tr>
+<tr><td>300 筆</td><td class="num">約 750 封</td><td></td></tr>
+<tr><td>1,000 筆</td><td class="num">約 2,500 封</td><td>已接近 Resend 免費額度上限</td></tr>
+<tr><td>檔期單日爆量 60 筆</td><td class="num">單日約 150 封</td><td><b>會撞到 Resend 免費方案的 100 封／日</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>硬需求（用來刷掉選項）</h3>
+<ul>
+  <li><b>要有 SMTP relay。</b>沒有的話得改寫 <code>src/lib/email.ts</code>，把 nodemailer 換成該家的 HTTP SDK，連帶影響本機 Mailpit 開發流程與 <code>test/integration/email-notifications.test.ts</code>。這是實打實的工。</li>
+  <li><b>要能驗自訂網域的 DKIM。</b>信要從 <code>mail.chenkuanyi.com.tw</code> 出去，不能是供應商的網域。</li>
+  <li><b>要有退信／申訴（bounce / complaint）可見。</b>否則 L-03 的 5 次重試會對著不存在的信箱狂打，反而傷網域信譽。</li>
+  <li><b>要 API key 認證。</b><code>SMTP_PASS</code> 放的是 API key，可隨時撤換，不是某個人的信箱密碼。</li>
+</ul>
+<p>不需要的：EDM 模板編輯器、A/B 測試、名單管理、自動化流程。這些是 EDM 平台的賣點，我們一項都用不到——<b>這點很關鍵，因為台灣廠商賣的正好都是這些</b>。</p>
+
+<h2 id="s2">2. 台灣本土的選項</h2>
+
+<p>我把「台灣廠商」拆成三類來看：交易信平台、電信商信箱、自架。</p>
+
+<h3>2.1 電子豹 Surenotify（唯一真正對口的台灣廠商）</h3>
+
+<p>電子豹（Newsleopard）是台灣做電子報最久的一家，<b>Surenotify</b> 是它拆出來的交易信／簡訊 API 產品。這是台灣市場上唯一定位正確的選項。</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>面向</th><th>結論</th></tr></thead>
+<tbody>
+<tr><td>介接方式</td><td><span class="tag t-bad">致命傷</span> <b>只有 HTTP API</b>（<code>POST https://mail.surenotifyapi.com/v1/messages</code>，<code>x-api-key</code> 標頭）。官方文件沒有任何 SMTP relay 主機／埠號</td></tr>
+<tr><td>網域驗證</td><td><span class="tag t-good">有</span> SPF／DKIM 都能用 TXT 或 CNAME 驗自己的網域</td></tr>
+<tr><td>價格</td><td>訂閱制，月費 NT$600／2,200／8,000／15,200 四檔，對應每封 NT$0.24／0.20／0.16／0.13。月費可折抵用量，等於<b>最低消費 NT$600／月</b></td></tr>
+<tr><td>單次上限</td><td>每次請求最多 100 個收件人（我們一次一封，無感）</td></tr>
+<tr><td>好處</td><td>中文客服、可簽台灣合約、開台灣統一發票、資料留在台灣、出事找得到人</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="callout warn">
+<p><b>為什麼「只有 API」在我們這裡是致命傷。</b><code>src/lib/email.ts</code> 現在是 nodemailer + SMTP，本機開發指向 Mailpit（<code>127.0.0.1:1025</code>）。換成 Surenotify 要動三處：<code>getTransporter()</code> 整段換掉、本機開發得另想辦法攔信、整合測試的假 SMTP 也要跟著改。這不是不能做，但為了一個「貴 40 倍又要改碼」的選項做，不划算。</p>
+</div>
+
+<p><b>價格對照直觀一點：</b>3,000 封／月，Surenotify 約 NT$720，Amazon SES 約 NT$10，Resend 免費。差距不是幾成，是<b>兩個數量級</b>。台灣廠商的價格是照「EDM 每封計價」的商業模式定的，而 EDM 每封本來就比交易信貴——它賣的是名單管理與投遞率服務，不是純管道。</p>
+
+<h3>2.2 中華電信企業郵件 / HiNet 信箱</h3>
+
+<p><span class="tag t-bad">不適用</span> 這一類（<code>msa.hinet.net</code>、企業郵件、U-Mail 等虛擬主機商附的信箱）本質是<b>給人收發信的信箱服務</b>，不是交易信平台：</p>
+<ul>
+  <li>沒有退信 webhook、沒有投遞紀錄 API，信寄丟了你不會知道。</li>
+  <li>額度是個人信箱等級的每日上限，且以「收件人」計。</li>
+  <li>HiNet 自 2025 Q4 起強制 SMTP 帳密認證——那是把「某個人的信箱密碼」寫進 <code>.env.production</code>，跟「API key 可隨時撤換」是兩回事。</li>
+  <li>用 <code>@hinet.net</code> 的位址寄，<code>MAIL_FROM</code> 就不可能對齊 <code>chenkuanyi.com.tw</code>，DMARC 直接不通。</li>
+</ul>
+
+<h3>2.3 自架 Postfix（主機 103.1.221.67）</h3>
+
+<p><span class="tag t-bad">不要做</span> 三個理由，任一個都足以否決：</p>
+<ul>
+  <li><b>25 埠幾乎必定被機房封鎖</b>（<code>docs/deploy.md</code> §6 已經寫了這件事）。</li>
+  <li>單一 VPS 的 IP 沒有寄信信譽，Gmail／Yahoo 對新 IP 極不友善，一開始就是垃圾桶起跳，要「養 IP」數週。</li>
+  <li>2024 年起 Gmail／Yahoo、2025 年起 Outlook 陸續強制 SPF＋DKIM＋DMARC 與退信率門檻。自架代表這些全部自己扛，出事沒有人可以問。</li>
+</ul>
+
+<h3>2.4 「台灣機房 + 台灣資料落地」目前無解</h3>
+
+<p>AWS 台北區 <b>ap-east-2 已經開了</b>，但<b>沒有 SES</b>（2026-08 服務清單裡 SES 只到東京、首爾、大阪、新加坡、雪梨等）。Resend 有東京節點可選，但<b>資料仍存在美國</b>（官方明說 region 只影響寄送出口，不改資料落地政策）。</p>
+<p>所以如果「收件人姓名／email 不得離境」是硬條件，唯一解就是電子豹。如果不是硬條件（一般電商並非如此），這個維度不該主導決策。</p>
+
+<div class="callout">
+<p><b>台灣這條路的一句話結論：</b>有一家做得對（電子豹 Surenotify），但它為了 EDM 客群設計，價格與介接方式都不適合我們這種「一天幾十封、已經寫好 nodemailer」的小電商。<b>值得選它的唯一理由是「必須有台灣合約／發票／在地客服／資料不出境」</b>——如果這些對你重要，那它是好選擇，代價是改碼加每月 NT$600 起。</p>
+</div>
+
+<h2 id="s3">3. Google 的三條路</h2>
+
+<p>「用 Google 的服務」其實混了兩件不同的事，要拆開講。</p>
+
+<h3>3.1 拿 Google 當寄信管道</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>方式</th><th>主機 / 埠</th><th>每日上限</th><th>認證</th><th>評價</th></tr></thead>
+<tbody>
+<tr><td>Gmail SMTP</td><td><code>smtp.gmail.com</code><br>465 / 587</td><td>Workspace 2,000 封<br>免費 Gmail 500 封</td><td>帳號 + 應用程式密碼（需先開兩步驟驗證）</td><td><span class="tag t-bad">不建議</span> From 會被改寫成登入的那個帳號（除非先設成已驗證的「Send mail as」別名）</td></tr>
+<tr><td>SMTP relay</td><td><code>smtp-relay.gmail.com</code><br>25 / 465 / 587</td><td>每位使用者 10,000 收件人</td><td>IP 白名單（或加 SMTP 認證）</td><td><span class="tag t-warn">勉強可行</span> 但要固定 IP，換主機就要改設定</td></tr>
+<tr><td>Restricted Gmail</td><td><code>aspmx.l.google.com</code><br>25</td><td>依使用者額度</td><td>不需認證</td><td><span class="tag t-bad">不適用</span> 只能寄給 Google 帳號的收件人</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>四個真正勸退的理由</b>（不是額度問題，是機制問題）：</p>
+<ol>
+  <li><b>沒有退信／申訴 webhook。</b>Resend／SES 會回報 hard bounce 與 spam complaint，我們可以停止重試、標記壞信箱。Google 這條路只會退一封 NDR 到某個信箱——L-03 的 5 次重試會盲目重打。</li>
+  <li><b>額度按「收件人」計、以滾動 24 小時計算，超額鎖最多 24 小時。</b>訂單信是不能停的東西。真的撞到上限，那一整天的付款成功信全部寄不出去，而且是靜默失敗。</li>
+  <li><b>Google 不把它當交易信平台。</b>SMTP relay 的官方定位是「印表機、掃描器、內部應用程式」。拿它當電商的對外訂單通知管道是超出設計意圖的用法，出事沒有支援可談。</li>
+  <li><b>IP 白名單綁死主機。</b>relay 走 IP 認證，<code>103.1.221.67</code> 一旦換機或加節點就要回後台改。</li>
+</ol>
+
+<h3>3.2 拿 Google Workspace 當客服信箱 —— 這個值得買</h3>
+
+<div class="callout ok">
+<p><b>這是本次評估唯一真的建議你花錢的地方。</b><code>.env.example</code> 目前 <code>SHOP_SERVICE_EMAIL=ian890711@gmail.com</code>，而這個位址會出現在<b>每一封通知信的頁尾、頁尾／關於／聯絡／常見問題與各政策頁</b>（見 <code>src/lib/email.ts:47</code> 的註解）。一間有統編的店，客服信箱掛 <code>@gmail.com</code>，觀感差；而且客人的回信會落進你的私人信箱，沒有轉手、沒有備援。</p>
+<p>Business Starter 自 2026-01-16 起 US$7／人／月（約 NT$224）。買一組 <code>service@chenkuanyi.com.tw</code> 就夠。<b>2026-08-30 至 11-30 有五折活動（US$3.5）</b>，時間剛好。</p>
+</div>
+
+<p>買了 Workspace 之後，寄信仍然走 Resend／SES。<b>兩者不衝突</b>：Workspace 管 <code>chenkuanyi.com.tw</code> 的 MX（收信），Resend 管 <code>mail.chenkuanyi.com.tw</code> 子網域的寄出（發信）。DNS 上互不干擾。</p>
+
+<h2 id="s4">4. 國際交易信服務比較</h2>
+
+<div class="tw">
+<table>
+<thead><tr>
+<th>服務</th><th>免費額度</th><th>付費起點</th><th>SMTP</th><th>退信 webhook</th><th>亞洲節點</th><th>備註</th>
+</tr></thead>
+<tbody>
+<tr class="pick">
+<td><b>Resend</b></td>
+<td>3,000 封／月<br><span class="tag t-warn">但 100 封／日</span></td>
+<td>US$20／月 = 50,000 封</td>
+<td><span class="tag t-good">有</span></td>
+<td><span class="tag t-good">有</span></td>
+<td>東京（資料仍存美國）</td>
+<td>免費含 1 個自訂網域、30 天紀錄保留。介面最好上手，DKIM 一鍵產生</td>
+</tr>
+<tr>
+<td><b>Amazon SES</b></td>
+<td>新帳號 12 個月內 3,000 則／月<br>（2025-07-15 後改為 US$200 額度）</td>
+<td>US$0.10／1,000 封</td>
+<td><span class="tag t-good">有</span></td>
+<td><span class="tag t-good">有</span>（SNS）</td>
+<td>東京 ap-northeast-1</td>
+<td><b>最便宜</b>。缺點：要先申請解除 sandbox（未解除只能寄給已驗證信箱，每日 200 封），退信率／申訴率超標會被停權</td>
+</tr>
+<tr>
+<td><b>Zoho ZeptoMail</b></td>
+<td>試用額度</td>
+<td>US$2.50 = 10,000 封</td>
+<td><span class="tag t-good">有</span></td>
+<td><span class="tag t-good">有</span></td>
+<td>有多區（含印度／歐洲／美國）</td>
+<td>純交易信、預付點數<b>六個月到期</b>。介於 Resend 與 SES 之間的甜蜜點</td>
+</tr>
+<tr>
+<td><b>Brevo</b></td>
+<td>300 封／日（約 9,000／月）永久免費</td>
+<td>US$9／月 = 5,000 封</td>
+<td><span class="tag t-good">有</span></td>
+<td><span class="tag t-good">有</span></td>
+<td>歐洲為主</td>
+<td>免費額度是「每日 300」——<b>對我們比 Resend 的每日 100 更寬</b>，適合當免費備援</td>
+</tr>
+<tr>
+<td><b>Postmark</b></td>
+<td>試用 100 封</td>
+<td>US$15／月 = 10,000 封</td>
+<td><span class="tag t-good">有</span></td>
+<td><span class="tag t-good">有</span></td>
+<td>美國</td>
+<td>交易信投遞率口碑最好，但沒有免費方案，且對「行銷信混進來」很嚴格</td>
+</tr>
+<tr>
+<td><b>SendGrid</b></td>
+<td>已無長期免費方案</td>
+<td>約 US$20／月起</td>
+<td><span class="tag t-good">有</span></td>
+<td><span class="tag t-good">有</span></td>
+<td>有</td>
+<td>老牌但共用 IP 池信譽參差，近年評價下滑。無明顯優勢</td>
+</tr>
+<tr>
+<td><b>電子豹 Surenotify</b></td>
+<td>無</td>
+<td>NT$600／月起（每封 NT$0.24）</td>
+<td><span class="tag t-bad">無</span></td>
+<td>API 有狀態回報</td>
+<td>台灣</td>
+<td>台灣發票／合約／中文客服。<b>要改掉 nodemailer</b></td>
+</tr>
+<tr>
+<td><b>Google Workspace</b></td>
+<td>無</td>
+<td>US$7／人／月（收信箱用途）</td>
+<td>有但不適合</td>
+<td><span class="tag t-bad">無</span></td>
+<td>—</td>
+<td>買來當客服信箱，不當寄信管道</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="s5">5. 費用試算</h2>
+
+<p>以 NT$32／US$ 換算，只算寄信本身（不含 Workspace 客服信箱）。</p>
+
+<div class="tw">
+<table>
+<thead><tr>
+<th>服務</th><th class="num">500 封／月<br><span style="font-weight:400">（約 200 筆訂單）</span></th><th class="num">3,000 封／月<br><span style="font-weight:400">（約 1,200 筆訂單）</span></th><th class="num">20,000 封／月<br><span style="font-weight:400">（約 8,000 筆訂單）</span></th>
+</tr></thead>
+<tbody>
+<tr class="pick"><td><b>Resend</b></td><td class="num">NT$0<br><span class="tag t-good">免費方案</span></td><td class="num">NT$0<br><span class="tag t-warn">但日上限 100</span></td><td class="num">NT$640<br><span class="tag t-neu">Pro</span></td></tr>
+<tr><td><b>Amazon SES</b></td><td class="num">約 NT$2</td><td class="num">約 NT$10</td><td class="num">約 NT$64</td></tr>
+<tr><td><b>ZeptoMail</b></td><td class="num">NT$80<br><span style="font-size:.78rem;color:var(--text-dim)">（1 點＝1 萬封，可用到 6 個月）</span></td><td class="num">NT$80</td><td class="num">約 NT$160</td></tr>
+<tr><td><b>Brevo</b></td><td class="num">NT$0</td><td class="num">NT$0</td><td class="num">約 NT$1,200＋</td></tr>
+<tr><td><b>電子豹 Surenotify</b></td><td class="num">NT$600<br><span style="font-size:.78rem;color:var(--text-dim)">（最低月費）</span></td><td class="num">約 NT$720</td><td class="num">約 NT$3,200</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>結論很直白：<b>在我們的量級，寄信成本根本不是決策因子</b>（每月幾十塊到幾百塊台幣的差別），除非選電子豹——它是唯一會讓這條線變成固定月費項目的選項。所以決策應該看的是<b>投遞率、退信可見性、以及要不要改程式</b>，不是價格。</p>
+
+<h2 id="s6">6. 建議</h2>
+
+<h3>主案：維持 Resend，開站時直接上 Pro</h3>
+<p><code>docs/deploy.md</code> §6 已經寫的方案是對的，不用換。理由：有 SMTP relay（不動一行程式碼）、有東京節點、DKIM 設定最省事、退信 webhook 齊全。</p>
+
+<div class="callout warn">
+<p><b>唯一要修正的是免費方案的「每日 100 封」。</b>月額度 3,000 封看起來很夠，但日上限 100 封換算下來只有<b>每天約 40 筆訂單</b>。平常沒事，檔期或上新品衝一波就會撞到，而且撞到的後果是「付款成功信整批寄不出去」——客人付了錢沒收到信，客服電話就來了。</p>
+<p>US$20／月（約 NT$640）買掉這個風險，是這整份評估裡最划算的一筆。或者維持免費方案，但<b>先把 Amazon SES 的 sandbox 解掉放著當備援</b>（解 sandbox 要等審核，不能等出事才辦）。</p>
+</div>
+
+<h3>備案 A：Amazon SES（東京）</h3>
+<p>如果願意多花半天處理 sandbox 申請與 IAM 設定，SES 是長期成本最低、規模上限最高的。適合「這個站會做很久、量會長」的判斷。缺點是後台難用、退信率超標會被停權（要自己接 SNS 處理 bounce）。</p>
+
+<h3>備案 B：ZeptoMail</h3>
+<p>US$2.50／萬封、有 SMTP、純交易信定位。介於 Resend 的方便與 SES 的便宜之間。唯一要注意的是<b>點數六個月到期</b>，量小的話會有一點浪費。</p>
+
+<h3>不建議</h3>
+<ul>
+  <li><b>電子豹 Surenotify</b>——除非「台灣發票／合約／資料不出境」是硬性要求。它要改掉 nodemailer，且是唯一會產生固定月費的選項。</li>
+  <li><b>Google 當寄信管道</b>——沒有退信 webhook、額度按收件人算、超額靜默鎖 24 小時。</li>
+  <li><b>自架 Postfix</b>——25 埠被封、IP 沒信譽、三大認證全部自己扛。</li>
+</ul>
+
+<h3>另外建議做的一件事</h3>
+<p>買一組 <b>Google Workspace Business Starter</b>（US$7／人／月，8/30–11/30 五折），把 <code>SHOP_SERVICE_EMAIL</code> 從 <code>ian890711@gmail.com</code> 換成 <code>service@chenkuanyi.com.tw</code>。這跟寄信管道無關，是店面門面問題——那個位址印在每封信的頁尾和所有政策頁上。</p>
+
+<h2 id="s7">7. 落地步驟</h2>
+
+<h3>7.1 DNS（三筆記錄，缺一就進垃圾桶）</h3>
+<p>在 <code>mail.chenkuanyi.com.tw</code> 子網域上設：</p>
+<ul>
+  <li><b>SPF</b>（TXT）—— Resend 後台會給。</li>
+  <li><b>DKIM</b>（TXT 或 CNAME）—— Resend 後台會給。</li>
+  <li><b>DMARC</b>（TXT，<code>_dmarc.mail.chenkuanyi.com.tw</code>）—— <b>要自己加，供應商不會給</b>。先 <code>p=none</code> 觀察兩週，再收緊到 <code>p=quarantine</code>。</li>
+</ul>
+<pre><code>_dmarc.mail.chenkuanyi.com.tw. TXT "v=DMARC1; p=none; rua=mailto:service@chenkuanyi.com.tw; pct=100"</code></pre>
+
+<h3>7.2 主機上的 <code>.env.production</code></h3>
+<p>照 <code>CLAUDE.md</code> 的規矩：<b>環境變數不走 scp</b>，直接改主機那份，改完 <code>chmod 600</code> 再重建容器。</p>
+<pre><code>SMTP_HOST=smtp.resend.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=resend
+SMTP_PASS=&lt;API key&gt;
+MAIL_FROM="莎岡選品店 &lt;no-reply@mail.chenkuanyi.com.tw&gt;"
+SHOP_SERVICE_EMAIL=service@chenkuanyi.com.tw</code></pre>
+<pre><code>ssh root@103.1.221.67 'cd /srv/sagon && cp -a .env.production ".env.production.bak-$(date +%m%d-%H%M)" && nano .env.production && chmod 600 .env.production && docker compose -f docker-compose.prod.yml up -d --force-recreate web worker'</code></pre>
+
+<h3>7.3 驗證（這就是 L-05 / M-8 要做的事）</h3>
+<ol>
+  <li>寄一封到 <a href="https://www.mail-tester.com/">mail-tester.com</a>，目標 <b>10/10</b>。低於 8 分先別上線。</li>
+  <li>走完一筆真實訂單，確認四種信都收得到、<b>不在垃圾信匣</b>，寄件者名稱與回覆地址正確。</li>
+  <li>開 <a href="https://postmaster.google.com/">Google Postmaster Tools</a> 綁 <code>mail.chenkuanyi.com.tw</code>，開站後兩週回頭看垃圾申訴率（目標 &lt; 0.1%）。</li>
+  <li>刻意寄一封到不存在的信箱，確認 Resend 後台看得到 hard bounce，且 worker 不會無止盡重試。</li>
+  <li>兩週後把 DMARC 從 <code>p=none</code> 收緊到 <code>p=quarantine</code>。</li>
+</ol>
+
+<h2 id="s8">8. 需要你決定的事</h2>
+
+<ol>
+  <li><b><code>chenkuanyi.com.tw</code> 的 DNS 在哪裡管？</b>（Cloudflare／中華電信／註冊商後台）——這決定 SPF／DKIM／DMARC 怎麼加，以及要不要注意「Cloudflare 的 proxy 不能開在 MX／TXT 上」這類細節。</li>
+  <li><b>要不要買 Google Workspace 當客服信箱？</b>US$7／人／月，8/30–11/30 五折。不買的話 <code>SHOP_SERVICE_EMAIL</code> 就繼續用 gmail.com。</li>
+  <li><b>報帳上需不需要台灣統一發票？</b>境外服務（Resend／AWS／Zoho）多半只有國外 invoice 與信用卡帳單。如果會計要求一定要有台灣發票，這會直接把天平推向電子豹——那就要接受改程式與月費。</li>
+  <li><b>Resend 要免費方案還是直接上 Pro？</b>我的建議是直接上 Pro（NT$640／月）買掉日上限風險；若堅持免費，請同時把 SES sandbox 先解好當備援。</li>
+</ol>
+
+<footer class="src">
+<b>資料來源</b>（2026-08-17 查證）
+<ul>
+  <li><a href="https://resend.com/pricing">Resend Pricing</a>、<a href="https://resend.com/blog/improving-time-to-inbox-in-asia">Resend — Improving Time to Inbox in Asia（東京節點）</a></li>
+  <li><a href="https://newsleopard.com/surenotify/pricing/">電子豹 Surenotify 價格</a>、<a href="https://newsleopard.com/surenotify/api/v1/">Surenotify API 文件</a>、<a href="https://newsleopard.com/pricing/">電子豹 電子報價格</a></li>
+  <li><a href="https://knowledge.workspace.google.com/admin/gmail/send-email-from-a-printer-scanner-or-app">Google Workspace — Send email from a printer, scanner, or app</a>、<a href="https://workspace.google.com/pricing?hl=zh-TW">Google Workspace 價格</a></li>
+  <li><a href="https://www.zoho.com/zeptomail/pricing.html">Zoho ZeptoMail Pricing</a>、<a href="https://www.brevo.com/pricing/">Brevo Pricing</a></li>
+  <li><a href="https://aws.amazon.com/blogs/aws/now-open-aws-asia-pacific-taipei-region/">AWS Asia Pacific (Taipei) Region 開通公告</a>、<a href="https://www.aws-services.info/ses.html">Amazon SES 區域可用性</a></li>
+  <li><a href="https://www.cht.com.tw/home/enterprise/products-services/enterprise-value-added/message-app/170">中華電信 企業郵件規格</a></li>
+</ul>
+<p>本文引用的專案現況出自 <code>src/lib/email.ts</code>、<code>src/worker/index.ts</code>、<code>src/lib/queue.ts</code>、<code>.env.example</code>、<code>docs/deploy.md</code> §6、<code>CLAUDE.md</code>。</p>
+</footer>
+
+</div>
