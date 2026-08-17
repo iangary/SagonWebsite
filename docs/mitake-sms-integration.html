@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>三竹簡訊 API 串接研究</title>
+<style>
+  :root {
+    --bg: #fbfaf8;
+    --surface: #ffffff;
+    --surface-2: #f4f2ee;
+    --border: #e2ddd4;
+    --text: #1f1b16;
+    --text-dim: #6b6459;
+    --accent: #8a5a2b;
+    --accent-soft: #f0e6d8;
+    --p0: #b3261e;
+    --p0-bg: #fdeceb;
+    --p1: #9a6700;
+    --p1-bg: #fdf6e3;
+    --p2: #57606a;
+    --p2-bg: #f0f2f4;
+    --done: #1a7f4b;
+    --done-bg: #e8f5ed;
+    --todo: #b3261e;
+    --todo-bg: #fdeceb;
+    --code-bg: #f4f2ee;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #16140f; --surface: #1e1b16; --surface-2: #262219; --border: #3a342a;
+      --text: #ece7de; --text-dim: #a09a8e; --accent: #d9a86c; --accent-soft: #2f2820;
+      --p0: #ff8a80; --p0-bg: #3a1f1c; --p1: #e5c07b; --p1-bg: #332b18;
+      --p2: #a8b1bb; --p2-bg: #2a2d31; --done: #6ee7a8; --done-bg: #17311f;
+      --todo: #ff8a80; --todo-bg: #3a1f1c; --code-bg: #262219;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #16140f; --surface: #1e1b16; --surface-2: #262219; --border: #3a342a;
+    --text: #ece7de; --text-dim: #a09a8e; --accent: #d9a86c; --accent-soft: #2f2820;
+    --p0: #ff8a80; --p0-bg: #3a1f1c; --p1: #e5c07b; --p1-bg: #332b18;
+    --p2: #a8b1bb; --p2-bg: #2a2d31; --done: #6ee7a8; --done-bg: #17311f;
+    --todo: #ff8a80; --todo-bg: #3a1f1c; --code-bg: #262219;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    line-height: 1.7;
+    margin: 0;
+    padding: 0 1.25rem 6rem;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+
+  header.page {
+    padding: 3rem 0 1.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2rem;
+  }
+  h1 { font-size: clamp(1.6rem, 4vw, 2.2rem); margin: 0 0 .5rem; letter-spacing: -.01em; }
+  .sub { color: var(--text-dim); margin: 0; font-size: .95rem; }
+
+  h2 {
+    font-size: 1.3rem;
+    margin: 3rem 0 1rem;
+    padding-bottom: .5rem;
+    border-bottom: 2px solid var(--accent-soft);
+  }
+  h3 { font-size: 1.05rem; margin: 2rem 0 .6rem; color: var(--accent); }
+  h4 { font-size: .95rem; margin: 1.4rem 0 .4rem; }
+  p { margin: .7rem 0; }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, "Cascadia Code", Consolas, monospace;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .38em;
+    font-size: .86em;
+    word-break: break-word;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    overflow-x: auto;
+    font-size: .84rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: 1em; }
+
+  .table-scroll { overflow-x: auto; margin: 1rem 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; background: var(--surface); }
+  th, td { border: 1px solid var(--border); padding: .55rem .7rem; text-align: left; vertical-align: top; }
+  th { background: var(--surface-2); font-weight: 600; white-space: nowrap; }
+  td code { white-space: nowrap; }
+
+  .badge {
+    display: inline-block;
+    font-size: .74rem;
+    font-weight: 700;
+    padding: .1rem .5rem;
+    border-radius: 999px;
+    white-space: nowrap;
+    letter-spacing: .02em;
+  }
+  .b-p0 { background: var(--p0-bg); color: var(--p0); }
+  .b-p1 { background: var(--p1-bg); color: var(--p1); }
+  .b-p2 { background: var(--p2-bg); color: var(--p2); }
+  .b-ok { background: var(--done-bg); color: var(--done); }
+  .b-req { background: var(--p0-bg); color: var(--p0); }
+
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    padding: .9rem 1.1rem;
+    margin: 1.2rem 0;
+  }
+  .callout.warn { border-left-color: var(--p0); background: var(--p0-bg); }
+  .callout.note { border-left-color: var(--p1); background: var(--p1-bg); }
+  .callout > :first-child { margin-top: 0; }
+  .callout > :last-child { margin-bottom: 0; }
+  .callout strong { display: block; margin-bottom: .2rem; }
+
+  .gap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    margin: 1rem 0;
+  }
+  .gap-head { display: flex; gap: .6rem; align-items: baseline; flex-wrap: wrap; margin-bottom: .4rem; }
+  .gap-head h4 { margin: 0; font-size: 1rem; }
+  .gap p { margin: .45rem 0; }
+  .gap .label { color: var(--text-dim); font-size: .82rem; font-weight: 600; }
+
+  ul, ol { padding-left: 1.4rem; }
+  li { margin: .3rem 0; }
+
+  .toc { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.4rem; }
+  .toc ol { margin: .3rem 0; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+
+  footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--border); color: var(--text-dim); font-size: .85rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="page">
+  <h1>三竹簡訊 API 串接研究</h1>
+  <p class="sub">
+    來源：<code>docs/B2C_MitakeAPI_v2.14.pdf</code>（三竹資訊 B2C API 規格書 v2.14，2024/06/18）<br>
+    對照程式：<code>src/lib/sms/mitake.ts</code>、<code>src/lib/sms/provider.ts</code>、<code>src/lib/auth/otp.ts</code><br>
+    日期：2026-08-17
+  </p>
+</header>
+
+<div class="toc">
+  <strong>目錄</strong>
+  <ol>
+    <li><a href="#tldr">結論摘要</a></li>
+    <li><a href="#prereq">申請與前置條件</a></li>
+    <li><a href="#api">API 規格整理</a></li>
+    <li><a href="#codes">狀態碼對照表</a></li>
+    <li><a href="#diff">現有實作 vs 規格：落差清單</a></li>
+    <li><a href="#patch">建議程式碼</a></li>
+    <li><a href="#checklist">上線檢查清單</a></li>
+  </ol>
+</div>
+
+<h2 id="tldr">1. 結論摘要</h2>
+
+<p>
+  這個專案<strong>已經有一份可以運作的三竹實作</strong>（<code>MitakeSmsProvider</code>），
+  基本形狀是對的：POST form-urlencoded、指定 <code>CharsetURL=UTF-8</code>、解析 INI 風格回應、
+  把 <code>statuscode</code> 落在 <code>0/1/2/4</code> 視為受理 —— 最後這點與規格書附錄二完全吻合。
+</p>
+<p>
+  研究文件之後，真正需要處理的是<strong>七個落差</strong>，其中兩個會直接讓正式站發不出簡訊：
+</p>
+<ul>
+  <li><strong>端點路徑與規格書不一致</strong>（<a href="#g1">G1</a>）—— 現有程式用 <code>/api/mtk/SmSend</code>，這份 B2C 文件寫的是 <code>/b2c/mtk/SmSend</code>。</li>
+  <li><strong>正式站 IP 必須先向三竹登記</strong>（<a href="#g2">G2</a>）—— 沒登記會拿到 <code>statuscode=k</code>，本機測得過、上線就掛。</li>
+</ul>
+<p>
+  其餘五項是穩定性與成本問題：缺 <code>clientid</code> 會重複扣點、
+  沒有餘額查詢會在點數用完時無預警斷掉、簡訊失敗會讓整個 <code>requestOtp()</code> 拋 500。
+</p>
+
+<div class="callout note">
+  <strong>目前沒有任何測試覆蓋這支 provider</strong>
+  <code>test/integration/auth-otp.test.ts</code> 走的是 <code>console</code> provider，
+  <code>parseMitakeResponse()</code> 沒有任何單元測試。這個函式是所有錯誤判斷的單一入口，值得補。
+</div>
+
+<h2 id="prereq">2. 申請與前置條件</h2>
+
+<p>規格書第 4 頁「三竹格式 API 發送」列了四項硬性條件，全部都是<strong>先向三竹申請、不是寫程式能繞過的</strong>：</p>
+
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr><th>項目</th><th>規格要求</th><th>對本專案的意義</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>API 發送權限</td>
+      <td>必須向三竹簡訊中心申請開啟</td>
+      <td>一般網頁帳號預設<strong>沒有</strong>這個權限，未開通會回 <code>statuscode=p</code>（沒有權限使用外部 Http 程式）</td>
+    </tr>
+    <tr>
+      <td>IP 鎖定</td>
+      <td>須提供「程式發送主機」與「登入網頁介面主機」的 IP，經三竹鎖定後方可使用</td>
+      <td><strong>正式站 <code>103.1.221.67</code> 必須登記。</strong>未登記會回 <code>statuscode=k</code>（無效的連線位址）</td>
+    </tr>
+    <tr>
+      <td>TLS 版本</td>
+      <td>須採用 TLS v1.2 以上（v2.10 起舊版 SSL/TLS 不再支援）</td>
+      <td>Node.js 20 的 fetch 預設就是 TLS 1.2+，無須額外設定</td>
+    </tr>
+    <tr>
+      <td>併發連線數</td>
+      <td>合併發連線數限制在 <strong>15 條</strong>以內，超過會被系統阻擋</td>
+      <td>OTP 流量遠低於此，但若日後加訂單通知簡訊的批次寄送要留意</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout warn">
+  <strong>規格書第 4 頁的重送警告，直接對應到我們的錯誤處理設計</strong>
+  「如果客戶端到三竹簡訊中心間的網路傳輸有狀況發生，客戶端必須以人工進行查詢，
+  以確定該筆(批)簡訊是否已被三竹簡訊中心收下。若省略查詢直接重送簡訊，可能造成重複發送；
+  若直接忽略不重送，則可能造成簡訊漏送。」
+  <br><br>
+  換句話說：<strong>timeout 之後不能直接重試</strong>。正解是帶 <code>clientid</code>（三竹端自己會去重），
+  或事後用 <code>SmQuery</code> 查。我們目前兩者都沒有做 —— 見 <a href="#g3">G3</a>。
+</div>
+
+<h2 id="api">3. API 規格整理</h2>
+
+<p>
+  共五支 endpoint 加一個 callback。全部都是 <code>POST</code>，
+  base URL 在文件中寫成 <code>https://{三竹網域名稱}/b2c/mtk/...</code> ——
+  實際網域需由三竹提供（見 <a href="#g1">G1</a>）。回應一律是<strong>純文字</strong>，不是 JSON。
+</p>
+
+<h3>3.1 單筆發送 SmSend</h3>
+<p><code>POST https://{網域}/b2c/mtk/SmSend</code></p>
+
+<h4>Query String 參數</h4>
+<div class="table-scroll">
+<table>
+  <thead><tr><th>欄位</th><th>長度</th><th>說明</th></tr></thead>
+  <tbody>
+    <tr><td><code>CharsetURL</code></td><td>10</td><td>支援 <code>Big5</code>、<code>UTF8</code>。<strong>預設是 Big5</strong>，中文欄位必須先做 URL Encode</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h4>Request 參數</h4>
+<div class="table-scroll">
+<table>
+  <thead><tr><th>欄位</th><th>長度</th><th>必要</th><th>說明</th></tr></thead>
+  <tbody>
+    <tr><td><code>username</code></td><td>20</td><td><span class="badge b-req">必要</span></td><td>使用者帳號</td></tr>
+    <tr><td><code>password</code></td><td>24</td><td><span class="badge b-req">必要</span></td><td>使用者密碼</td></tr>
+    <tr><td><code>dstaddr</code></td><td>20</td><td><span class="badge b-req">必要</span></td><td>收訊人手機，格式 <code>0912345678</code>。<br>v2.14 起三竹端會自動移除開頭 <code>+</code>、移除 <code>.</code> <code>-</code> 空格、並把 <code>88609</code> 轉為 <code>8869</code></td></tr>
+    <tr><td><code>smbody</code></td><td>max</td><td><span class="badge b-req">必要</span></td><td>簡訊內容。<strong>換行要填 ASCII Code 6，不是 <code>\n</code></strong>。<br>內容含 <code>&amp;</code> 需 URL Encode。<br>帳號無長簡訊權限時，超長內容會被<strong>靜默截斷</strong>後發送</td></tr>
+    <tr><td><code>destname</code></td><td>36</td><td></td><td>收訊人名稱；可塞來源系統的 key 值做對應</td></tr>
+    <tr><td><code>dlvtime</code></td><td>14</td><td></td><td>預約時間 <code>YYYYMMDDHHMMSS</code>，或整數代表幾秒後送。<br>小於等於系統時間或留空 = 即時發送；<strong>大於系統時間 10 分鐘 = 預約發送</strong></td></tr>
+    <tr><td><code>vldtime</code></td><td>14</td><td></td><td>有效期限，未指定預設 24 小時。不要超過 24 小時，否則電信業者可能不回覆狀態</td></tr>
+    <tr><td><code>response</code></td><td>256</td><td></td><td>狀態主動回報網址（callback URL）</td></tr>
+    <tr><td><code>clientid</code></td><td>36</td><td></td><td><strong>去重用。</strong>三竹保留 12 小時內的紀錄，重複的 clientid 會直接回傳前次結果並加上 <code>Duplicate=Y</code>。<br>文件建議用 GUID 保證唯一（須全域唯一，非僅 12 小時內唯一）</td></tr>
+    <tr><td><code>objectID</code></td><td>16</td><td></td><td>批次名稱</td></tr>
+    <tr><td><code>smsPointFlag</code></td><td>1</td><td></td><td>設 <code>1</code> 時回應會多帶 <code>smsPoint</code>（本筆扣除點數）</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h4>回應</h4>
+<pre><code>[1]
+msgid=#000000013
+statuscode=1
+AccountPoint=126</code></pre>
+<p>
+  <code>[1]</code> 是 clientid（未提供 clientid 時預設為 <code>1</code>）。
+  <code>msgid</code> 是後續查詢與狀態回報的 key，<strong>發送失敗時不會有這個欄位</strong>。
+  <code>AccountPoint</code> 是本次發送後的剩餘額度。
+</p>
+
+<h3>3.2 多筆發送 SmBulkSend</h3>
+<p><code>POST https://{網域}/b2c/mtk/SmBulkSend</code>　一批上限 <strong>500 筆</strong>。</p>
+<p>
+  帳密、<code>Encoding_PostIn</code>（body 編碼，預設 Big5）、<code>objectID</code>、<code>smsPointFlag</code> 走 query string；
+  收件資料放 POST body，每筆一行，欄位以 <code>$$</code> 分隔：
+</p>
+<pre><code>ClientID $$ dstaddr $$ dlvtime $$ vldtime $$ destname $$ response $$ smbody
+
+1$$0999999999$$201701010000 00$$201801010000 00$$大寶$$$$我是長簡訊我是長簡訊
+2$$0900000000$$$$$$二寶$$$$我是長簡訊我是長簡訊</code></pre>
+<p>批次模式下 <code>ClientID</code> 是<strong>必要欄位</strong>（單筆模式為選填）。回應格式與 SmSend 相同，逐筆列出。</p>
+
+<h3>3.3 簡訊狀態查詢 SmQuery</h3>
+<p><code>POST https://{網域}/b2c/mtk/SmQuery</code>　單次上限 <strong>100 筆</strong>。</p>
+<p>帶 <code>username</code> / <code>password</code> / <code>msgid</code>（多筆用半形逗號分隔，需 URL Encode）。回應是 Tab 分隔、CRLF 換行：</p>
+<pre><code>0311216947	6	20060623103807
+0311216948	4	20060623103810
+0311216949	4	20060623103809
+
+msgid  ⇥  statuscode  ⇥  statustime(YYYYMMDDHHMMSS)</code></pre>
+<p class="sub" style="color:var(--text-dim)">注意：回覆的簡訊順序與查詢的順序無關，必須用 msgid 對回去。</p>
+
+<h3>3.4 帳號餘額查詢</h3>
+<p>同樣打 <code>SmQuery</code>，但<strong>不帶 <code>msgid</code></strong>，就會被視為餘額查詢：</p>
+<pre><code>AccountPoint=110</code></pre>
+
+<h3>3.5 預約取消 SmCancel</h3>
+<p><code>POST https://{網域}/b2c/mtk/SmCancel</code>　單次上限 100 筆。只有<strong>預約中</strong>的簡訊能取消。</p>
+<pre><code>0311216947=9
+0311216948=?
+0311216949=5</code></pre>
+<div class="table-scroll">
+<table>
+  <thead><tr><th>回傳值</th><th>意義</th></tr></thead>
+  <tbody>
+    <tr><td><code>9</code></td><td>取消成功</td></tr>
+    <tr><td><code>0</code></td><td>取消失敗（簡訊中心忙碌，或已送出只是狀態未更新）</td></tr>
+    <tr><td><code>1~8</code></td><td>該簡訊目前狀態，已無法取消</td></tr>
+    <tr><td><code>?</code></td><td>簡訊序號無效，或不屬於此帳號</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>3.6 主動狀態回報 Callback</h3>
+<p>
+  發送時有帶 <code>response</code> 欄位的話，狀態更新時三竹會以 <strong><code>GET</code></strong> 打我們指定的網址，
+  參數為 <code>msgid</code>、<code>dstaddr</code>、<code>dlvtime</code>、<code>donetime</code>、
+  <code>statuscode</code>、<code>statusstr</code>、<code>StatusFlag</code>。
+</p>
+<div class="callout warn">
+  <strong>回應格式有硬性要求</strong>
+  必須回 HTTP 200、<code>Content-Type: text/plain</code>，內容為（<code>[LF]</code> = ASCII 10）：
+  <pre style="margin-top:.6rem"><code>magicid=sms_gateway_rpack[LF]msgid=8091234567[LF]</code></pre>
+  回錯格式三竹會判定回報失敗並重試。另外文件明載：<strong>發送時 statuscode &lt; 0 的簡訊為發送失敗，不會有狀態回報</strong>。
+</div>
+
+<h2 id="codes">4. 狀態碼對照表</h2>
+
+<h3>4.1 statuscode — 數字（附錄一 / 附錄二）</h3>
+<p>數字碼同時用在 <code>statuscode</code> 與 <code>StatusFlag</code>，語意相同：</p>
+<div class="table-scroll">
+<table>
+  <thead><tr><th>碼</th><th>說明</th><th>判定</th></tr></thead>
+  <tbody>
+    <tr><td><code>0</code></td><td>預約傳送中</td><td><span class="badge b-ok">受理</span></td></tr>
+    <tr><td><code>1</code></td><td>已送達業者</td><td><span class="badge b-ok">受理</span></td></tr>
+    <tr><td><code>2</code></td><td>已送達業者</td><td><span class="badge b-ok">受理</span></td></tr>
+    <tr><td><code>4</code></td><td>已送達手機</td><td><span class="badge b-ok">成功</span></td></tr>
+    <tr><td><code>5</code></td><td>內容有錯誤</td><td><span class="badge b-p0">失敗</span></td></tr>
+    <tr><td><code>6</code></td><td>門號有錯誤</td><td><span class="badge b-p0">失敗</span></td></tr>
+    <tr><td><code>7</code></td><td>簡訊已停用</td><td><span class="badge b-p0">失敗</span></td></tr>
+    <tr><td><code>8</code></td><td>逾時無送達</td><td><span class="badge b-p0">失敗</span></td></tr>
+    <tr><td><code>9</code></td><td>預約已取消</td><td><span class="badge b-p0">失敗</span></td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  現有程式的 <code>ACCEPTED_STATUS_CODES = {'0','1','2','4'}</code> 與此表一致 ——
+  <code>3</code> 未定義、<code>5~9</code> 皆為失敗，判斷正確。
+</p>
+
+<h3>4.2 statuscode — 英文字母（附錄二，皆為錯誤）</h3>
+<p>依「該不該重試」分類，這是錯誤處理要用的關鍵切分：</p>
+<div class="table-scroll">
+<table>
+  <thead><tr><th>碼</th><th>說明</th><th>建議處置</th></tr></thead>
+  <tbody>
+    <tr><td><code>a</code> <code>b</code> <code>r</code></td><td>簡訊發送功能暫時停止服務 / 系統暫停服務，請稍候再試</td><td><span class="badge b-p1">可退避重試</span></td></tr>
+    <tr><td><code>l</code></td><td>帳號已達同時連線數上限</td><td><span class="badge b-p1">可退避重試</span></td></tr>
+    <tr><td><code>*</code></td><td>系統發生錯誤，請聯絡三竹窗口人員</td><td><span class="badge b-p0">告警，勿重試</span></td></tr>
+    <tr><td><code>c</code> <code>d</code> <code>e</code></td><td>請輸入帳號 / 請輸入密碼 / 帳號密碼錯誤</td><td><span class="badge b-p0">設定錯誤，勿重試</span></td></tr>
+    <tr><td><code>f</code> <code>h</code></td><td>帳號已過期 / 帳號已被停用</td><td><span class="badge b-p0">告警，勿重試</span></td></tr>
+    <tr><td><code>k</code></td><td>無效的連線位址</td><td><span class="badge b-p0">IP 未登記，勿重試</span></td></tr>
+    <tr><td><code>m</code> <code>n</code></td><td>必須變更密碼 / 密碼已逾期，變更前無法發送</td><td><span class="badge b-p0">告警，勿重試</span></td></tr>
+    <tr><td><code>p</code></td><td>沒有權限使用外部 Http 程式</td><td><span class="badge b-p0">權限未開通，勿重試</span></td></tr>
+    <tr><td><code>s</code></td><td>帳務處理失敗，無法發送簡訊</td><td><span class="badge b-p0">點數/帳務問題，告警</span></td></tr>
+    <tr><td><code>t</code></td><td>簡訊已過期</td><td><span class="badge b-p0">失敗</span></td></tr>
+    <tr><td><code>u</code></td><td>簡訊內容不得為空白</td><td><span class="badge b-p0">程式錯誤</span></td></tr>
+    <tr><td><code>v</code></td><td>無效的手機號碼</td><td><span class="badge b-p0">使用者輸入錯誤</span></td></tr>
+    <tr><td><code>w</code></td><td>查詢筆數超過上限</td><td><span class="badge b-p0">程式錯誤（&gt;100 筆）</span></td></tr>
+    <tr><td><code>x</code></td><td>發送檔案過大，無法發送簡訊</td><td><span class="badge b-p0">程式錯誤</span></td></tr>
+    <tr><td><code>y</code></td><td>參數錯誤</td><td><span class="badge b-p0">程式錯誤</span></td></tr>
+    <tr><td><code>z</code></td><td>查無資料</td><td><span class="badge b-p2">查詢用</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>4.3 statusstr（附錄三，callback 專用）</h3>
+<div class="table-scroll">
+<table>
+  <thead><tr><th>statusstr</th><th>對應 StatusFlag</th><th>說明</th></tr></thead>
+  <tbody>
+    <tr><td><code>DELIVRD</code></td><td>4</td><td>已送達手機</td></tr>
+    <tr><td><code>EXPIRED</code></td><td>8</td><td>逾時無法送達</td></tr>
+    <tr><td><code>DELETED</code></td><td>9</td><td>預約已取消</td></tr>
+    <tr><td><code>UNDELIV</code></td><td>6, 7</td><td>無法送達（門號有錯誤 / 簡訊已停用）</td></tr>
+    <tr><td><code>SYNTAXE</code></td><td>5</td><td>簡訊內容有錯誤</td></tr>
+    <tr><td><code>UNKNOWN</code></td><td>—</td><td>無效的簡訊狀態，系統有錯誤</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>4.4 計費長度（附錄四）</h3>
+<p>
+  純英數（GSM 字集範圍內）一則簡訊以 <strong>160 字</strong>計算，每字 1 個字元。
+  但下列 GSM 擴展字集符號需前綴轉義字元（1B），<strong>以 2 個字計算</strong>：
+</p>
+<p style="font-size:1.1rem"><code>^</code> <code>{</code> <code>}</code> <code>\</code> <code>[</code> <code>~</code> <code>]</code> <code>|</code></p>
+<div class="callout note">
+  <strong>中文簡訊的計費長度，這份文件沒有寫</strong>
+  附錄四只規範純英數 160 字的情況。我們的 OTP 內容是中文，實際單則字數上限需向三竹確認。
+  <br><br>
+  目前 OTP 訊息約 38 字（<code>【莎岡選品店】您的驗證碼是 123456，5 分鐘內有效。請勿轉傳給他人。</code>），
+  以業界慣例的中文 70 字上限來看有安全邊際，但這是<strong>推測不是文件依據</strong>。
+  重點在於：帳號若無長簡訊權限，超長內容會被<strong>截斷後照樣送出，不會報錯</strong> ——
+  驗證碼被截掉會是無聲的故障，所以訊息長度不要再加東西。
+</div>
+
+<h2 id="diff">5. 現有實作 vs 規格：落差清單</h2>
+
+<div class="gap" id="g1">
+  <div class="gap-head"><span class="badge b-p0">P0</span><h4>G1　端點路徑與規格書不一致</h4></div>
+  <p><span class="label">現況</span><code>src/lib/sms/mitake.ts:5</code> 寫死 <code>https://smsapi.mitake.com.tw/api/mtk/SmSend</code></p>
+  <p><span class="label">規格</span>文件第 5 頁寫的是 <code>https://{三竹網域名稱}/b2c/mtk/SmSend</code> —— 路徑是 <code>/b2c/mtk/</code> 不是 <code>/api/mtk/</code></p>
+  <p><span class="label">影響</span>三竹的 <code>/api/mtk/</code>（企業版）與 <code>/b2c/mtk/</code>（B2C 版）是兩組不同的服務路徑，帳號開通在哪一組就只能打哪一組。打錯會拿到 404 或權限錯誤，而且<strong>因為現有程式只在 <code>!res.ok</code> 時報 HTTP 狀態碼，錯誤訊息會很難懂</strong>。</p>
+  <p><span class="label">處置</span><strong>需向三竹確認我們的帳號屬於哪一組、正確網域為何</strong>，再把 base URL 抽成環境變數（不要寫死），這樣兩種帳號都能切換。這是唯一需要外部確認才能定案的項目。</p>
+</div>
+
+<div class="gap" id="g2">
+  <div class="gap-head"><span class="badge b-p0">P0</span><h4>G2　正式站 IP 尚未確認是否已向三竹登記</h4></div>
+  <p><span class="label">規格</span>「並提供程式發送主機與登入網頁介面主機的 IP，經三竹簡訊中心鎖定 IP 後方可使用」</p>
+  <p><span class="label">影響</span>正式站容器從 <code>103.1.221.67</code> 出去。未登記 → <code>statuscode=k</code>（無效的連線位址）→ 所有手機 OTP 登入失效。這種錯誤<strong>本機開發完全測不出來</strong>（本機用 console provider），會在切 <code>SMS_PROVIDER=mitake</code> 的那一刻才爆。</p>
+  <p><span class="label">處置</span>上線前先用該主機打一次「餘額查詢」（不帶 msgid 的 SmQuery）驗證 IP 通了 —— 這支不花點數，是最便宜的連線驗證方式。</p>
+</div>
+
+<div class="gap" id="g3">
+  <div class="gap-head"><span class="badge b-p1">P1</span><h4>G3　沒有帶 clientid，重試會重複發送、重複扣點</h4></div>
+  <p><span class="label">現況</span>參數中沒有 <code>clientid</code>，回應的 <code>[clientid]</code> 一律是預設值 <code>1</code>。</p>
+  <p><span class="label">規格</span><code>clientid</code> 是三竹提供的冪等機制，12 小時內重複的 ID 會直接回傳前次結果並帶 <code>Duplicate=Y</code>，<strong>不會真的再送一次</strong>。文件建議用 GUID。</p>
+  <p><span class="label">影響</span>現有程式 <code>AbortSignal.timeout(15_000)</code> 逾時就丟 Error。若三竹其實已經收下了，使用者按重送（<code>OTP_RESEND_COOLDOWN_SECONDS = 60</code> 秒後）就是實打實的第二則簡訊、第二次扣點。文件第 4 頁明確警告過這個場景。</p>
+  <p><span class="label">處置</span>用 <code>crypto.randomUUID()</code> 產生 clientid 傳入。注意這需要在 <code>otp.ts</code> 層決定「這是同一次請求的重試」還是「使用者主動重送」—— 前者共用 clientid，後者必須換新的。</p>
+</div>
+
+<div class="gap" id="g4">
+  <div class="gap-head"><span class="badge b-p1">P1</span><h4>G4　錯誤未分類，且簡訊失敗會讓整個 requestOtp() 拋出</h4></div>
+  <p><span class="label">現況</span>所有失敗都是同一個 <code>throw new Error(...)</code>，字串裡塞原始 body。<code>otp.ts:74</code> 的 <code>await provider.send(...)</code> 沒有 try/catch。</p>
+  <p><span class="label">影響</span>兩個問題疊在一起：<br>
+    (a) 三竹暫停服務（<code>a</code>/<code>b</code>/<code>r</code>）這種可重試的，跟帳密錯誤（<code>e</code>）、IP 未登記（<code>k</code>）這種重試一百次也沒用的，處置方式完全相同；<br>
+    (b) 簡訊送不出去時 <code>requestOtp()</code> 直接往外拋 —— 使用者看到的是 500，不是「簡訊服務暫時無法使用，請稍後再試」。</p>
+  <p><span class="label">處置</span>定義 <code>MitakeError</code> 帶上 <code>statusCode</code> 與 <code>retryable</code> 旗標；
+    <code>requestOtp()</code> 補一個 <code>{ ok: false, reason: 'sms_failed' }</code> 分支。
+    另外注意<strong>錯誤訊息不能把 body 原封輸出到使用者端</strong> —— 目前只在 server 端 log，這點是對的，維持住。</p>
+</div>
+
+<div class="gap" id="g5">
+  <div class="gap-head"><span class="badge b-p1">P1</span><h4>G5　沒有餘額查詢，點數用完會無預警斷線</h4></div>
+  <p><span class="label">現況</span>回應裡的 <code>AccountPoint</code> 被 <code>parseMitakeResponse()</code> 解析進 Map 之後<strong>丟掉了</strong>，沒有回傳也沒有記錄。</p>
+  <p><span class="label">影響</span>點數歸零時三竹回 <code>statuscode=s</code>（帳務處理失敗），此時才發現已經來不及 —— 手機登入已經全站掛掉。而 <code>AccountPoint</code> 每次發送都會回來，資訊本來就在手上。</p>
+  <p><span class="label">處置</span>把 <code>AccountPoint</code> 帶進 <code>SmsSendResult</code>，低於門檻（例如 100 點）時寫 warn log 或發信給 <code>SHOP_SERVICE_EMAIL</code>。成本幾乎為零。</p>
+</div>
+
+<div class="gap" id="g6">
+  <div class="gap-head"><span class="badge b-p1">P1</span><h4>G6　msgid 的 <code>#</code> 前綴未處理</h4></div>
+  <p><span class="label">現況</span><code>parseMitakeResponse()</code> 直接取 <code>=</code> 右邊，原樣回傳。</p>
+  <p><span class="label">規格</span>SmSend 回應範例是 <code>msgid=#000000013</code>（<strong>帶 <code>#</code></strong>），
+    但 SmQuery 的請求與回應範例都是 <code>0311216947</code>（<strong>不帶 <code>#</code></strong>）。</p>
+  <p><span class="label">影響</span>目前 <code>messageId</code> 只是存著沒用到，所以還沒出事。但一旦要拿它去打 SmQuery 或比對 callback 的 <code>msgid</code>，帶著 <code>#</code> 就會查無資料（<code>statuscode=z</code>），而且會很難查。</p>
+  <p><span class="label">處置</span>解析時 <code>.replace(/^#/, '')</code>，並在註解寫明原因。</p>
+</div>
+
+<div class="gap" id="g7">
+  <div class="gap-head"><span class="badge b-p2">P2</span><h4>G7　沒有實作 callback，拿不到最終送達狀態</h4></div>
+  <p><span class="label">現況</span><code>response: ''</code> —— 欄位有傳但值是空字串，等於沒設定 callback。</p>
+  <p><span class="label">影響</span>我們只知道「三竹收下了」（statuscode 1/2），不知道「使用者手機真的收到了」（statuscode 4）。OTP 場景下使用者收不到簡訊時，客服無從判斷是門號有誤（6）、簡訊停用（7）還是逾時（8）。</p>
+  <p><span class="label">處置</span>優先度低於前面幾項，但如果要做：開 <code>GET /api/sms/mitake/callback</code>，回傳 <code>magicid=sms_gateway_rpack[LF]msgid=...[LF]</code>，並把 <code>StatusFlag</code> 寫回 <code>PhoneOtp</code>。<strong>這個 endpoint 是公開的、無認證的</strong>，需要比對 msgid 是否為我們發出的，不能照單全收。</p>
+</div>
+
+<div class="gap">
+  <div class="gap-head"><span class="badge b-p2">P2</span><h4>G8　換行字元的地雷（目前未觸發，但要記下來）</h4></div>
+  <p>規格：<code>smbody</code> 若要換行，必須填 <strong>ASCII Code 6</strong>，不是 <code>\n</code>。
+    目前 OTP 訊息是單行所以沒事，但日後若加訂單通知、出貨通知簡訊，直接寫 <code>\n</code> 會得到非預期結果。建議現在就在 <code>mitake.ts</code> 補上註解或一個 <code>formatSmsBody()</code> 轉換函式。</p>
+</div>
+
+<h3>做對的部分</h3>
+<ul>
+  <li><code>ACCEPTED_STATUS_CODES = {0,1,2,4}</code> 與附錄二完全一致。</li>
+  <li>明確指定 <code>CharsetURL=UTF-8</code> —— 規格預設是 Big5，沒指定就是亂碼，這點抓得很準。</li>
+  <li>用 <code>URLSearchParams</code> 送 body，<code>&amp;</code> 與中文的 URL Encode 自動處理，符合規格要求。</li>
+  <li><code>normalizeTwMobile()</code> 的 <code>886</code> → <code>0</code> 轉換與 v2.14 新增的號碼正規化邏輯相容。</li>
+  <li>錯誤訊息只在 server 端拋出，沒有把三竹回應洩漏到前端。</li>
+  <li>回應本體是純 ASCII 的 <code>key=value</code>，所以 <code>res.text()</code> 以 UTF-8 解碼不會有 Big5 亂碼問題 —— 這個湊巧是安全的。</li>
+</ul>
+
+<h2 id="patch">6. 建議程式碼</h2>
+
+<p>以下是把 G3～G6、G8 一次補齊的 <code>mitake.ts</code>。G1 的 base URL 改成吃環境變數，等三竹回覆後填值即可：</p>
+
+<pre><code>import 'server-only'
+import { randomUUID } from 'node:crypto'
+import { env } from '@/lib/env'
+import type { SmsProvider, SmsSendResult } from './provider'
+
+/**
+ * 三竹簡訊（Mitake）B2C API v2.14。
+ * 文件：docs/B2C_MitakeAPI_v2.14.pdf、docs/mitake-sms-integration.html
+ *
+ * 回應是 INI 風格的純文字：
+ *   [1]
+ *   msgid=#000000013
+ *   statuscode=1
+ *   AccountPoint=126
+ */
+
+/** 這些 statuscode 代表三竹已受理（附錄一/二）。5~9 與所有英文字母皆為失敗。 */
+const ACCEPTED_STATUS_CODES = new Set(['0', '1', '2', '4'])
+
+/** 三竹端的暫時性狀況，退避後重試才有意義；其餘錯誤重試一百次也一樣。 */
+const RETRYABLE_STATUS_CODES = new Set(['a', 'b', 'r', 'l'])
+
+/** 餘額低於此值就開始示警。三竹點數用完會回 statuscode=s，屆時手機登入會全站掛掉。 */
+const LOW_BALANCE_THRESHOLD = 100
+
+export class MitakeError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode: string | null,
+    readonly retryable: boolean,
+  ) {
+    super(message)
+    this.name = 'MitakeError'
+  }
+}
+
+export class MitakeSmsProvider implements SmsProvider {
+  readonly name = 'mitake'
+
+  async send(to: string, text: string, clientId?: string): Promise<SmsSendResult> {
+    if (!env.MITAKE_USERNAME || !env.MITAKE_PASSWORD) {
+      throw new Error('SMS_PROVIDER=mitake 但未設定 MITAKE_USERNAME / MITAKE_PASSWORD')
+    }
+
+    const params = new URLSearchParams({
+      username: env.MITAKE_USERNAME,
+      password: env.MITAKE_PASSWORD,
+      dstaddr: to,
+      smbody: formatSmsBody(text),
+      // clientid 是三竹的冪等機制：12 小時內同一個 ID 不會真的重送，只會回上次結果 + Duplicate=Y。
+      // 呼叫端重試時要沿用同一個；使用者主動「重新發送」則必須換新的，否則收不到第二則。
+      clientid: clientId ?? randomUUID(),
+    })
+
+    const res = await fetch(`${env.MITAKE_ENDPOINT}/SmSend?CharsetURL=UTF-8`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      body: params,
+      signal: AbortSignal.timeout(15_000),
+    })
+
+    if (!res.ok) {
+      // HTTP 層失敗無從得知三竹是否已收下，當作可重試 —— 但呼叫端必須沿用 clientid，
+      // 否則就是文件第 4 頁警告的「省略查詢直接重送造成重複發送」。
+      throw new MitakeError(`三竹簡訊 HTTP ${res.status}`, null, true)
+    }
+
+    const parsed = parseMitakeResponse(await res.text())
+
+    if (!parsed.ok) {
+      throw new MitakeError(
+        `三竹簡訊發送失敗（statuscode=${parsed.statusCode ?? 'n/a'}）`,
+        parsed.statusCode,
+        parsed.statusCode !== null &amp;&amp; RETRYABLE_STATUS_CODES.has(parsed.statusCode),
+      )
+    }
+
+    if (parsed.accountPoint !== null &amp;&amp; parsed.accountPoint &lt; LOW_BALANCE_THRESHOLD) {
+      console.warn(`[mitake] 簡訊點數僅剩 ${parsed.accountPoint} 點，歸零後手機 OTP 登入會失效`)
+    }
+
+    return { messageId: parsed.msgId }
+  }
+}
+
+/** 三竹的 smbody 換行要用 ASCII Code 6，不是 \n。 */
+function formatSmsBody(text: string): string {
+  return text.replace(/\r?\n/g, '\x06')
+}
+
+export function parseMitakeResponse(body: string): {
+  ok: boolean
+  msgId: string | null
+  statusCode: string | null
+  accountPoint: number | null
+  duplicate: boolean
+} {
+  const kv = new Map&lt;string, string&gt;()
+  for (const line of body.split(/\r?\n/)) {
+    const idx = line.indexOf('=')
+    if (idx &gt; 0) kv.set(line.slice(0, idx).trim(), line.slice(idx + 1).trim())
+  }
+
+  const statusCode = kv.get('statuscode') ?? null
+  const rawPoint = kv.get('AccountPoint')
+  const point = rawPoint === undefined ? Number.NaN : Number(rawPoint)
+
+  return {
+    ok: statusCode !== null &amp;&amp; ACCEPTED_STATUS_CODES.has(statusCode),
+    // SmSend 回的 msgid 帶 # 前綴（msgid=#000000013），但 SmQuery 與 callback 用的是不帶 # 的
+    // 純序號。存進 DB 前先剝掉，否則日後拿去查會得到 statuscode=z（查無資料）。
+    msgId: kv.get('msgid')?.replace(/^#/, '') ?? null,
+    statusCode,
+    accountPoint: Number.isFinite(point) ? point : null,
+    duplicate: kv.get('Duplicate') === 'Y',
+  }
+}</code></pre>
+
+<h4>連帶要動的地方</h4>
+<ul>
+  <li><code>src/lib/env.ts</code>：新增 <code>MITAKE_ENDPOINT</code>（預設值等三竹確認後填）。</li>
+  <li><code>src/lib/sms/provider.ts</code>：<code>SmsProvider.send()</code> 簽章加上選填的 <code>clientId</code>；<code>ConsoleSmsProvider</code> 忽略即可。</li>
+  <li><code>src/lib/auth/otp.ts:74</code>：把 <code>provider.send()</code> 包進 try/catch，<code>RequestOtpResult</code> 的失敗 reason 加上 <code>'sms_failed'</code>，並在 <code>messages/*.json</code> 補對應文案。</li>
+  <li><code>.env.example</code>：<code>MITAKE_ENDPOINT=</code> 與註解。</li>
+  <li>新增 <code>test/integration/sms-mitake.test.ts</code>：至少覆蓋成功、<code>#</code> 剝除、可重試錯誤（<code>a</code>）、不可重試錯誤（<code>k</code>）、餘額解析、<code>Duplicate=Y</code>。</li>
+</ul>
+
+<div class="callout note">
+  <strong>沒有動的：<code>ACCEPTED_STATUS_CODES</code></strong>
+  原本的 <code>{0,1,2,4}</code> 就是對的，維持原樣。這份修改只補缺的東西，不改已經正確的判斷。
+</div>
+
+<h2 id="checklist">7. 上線檢查清單</h2>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>#</th><th>項目</th><th>負責</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>向三竹確認：帳號是 <code>/api/mtk/</code> 還是 <code>/b2c/mtk/</code>，正確網域為何</td><td>需外部確認</td></tr>
+    <tr><td>2</td><td>向三竹確認：API 發送權限是否已開通（否則 <code>statuscode=p</code>）</td><td>需外部確認</td></tr>
+    <tr><td>3</td><td>向三竹登記正式站 IP <code>103.1.221.67</code>（否則 <code>statuscode=k</code>）</td><td>需外部確認</td></tr>
+    <tr><td>4</td><td>向三竹確認：中文簡訊單則字數上限、帳號有無長簡訊權限</td><td>需外部確認</td></tr>
+    <tr><td>5</td><td>在正式主機上打一次餘額查詢（不帶 msgid 的 SmQuery）驗證 IP 與帳密 —— 不花點數</td><td>可自行執行</td></tr>
+    <tr><td>6</td><td>把 <code>MITAKE_USERNAME</code> / <code>MITAKE_PASSWORD</code> / <code>MITAKE_ENDPOINT</code> 寫進主機 <code>/srv/sagon/.env.production</code>，<code>chmod 600</code></td><td>可自行執行</td></tr>
+    <tr><td>7</td><td>切 <code>SMS_PROVIDER=mitake</code> 前，先確認 5 已通過</td><td>可自行執行</td></tr>
+    <tr><td>8</td><td>實際寄一則到自己的手機，確認中文沒亂碼、驗證碼沒被截斷</td><td>可自行執行</td></tr>
+    <tr><td>9</td><td>補 <code>parseMitakeResponse()</code> 的測試</td><td>可自行執行</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout warn">
+  <strong>環境變數請依 CLAUDE.md 的規則處理</strong>
+  <code>.env.production</code> 的正本在主機 <code>/srv/sagon/.env.production</code>，不要從 repo <code>scp</code> 上去 ——
+  會靜靜清掉只有主機才有的金鑰。直接在主機改，改完 <code>chmod 600</code> 並 <code>--force-recreate web</code>，
+  再把 <code>docs/sagon-deploy/</code> 的副本同步回來。
+</div>
+
+<footer>
+  依據 <code>docs/B2C_MitakeAPI_v2.14.pdf</code>（v2.14，2024/06/18）全 18 頁整理。<br>
+  文件未載明的項目（中文計費字數、正確服務網域）已在文中標示為「需向三竹確認」，未以推測填補。
+</footer>
+
+</div>
+</body>
+</html>
