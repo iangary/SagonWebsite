@@ -18,6 +18,9 @@ docs/sagon-deploy/
 public/uploads/
 prisma/seed-data/
 
+# 黑貓託運單 PDF。上面有收件人的姓名、地址、電話，不進版控也不放 public/。
+storage/
+
 # 測試
 coverage/
 test-results/
