@@ -126,7 +126,7 @@ systemctl restart docker
 ## 6. 目錄與環境檔
 
 伺服器上**不需要原始碼** —— `src/` 那些已經被 CI 打進 image 了。這個目錄最後只有四個檔案：
-兩個從 repo 複製過來的設定檔，兩個在主機上手寫的環境變數檔（含密碼，不進 git）。
+兩個從 repo 複製過來的設定檔，兩個環境變數檔（含密碼，不進 git —— 正本在本機的 `docs/sagon-deploy/`）。
 
 ### 6.1 建目錄
 
@@ -194,12 +194,28 @@ EOF
 echo "$PGPASS"
 ```
 
-### 6.4 填 `/srv/sagon/.env.production`
-
-這個檔給**容器內的應用程式**，在主機上直接寫。照 6.2 列出的必填清單逐項填：
+這個檔是在主機上生出來的（密碼要在主機產），**但正本歸本機**。
+建完立刻拉回來，之後就只改本機那份：
 
 ```bash
-nano /srv/sagon/.env.production
+scp root@103.1.221.67:/srv/sagon/.env docs/sagon-deploy/.env
+```
+
+### 6.4 填 `/srv/sagon/.env.production`
+
+這個檔給**容器內的應用程式**。**正本在本機的 `docs/sagon-deploy/.env.production`**，
+在自己電腦上編輯，填完再 `scp` 上去 —— 不要 SSH 進主機用 nano 改，那樣下次上傳就被蓋掉。
+照 6.2 列出的必填清單逐項填：
+
+```bash
+nano docs/sagon-deploy/.env.production
+```
+
+填完上傳並套用（`chmod` 與 `--force-recreate` 都不能省，理由見
+[docs/sagon-deploy/README.md](sagon-deploy/README.md)）：
+
+```bash
+scp docs/sagon-deploy/.env.production root@103.1.221.67:/srv/sagon/ && ssh root@103.1.221.67 'cd /srv/sagon && chmod 600 .env.production && docker compose -f docker-compose.prod.yml up -d --force-recreate web'
 ```
 
 先產生 Auth.js 的簽章金鑰（開另一個終端機或先跑再編輯）：
