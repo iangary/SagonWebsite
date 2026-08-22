@@ -157,7 +157,7 @@
 <header class="page">
   <h1>三竹簡訊 API 串接研究</h1>
   <p class="sub">
-    來源：<code>docs/B2C_MitakeAPI_v2.14.pdf</code>（三竹資訊 B2C API 規格書 v2.14，2024/06/18）<br>
+    來源：<code>docs/三竹/B2C_MitakeAPI_v2.14.pdf</code>（三竹資訊 B2C API 規格書 v2.14，2024/06/18）<br>
     對照程式：<code>src/lib/sms/mitake.ts</code>、<code>src/lib/sms/provider.ts</code>、<code>src/lib/auth/otp.ts</code><br>
     日期：2026-08-17
   </p>
@@ -190,6 +190,14 @@
   <li><strong>端點路徑與規格書不一致</strong>（<a href="#g1">G1</a>）—— 現有程式用 <code>/api/mtk/SmSend</code>，這份 B2C 文件寫的是 <code>/b2c/mtk/SmSend</code>。</li>
   <li><strong>正式站 IP 必須先向三竹登記</strong>（<a href="#g2">G2</a>）—— 沒登記會拿到 <code>statuscode=k</code>，本機測得過、上線就掛。</li>
 </ul>
+<p class="sub" style="border-left:3px solid var(--accent);padding-left:12px">
+  <strong>2026-08-22 更新：G1 與 G2 的外部依賴已解除。</strong>
+  三竹已開通 API 權限、已登記 <code>103.1.221.67</code>，正式端點確定為
+  <code>https://smsb2c.mitake.com.tw/b2c/mtk</code>（B2C 站，路徑就是 <code>/b2c/mtk/</code>）。
+  細節見 <code>docs/三竹/mitake-reply-api-provisioned.md</code>。
+  兩件新增的注意事項：<strong>三竹沒有測試環境</strong>（300 點免費試用就是正式點數），
+  且 <strong>API 密碼就是網頁登入密碼</strong> —— 在後台改密碼會直接讓正式站發不出簡訊。
+</p>
 <p>
   其餘五項是穩定性與成本問題：缺 <code>clientid</code> 會重複扣點、
   沒有餘額查詢會在點數用完時無預警斷掉、簡訊失敗會讓整個 <code>requestOtp()</code> 拋 500。
@@ -219,7 +227,7 @@
     <tr>
       <td>IP 鎖定</td>
       <td>須提供「程式發送主機」與「登入網頁介面主機」的 IP，經三竹鎖定後方可使用</td>
-      <td><strong>正式站 <code>103.1.221.67</code> 必須登記。</strong>未登記會回 <code>statuscode=k</code>（無效的連線位址）</td>
+      <td><strong>正式站 <code>103.1.221.67</code> 已登記（2026-08-22，WEB 與 API 防火牆皆已設定）。</strong>未登記會回 <code>statuscode=k</code>（無效的連線位址）</td>
     </tr>
     <tr>
       <td>TLS 版本</td>
@@ -250,7 +258,7 @@
 <p>
   共五支 endpoint 加一個 callback。全部都是 <code>POST</code>，
   base URL 在文件中寫成 <code>https://{三竹網域名稱}/b2c/mtk/...</code> ——
-  實際網域需由三竹提供（見 <a href="#g1">G1</a>）。回應一律是<strong>純文字</strong>，不是 JSON。
+  實際網域已由三竹提供：<code>smsb2c.mitake.com.tw</code>（見 <a href="#g1">G1</a>）。回應一律是<strong>純文字</strong>，不是 JSON。
 </p>
 
 <h3>3.1 單筆發送 SmSend</h3>
@@ -437,19 +445,35 @@ msgid  ⇥  statuscode  ⇥  statustime(YYYYMMDDHHMMSS)</code></pre>
 
 <h2 id="diff">5. 現有實作 vs 規格：落差清單</h2>
 
+<div class="callout">
+  <strong>2026-08-22 更新：G1～G6、G8 已實作完成</strong>
+  下方各項的「現況」描述的是研究當時的狀態，保留供追溯。實際改了什麼：
+  <code>MITAKE_ENDPOINT</code> 環境變數（G1）、<code>clientid</code> 冪等鍵（G3）、
+  <code>MitakeError</code> 與 <code>reason: &#39;sms_failed&#39;</code>（G4）、
+  <code>AccountPoint</code> 低餘額警告（G5）、<code>msgid</code> 剝除 <code>#</code>（G6）、
+  <code>formatSmsBody()</code> 換行轉 ASCII 6（G8）。
+  <strong>G7（callback）刻意未做</strong> —— 需要一支公開無認證的 endpoint，
+  OTP 場景的收益不足以撐起那個攻擊面，等有訂單通知簡訊再說。
+  測試：<code>src/lib/sms/mitake.test.ts</code>（38 條）＋
+  <code>test/integration/auth-otp.test.ts</code> 補了 clientid 唯一性與 sms_failed 三條。
+  <br>實作時發現建議程式碼有一個 bug：<code>AccountPoint=</code>（空值）會被
+  <code>Number(&#39;&#39;)</code> 解成 <code>0</code>，誤判成點數歸零並誤觸低餘額警告，已在
+  <code>parseMitakeResponse()</code> 加上空字串判斷。
+</div>
+
 <div class="gap" id="g1">
   <div class="gap-head"><span class="badge b-p0">P0</span><h4>G1　端點路徑與規格書不一致</h4></div>
   <p><span class="label">現況</span><code>src/lib/sms/mitake.ts:5</code> 寫死 <code>https://smsapi.mitake.com.tw/api/mtk/SmSend</code></p>
   <p><span class="label">規格</span>文件第 5 頁寫的是 <code>https://{三竹網域名稱}/b2c/mtk/SmSend</code> —— 路徑是 <code>/b2c/mtk/</code> 不是 <code>/api/mtk/</code></p>
   <p><span class="label">影響</span>三竹的 <code>/api/mtk/</code>（企業版）與 <code>/b2c/mtk/</code>（B2C 版）是兩組不同的服務路徑，帳號開通在哪一組就只能打哪一組。打錯會拿到 404 或權限錯誤，而且<strong>因為現有程式只在 <code>!res.ok</code> 時報 HTTP 狀態碼，錯誤訊息會很難懂</strong>。</p>
-  <p><span class="label">處置</span><strong>需向三竹確認我們的帳號屬於哪一組、正確網域為何</strong>，再把 base URL 抽成環境變數（不要寫死），這樣兩種帳號都能切換。這是唯一需要外部確認才能定案的項目。</p>
+  <p><span class="label">處置</span>把 base URL 抽成環境變數 <code>MITAKE_ENDPOINT</code>（不要寫死）。<strong>2026-08-22 三竹已回覆：值為 <code>https://smsb2c.mitake.com.tw/b2c/mtk</code></strong> —— 是 B2C 站，路徑確定為 <code>/b2c/mtk/</code>。現有程式的網域與路徑都是錯的。</p>
 </div>
 
 <div class="gap" id="g2">
-  <div class="gap-head"><span class="badge b-p0">P0</span><h4>G2　正式站 IP 尚未確認是否已向三竹登記</h4></div>
+  <div class="gap-head"><span class="badge b-p0">P0</span><h4>G2　正式站 IP 尚未確認是否已向三竹登記 —— 已解決</h4></div>
   <p><span class="label">規格</span>「並提供程式發送主機與登入網頁介面主機的 IP，經三竹簡訊中心鎖定 IP 後方可使用」</p>
   <p><span class="label">影響</span>正式站容器從 <code>103.1.221.67</code> 出去。未登記 → <code>statuscode=k</code>（無效的連線位址）→ 所有手機 OTP 登入失效。這種錯誤<strong>本機開發完全測不出來</strong>（本機用 console provider），會在切 <code>SMS_PROVIDER=mitake</code> 的那一刻才爆。</p>
-  <p><span class="label">處置</span>上線前先用該主機打一次「餘額查詢」（不帶 msgid 的 SmQuery）驗證 IP 通了 —— 這支不花點數，是最便宜的連線驗證方式。</p>
+  <p><span class="label">處置</span><strong>2026-08-22 三竹回覆已登記完成</strong>（WEB 防火牆與 API 防火牆皆為 <code>103.1.221.67</code>）。仍然要在上線前用該主機打一次「餘額查詢」（不帶 msgid 的 SmQuery）驗證真的通了 —— 這支不花點數，而且三竹沒有測試環境，發送測試會扣真點數。日後換主機要<strong>提前一個工作天</strong>向三竹申請改 IP。</p>
 </div>
 
 <div class="gap" id="g3">
@@ -512,7 +536,7 @@ msgid  ⇥  statuscode  ⇥  statustime(YYYYMMDDHHMMSS)</code></pre>
 
 <h2 id="patch">6. 建議程式碼</h2>
 
-<p>以下是把 G3～G6、G8 一次補齊的 <code>mitake.ts</code>。G1 的 base URL 改成吃環境變數，等三竹回覆後填值即可：</p>
+<p>以下是把 G3～G6、G8 一次補齊的 <code>mitake.ts</code>。G1 的 base URL 改成吃環境變數，值為 <code>https://smsb2c.mitake.com.tw/b2c/mtk</code>：</p>
 
 <pre><code>import 'server-only'
 import { randomUUID } from 'node:crypto'
@@ -521,7 +545,7 @@ import type { SmsProvider, SmsSendResult } from './provider'
 
 /**
  * 三竹簡訊（Mitake）B2C API v2.14。
- * 文件：docs/B2C_MitakeAPI_v2.14.pdf、docs/mitake-sms-integration.html
+ * 文件：docs/三竹/B2C_MitakeAPI_v2.14.pdf、docs/mitake-sms-integration.html
  *
  * 回應是 INI 風格的純文字：
  *   [1]
@@ -634,10 +658,10 @@ export function parseMitakeResponse(body: string): {
 
 <h4>連帶要動的地方</h4>
 <ul>
-  <li><code>src/lib/env.ts</code>：新增 <code>MITAKE_ENDPOINT</code>（預設值等三竹確認後填）。</li>
+  <li><code>src/lib/env.ts</code>：新增 <code>MITAKE_ENDPOINT</code>（值為 <code>https://smsb2c.mitake.com.tw/b2c/mtk</code>，不要給預設值，缺了就該報錯）。</li>
   <li><code>src/lib/sms/provider.ts</code>：<code>SmsProvider.send()</code> 簽章加上選填的 <code>clientId</code>；<code>ConsoleSmsProvider</code> 忽略即可。</li>
   <li><code>src/lib/auth/otp.ts:74</code>：把 <code>provider.send()</code> 包進 try/catch，<code>RequestOtpResult</code> 的失敗 reason 加上 <code>'sms_failed'</code>，並在 <code>messages/*.json</code> 補對應文案。</li>
-  <li><code>.env.example</code>：<code>MITAKE_ENDPOINT=</code> 與註解。</li>
+  <li><code>.env.example</code>：<code>MITAKE_ENDPOINT=https://smsb2c.mitake.com.tw/b2c/mtk</code> 與註解。</li>
   <li>新增 <code>test/integration/sms-mitake.test.ts</code>：至少覆蓋成功、<code>#</code> 剝除、可重試錯誤（<code>a</code>）、不可重試錯誤（<code>k</code>）、餘額解析、<code>Duplicate=Y</code>。</li>
 </ul>
 
@@ -652,15 +676,15 @@ export function parseMitakeResponse(body: string): {
 <table>
   <thead><tr><th>#</th><th>項目</th><th>負責</th></tr></thead>
   <tbody>
-    <tr><td>1</td><td>向三竹確認：帳號是 <code>/api/mtk/</code> 還是 <code>/b2c/mtk/</code>，正確網域為何</td><td>需外部確認</td></tr>
-    <tr><td>2</td><td>向三竹確認：API 發送權限是否已開通（否則 <code>statuscode=p</code>）</td><td>需外部確認</td></tr>
-    <tr><td>3</td><td>向三竹登記正式站 IP <code>103.1.221.67</code>（否則 <code>statuscode=k</code>）</td><td>需外部確認</td></tr>
-    <tr><td>4</td><td>向三竹確認：中文簡訊單則字數上限、帳號有無長簡訊權限</td><td>需外部確認</td></tr>
-    <tr><td>5</td><td>在正式主機上打一次餘額查詢（不帶 msgid 的 SmQuery）驗證 IP 與帳密 —— 不花點數</td><td>可自行執行</td></tr>
+    <tr><td>1</td><td><s>向三竹確認：帳號是 <code>/api/mtk/</code> 還是 <code>/b2c/mtk/</code>，正確網域為何</s> —— <strong>已回覆：<code>https://smsb2c.mitake.com.tw/b2c/mtk</code></strong></td><td>已完成</td></tr>
+    <tr><td>2</td><td><s>向三竹確認：API 發送權限是否已開通（否則 <code>statuscode=p</code>）</s> —— <strong>已開通，帳密與網頁登入相同</strong></td><td>已完成</td></tr>
+    <tr><td>3</td><td><s>向三竹登記正式站 IP <code>103.1.221.67</code>（否則 <code>statuscode=k</code>）</s> —— <strong>已登記</strong></td><td>已完成</td></tr>
+    <tr><td>4</td><td>向三竹確認：中文簡訊單則字數上限、帳號有無長簡訊權限（<strong>這兩項仍未問到</strong>）</td><td>需外部確認</td></tr>
+    <tr><td>5</td><td><strong>下一步：</strong>在正式主機上打一次餘額查詢（不帶 msgid 的 SmQuery）驗證 IP 與帳密 —— 不花點數</td><td>可自行執行</td></tr>
     <tr><td>6</td><td>把 <code>MITAKE_USERNAME</code> / <code>MITAKE_PASSWORD</code> / <code>MITAKE_ENDPOINT</code> 寫進主機 <code>/srv/sagon/.env.production</code>，<code>chmod 600</code></td><td>可自行執行</td></tr>
     <tr><td>7</td><td>切 <code>SMS_PROVIDER=mitake</code> 前，先確認 5 已通過</td><td>可自行執行</td></tr>
     <tr><td>8</td><td>實際寄一則到自己的手機，確認中文沒亂碼、驗證碼沒被截斷</td><td>可自行執行</td></tr>
-    <tr><td>9</td><td>補 <code>parseMitakeResponse()</code> 的測試</td><td>可自行執行</td></tr>
+    <tr><td>9</td><td><s>補 <code>parseMitakeResponse()</code> 的測試</s> —— <strong>已完成（<code>src/lib/sms/mitake.test.ts</code>，38 條）</strong></td><td>已完成</td></tr>
   </tbody>
 </table>
 </div>
@@ -673,7 +697,7 @@ export function parseMitakeResponse(body: string): {
 </div>
 
 <footer>
-  依據 <code>docs/B2C_MitakeAPI_v2.14.pdf</code>（v2.14，2024/06/18）全 18 頁整理。<br>
+  依據 <code>docs/三竹/B2C_MitakeAPI_v2.14.pdf</code>（v2.14，2024/06/18）全 18 頁整理。<br>
   文件未載明的項目（中文計費字數、正確服務網域）已在文中標示為「需向三竹確認」，未以推測填補。
 </footer>
 

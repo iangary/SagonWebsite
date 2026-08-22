@@ -20,7 +20,9 @@ import {
  */
 
 // vi.mock 會被 hoist 到 import 之前，所以共用狀態要用 vi.hoisted 宣告
-const smsOutbox = vi.hoisted(() => [] as Array<{ to: string; text: string }>)
+const smsOutbox = vi.hoisted(() => [] as Array<{ to: string; text: string; clientId?: string }>)
+/** 設成 Error 就讓下一次發送失敗，用來測簡訊供應商掛掉時的行為 */
+const smsFailure = vi.hoisted(() => ({ current: null as Error | null }))
 
 // 只換掉 getSmsProvider；normalizeTwMobile 是純函式，要用真的那份
 vi.mock('@/lib/sms/provider', async () => {
@@ -29,8 +31,9 @@ vi.mock('@/lib/sms/provider', async () => {
     ...actual,
     getSmsProvider: vi.fn(() => ({
       name: 'test',
-      async send(to: string, text: string) {
-        smsOutbox.push({ to, text })
+      async send(to: string, text: string, clientId?: string) {
+        if (smsFailure.current) throw smsFailure.current
+        smsOutbox.push({ to, text, clientId })
         // 對齊 ConsoleSmsProvider：devEcho 帶明碼內容，otp.ts 只看真假值
         return { messageId: null, devEcho: text }
       },
@@ -42,6 +45,7 @@ const PHONE = '0912345678'
 
 beforeEach(() => {
   smsOutbox.length = 0
+  smsFailure.current = null
 })
 
 /** 把某支號碼所有 OTP 的 createdAt 往前推 N 秒（模擬時間流逝） */
@@ -177,6 +181,39 @@ describe('requestOtp — 索取驗證碼', () => {
     // 舊碼已作廢 → 拿舊碼驗證只會撞到新那筆，一定不通過
     const replay = await verifyOtp(PHONE, first.devCode!)
     expect(replay).toEqual({ ok: false, reason: 'mismatch' })
+  })
+
+  it('每次索取都帶不同的 clientid（三竹的去重機制不能讓重送被吃掉）', async () => {
+    await requestOtp(PHONE)
+    await ageRecords(PHONE, OTP_RESEND_COOLDOWN_SECONDS + 1)
+    await requestOtp(PHONE)
+
+    expect(smsOutbox).toHaveLength(2)
+    expect(smsOutbox[0].clientId).toBeTruthy()
+    expect(smsOutbox[1].clientId).toBeTruthy()
+    // 沿用同一個 clientid 會讓三竹回上次結果 + Duplicate=Y，使用者收不到第二則
+    expect(smsOutbox[0].clientId).not.toBe(smsOutbox[1].clientId)
+  })
+
+  it('簡訊供應商掛掉 → sms_failed，不是往外拋 500', async () => {
+    smsFailure.current = new Error('三竹簡訊發送失敗（statuscode=r）')
+
+    const result = await requestOtp(PHONE)
+
+    expect(result).toEqual({ ok: false, reason: 'sms_failed' })
+  })
+
+  it('簡訊發不出去時不寫 PhoneOtp，使用者可以立刻再試（不會被 cooldown 鎖住）', async () => {
+    smsFailure.current = new Error('三竹簡訊 HTTP 502')
+    expect((await requestOtp(PHONE)).ok).toBe(false)
+    // 沒有紀錄 → 沒有 cooldown，也不會佔用每小時額度
+    expect(await db.phoneOtp.count({ where: { phone: PHONE } })).toBe(0)
+
+    smsFailure.current = null
+    const retry = await requestOtp(PHONE)
+
+    expect(retry.ok).toBe(true)
+    expect(await db.phoneOtp.count({ where: { phone: PHONE } })).toBe(1)
   })
 
   it('DB 只存雜湊，codeHash 不是明碼', async () => {

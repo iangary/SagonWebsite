@@ -1,8 +1,8 @@
 import 'server-only'
-import { randomInt } from 'node:crypto'
+import { randomInt, randomUUID } from 'node:crypto'
 import { db } from '@/lib/db'
 import { env } from '@/lib/env'
-import { getSmsProvider, normalizeTwMobile } from '@/lib/sms/provider'
+import { getSmsProvider, maskMobile, normalizeTwMobile } from '@/lib/sms/provider'
 import { hashPassword, verifyPassword } from './password'
 
 export const OTP_TTL_MINUTES = 5
@@ -16,7 +16,11 @@ export type OtpPurpose = 'login' | 'bind'
 
 export type RequestOtpResult =
   | { ok: true; cooldownSeconds: number; devCode?: string }
-  | { ok: false; reason: 'invalid_phone' | 'cooldown' | 'rate_limited'; retryAfterSeconds?: number }
+  | {
+      ok: false
+      reason: 'invalid_phone' | 'cooldown' | 'rate_limited' | 'sms_failed'
+      retryAfterSeconds?: number
+    }
 
 export type VerifyOtpResult =
   | { ok: true; phone: string }
@@ -71,7 +75,21 @@ export async function requestOtp(rawPhone: string, purpose: OtpPurpose = 'login'
 
   const provider = getSmsProvider()
   const text = `【${env.SHOP_NAME}】您的驗證碼是 ${code}，${OTP_TTL_MINUTES} 分鐘內有效。請勿轉傳給他人。`
-  const sent = await provider.send(phone, text)
+
+  // 每次 requestOtp() 都是一次獨立的索取（60 秒 cooldown 擋掉連點），所以要換新的
+  // clientid —— 沿用舊的會讓三竹判定重複、直接回上次結果而不真的發第二則簡訊。
+  // 反之，若日後在 provider 內加自動重試，那圈重試必須沿用同一個 clientid。
+  const clientId = randomUUID()
+
+  let sent
+  try {
+    sent = await provider.send(phone, text, clientId)
+  } catch (err) {
+    // 簡訊送不出去不是使用者的錯，不要讓它變成 500。
+    // 這裡刻意不寫 PhoneOtp：沒有紀錄就沒有 cooldown，使用者可以立刻再試一次。
+    console.error(`[otp] 簡訊發送失敗 phone=${maskMobile(phone)} clientid=${clientId}`, err)
+    return { ok: false, reason: 'sms_failed' }
+  }
 
   await db.phoneOtp.create({
     data: {

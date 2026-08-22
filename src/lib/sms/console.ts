@@ -8,6 +8,7 @@ import type { SmsProvider, SmsSendResult } from './provider'
 export class ConsoleSmsProvider implements SmsProvider {
   readonly name = 'console'
 
+  // 介面第三個參數 clientId 是供應商端的去重鍵，這裡沒有東西可以去重，直接省略
   async send(to: string, text: string): Promise<SmsSendResult> {
     console.info(`\n[SMS:console] → ${to}\n${text}\n`)
     return { messageId: null, devEcho: text }

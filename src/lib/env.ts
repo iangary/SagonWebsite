@@ -98,7 +98,19 @@ export const envSchema = z.object({
 
   SMS_PROVIDER: z.enum(['console', 'mitake']).default('console'),
   MITAKE_USERNAME: z.string().optional().default(''),
+  /**
+   * 注意：三竹的 API 密碼就是網頁後台的登入密碼，沒有獨立的 API 金鑰。
+   * 在三竹後台改了密碼，這裡沒跟著改就會靜靜地回 statuscode=e，簡訊全部發不出去。
+   */
   MITAKE_PASSWORD: z.string().optional().default(''),
+  /**
+   * 三竹端點的 base URL（不含 /SmSend 這類方法名）。
+   * 預設值是三竹 2026-08-22 回覆指定給我們的「二站」B2C 端點 ——
+   * 網域與路徑都不能猜：/b2c/mtk/ 是 B2C 版、/api/mtk/ 是企業版，
+   * 帳號開通在哪一組就只能打哪一組，打錯是 404 或權限錯誤。
+   * 詳見 docs/三竹/mitake-reply-api-provisioned.md。
+   */
+  MITAKE_ENDPOINT: z.string().url().default('https://smsb2c.mitake.com.tw/b2c/mtk'),
 
   SMTP_HOST: z.string().default('localhost'),
   SMTP_PORT: intFromString(1025),

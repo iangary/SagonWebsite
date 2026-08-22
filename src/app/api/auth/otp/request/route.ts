@@ -23,10 +23,13 @@ export async function POST(req: NextRequest) {
       invalid_phone: '請輸入正確的台灣手機號碼（09 開頭共 10 碼）',
       cooldown: `請稍候 ${result.retryAfterSeconds} 秒後再重新發送`,
       rate_limited: '索取次數過於頻繁，請一小時後再試',
+      sms_failed: '簡訊服務暫時無法使用，請稍後再試或改用密碼登入',
     } as const
+    // 400 使用者輸入錯、429 節流、503 我們這邊的問題（簡訊供應商發不出去）
+    const status = { invalid_phone: 400, cooldown: 429, rate_limited: 429, sms_failed: 503 } as const
     return NextResponse.json(
       { ok: false, error: messages[result.reason], retryAfterSeconds: result.retryAfterSeconds },
-      { status: result.reason === 'invalid_phone' ? 400 : 429 },
+      { status: status[result.reason] },
     )
   }
 

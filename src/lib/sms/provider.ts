@@ -8,11 +8,19 @@ export interface SmsSendResult {
   messageId: string | null
   /** 只有 console provider 會回傳明碼，讓開發/E2E 拿得到驗證碼 */
   devEcho?: string
+  /** 供應商回報的剩餘點數。三竹每次發送都會回，console provider 沒有 */
+  accountPoint?: number | null
+  /** 供應商判定為重複發送（未實際送出，只是回上次的結果） */
+  duplicate?: boolean
 }
 
 export interface SmsProvider {
   readonly name: string
-  send(to: string, text: string): Promise<SmsSendResult>
+  /**
+   * @param clientId 冪等鍵。同一則簡訊的重試要沿用同一個值，供應商端才會去重；
+   *   使用者主動「重新發送」必須換新的，否則他收不到第二則。不支援的 provider 會忽略。
+   */
+  send(to: string, text: string, clientId?: string): Promise<SmsSendResult>
 }
 
 let cached: SmsProvider | undefined
