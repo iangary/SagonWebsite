@@ -455,7 +455,7 @@ function VariantRow({ variant, canDelete }: { variant: Variant; canDelete: boole
           checked={isActive}
           onChange={(e) => setIsActive(e.target.checked)}
           aria-label="啟用這個規格"
-          className="size-3.5 accent-[#2b2724]"
+          className="size-5 accent-[#2b2724] sm:size-3.5"
         />
       </Td>
       <Td>
@@ -471,7 +471,7 @@ function VariantRow({ variant, canDelete }: { variant: Variant; canDelete: boole
             title="刪除規格"
             disabled={pending}
             onClick={remove}
-            className="text-taupe-400 transition-colors hover:text-sale disabled:text-taupe-300"
+            className="flex size-9 items-center justify-center text-taupe-400 transition-colors hover:text-sale disabled:text-taupe-300 sm:size-6"
           >
             <Trash2 size={14} />
           </button>

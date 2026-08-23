@@ -216,7 +216,8 @@ export function OrderActions({
         </Button>
       )}
 
-      <div className="ml-auto flex items-center gap-2">
+      {/* 手機上獨佔一行 —— 跟其他按鈕擠在同一行時下拉選單會被壓到剩幾十 px */}
+      <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
         <select
           value=""
           disabled={pending !== null}
@@ -226,7 +227,7 @@ export function OrderActions({
             void perform('status', () => adminUpdateOrderStatus(orderId, value))
             e.target.value = ''
           }}
-          className="border border-cream-300 bg-white px-3 py-1.5 text-sm focus:border-taupe-500 focus:outline-none"
+          className="min-h-11 flex-1 border border-cream-300 bg-white px-3 text-sm focus:border-taupe-500 focus:outline-none sm:min-h-9 sm:flex-none"
         >
           <option value="">手動變更狀態…</option>
           {MANUAL_STATUSES.map((s) => (

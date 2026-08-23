@@ -7,7 +7,14 @@ import {
   ORDER_STATUS_LABEL,
   PAYMENT_STATUS_LABEL,
 } from '@/lib/orders/labels'
-import { PageHeader, DataTable, Td, AdminPagination } from '@/components/admin/ui'
+import {
+  PageHeader,
+  DataTable,
+  Td,
+  AdminPagination,
+  FilterChips,
+  SearchForm,
+} from '@/components/admin/ui'
 import { Badge, ORDER_STATUS_TONE } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { pendingTcatParcelCount, todayPickupCall } from '@/lib/orders/tcat-pickup'
@@ -55,6 +62,14 @@ const PAYMENT_FILTERS: { value: string; label: string; where: Prisma.OrderWhereI
     where: { payments: { some: { supersededAt: null, status: 'AWAITING_COLLECTION' } } },
   },
 ]
+
+/** 三組快篩共用一份網址組法：換其中一個條件，其他兩個要留著。 */
+function ordersHref(params: Record<string, string | undefined>) {
+  const qs = new URLSearchParams(
+    Object.entries(params).filter((entry): entry is [string, string] => Boolean(entry[1])),
+  ).toString()
+  return qs ? `/admin/orders?${qs}` : '/admin/orders'
+}
 
 export default async function AdminOrdersPage({
   searchParams,
@@ -126,74 +141,31 @@ export default async function AdminOrdersPage({
         }
       />
 
-      <div className="mb-5 space-y-4">
-        <form method="get" className="flex gap-2">
-          {sp.status && <input type="hidden" name="status" value={sp.status} />}
-          {sp.payment && <input type="hidden" name="payment" value={sp.payment} />}
-          <input
-            name="q"
-            defaultValue={sp.q ?? ''}
-            placeholder="搜尋訂單編號、收件人、Email 或手機"
-            className="w-full max-w-sm border border-cream-300 bg-white px-3 py-2 text-sm focus:border-taupe-500 focus:outline-none"
-          />
-          <button
-            type="submit"
-            className="border border-ink-900 px-4 py-2 text-sm text-ink-900 transition-colors hover:bg-ink-900 hover:text-cream-50"
-          >
-            搜尋
-          </button>
-        </form>
+      <div className="mb-5 space-y-3">
+        <SearchForm
+          defaultValue={sp.q}
+          placeholder="搜尋訂單編號、收件人、Email 或手機"
+          width="sm:w-96"
+          hidden={{ status: sp.status, payment: sp.payment }}
+        />
 
-        <div className="flex flex-wrap gap-2">
-          {STATUS_FILTERS.map((filter) => {
-            const params = new URLSearchParams()
-            if (filter.value) params.set('status', filter.value)
-            if (sp.payment) params.set('payment', sp.payment)
-            if (sp.q) params.set('q', sp.q)
-            const qs = params.toString()
-            const active = (sp.status ?? '') === filter.value
-            return (
-              <Link
-                key={filter.value || 'all'}
-                href={qs ? `/admin/orders?${qs}` : '/admin/orders'}
-                className={cn(
-                  'border px-3 py-1.5 text-xs transition-colors',
-                  active
-                    ? 'border-ink-900 bg-ink-900 text-cream-50'
-                    : 'border-cream-300 text-ink-700 hover:border-taupe-400',
-                )}
-              >
-                {filter.label}
-              </Link>
-            )
-          })}
-        </div>
+        <FilterChips
+          active={sp.status ?? ''}
+          items={STATUS_FILTERS.map((filter) => ({
+            ...filter,
+            href: ordersHref({ status: filter.value, payment: sp.payment, q: sp.q }),
+          }))}
+        />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-taupe-500">收款狀態</span>
-          {PAYMENT_FILTERS.map((filter) => {
-            const params = new URLSearchParams()
-            if (filter.value) params.set('payment', filter.value)
-            if (sp.status) params.set('status', sp.status)
-            if (sp.q) params.set('q', sp.q)
-            const qs = params.toString()
-            const active = (sp.payment ?? '') === filter.value
-            return (
-              <Link
-                key={filter.value || 'all'}
-                href={qs ? `/admin/orders?${qs}` : '/admin/orders'}
-                className={cn(
-                  'border px-3 py-1.5 text-xs transition-colors',
-                  active
-                    ? 'border-ink-900 bg-ink-900 text-cream-50'
-                    : 'border-cream-300 text-ink-700 hover:border-taupe-400',
-                )}
-              >
-                {filter.label}
-              </Link>
-            )
-          })}
-        </div>
+        <FilterChips
+          label="收款狀態"
+          active={sp.payment ?? ''}
+          items={PAYMENT_FILTERS.map((filter) => ({
+            value: filter.value,
+            label: filter.label,
+            href: ordersHref({ status: sp.status, payment: filter.value, q: sp.q }),
+          }))}
+        />
       </div>
 
       <DataTable

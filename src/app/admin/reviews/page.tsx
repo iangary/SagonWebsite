@@ -1,8 +1,13 @@
 import Link from 'next/link'
 import type { Prisma, ReviewStatus } from '@prisma/client'
 import { db } from '@/lib/db'
-import { cn } from '@/lib/utils'
-import { PageHeader, DataTable, Td, AdminPagination } from '@/components/admin/ui'
+import {
+  PageHeader,
+  DataTable,
+  Td,
+  AdminPagination,
+  FilterChips,
+} from '@/components/admin/ui'
 import { Badge } from '@/components/ui/badge'
 import { Stars } from '@/components/product/product-reviews'
 import { ReviewModeration } from './review-moderation'
@@ -51,23 +56,17 @@ export default async function AdminReviewsPage({
         description={pendingCount > 0 ? `${pendingCount} 則待審核` : '沒有待審核的評論'}
       />
 
-      <div className="mb-5 flex gap-2">
-        {[{ value: '', label: '全部' }, ...Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label }))].map(
-          (filter) => (
-            <Link
-              key={filter.value || 'all'}
-              href={filter.value ? `/admin/reviews?status=${filter.value}` : '/admin/reviews'}
-              className={cn(
-                'border px-3 py-1.5 text-xs transition-colors',
-                (sp.status ?? '') === filter.value
-                  ? 'border-ink-900 bg-ink-900 text-cream-50'
-                  : 'border-cream-300 text-ink-700 hover:border-taupe-400',
-              )}
-            >
-              {filter.label}
-            </Link>
-          ),
-        )}
+      <div className="mb-5">
+        <FilterChips
+          active={sp.status ?? ''}
+          items={[
+            { value: '', label: '全部' },
+            ...Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label })),
+          ].map((filter) => ({
+            ...filter,
+            href: filter.value ? `/admin/reviews?status=${filter.value}` : '/admin/reviews',
+          }))}
+        />
       </div>
 
       <DataTable

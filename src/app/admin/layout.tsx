@@ -26,13 +26,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <html lang="zh-TW">
       <body className="min-h-screen bg-cream-50">
         <ToastProvider>
-          <div className="flex min-h-screen">
+          {/* 手機是「頂端列在上、內容在下」的直排，lg 以上才切成側邊欄 + 內容的橫排 */}
+          <div className="min-h-screen lg:flex">
             <AdminNav
               userName={session.user.name ?? session.user.email ?? '管理員'}
               chatUnread={chatUnread}
             />
             <div className="min-w-0 flex-1">
-              <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+              <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
             </div>
           </div>
         </ToastProvider>

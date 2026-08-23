@@ -110,13 +110,13 @@ export function ImageManager({
       {order.length > 0 && (
         <ul className="mb-6 flex flex-wrap gap-3">
           {order.map((image, index) => (
-            <li key={image.id} className="w-32">
+            <li key={image.id} className="w-[calc(50%-0.375rem)] sm:w-32">
               <div className="relative aspect-[3/4] overflow-hidden bg-cream-100">
                 <Image
                   src={image.url}
                   alt=""
                   fill
-                  sizes="128px"
+                  sizes="(max-width: 639px) 45vw, 128px"
                   className="object-cover"
                 />
                 {index === 0 && (
@@ -208,7 +208,7 @@ function IconButton({
       title={label}
       disabled={disabled}
       onClick={onClick}
-      className={`flex size-6 items-center justify-center transition-colors disabled:cursor-not-allowed disabled:text-taupe-300 ${
+      className={`flex size-9 items-center justify-center transition-colors disabled:cursor-not-allowed disabled:text-taupe-300 sm:size-6 ${
         danger ? 'text-taupe-500 hover:text-sale' : 'text-ink-700 hover:bg-cream-100'
       }`}
     >

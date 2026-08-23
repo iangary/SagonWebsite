@@ -1,7 +1,13 @@
 import type { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { formatTWD } from '@/lib/utils'
-import { PageHeader, DataTable, Td, AdminPagination } from '@/components/admin/ui'
+import {
+  PageHeader,
+  DataTable,
+  Td,
+  AdminPagination,
+  SearchForm,
+} from '@/components/admin/ui'
 import { Badge } from '@/components/ui/badge'
 
 export const dynamic = 'force-dynamic'
@@ -55,20 +61,12 @@ export default async function AdminMembersPage({
     <>
       <PageHeader title="會員" description={`共 ${total} 位`} />
 
-      <form method="get" className="mb-5 flex gap-2">
-        <input
-          name="q"
-          defaultValue={sp.q ?? ''}
-          placeholder="搜尋姓名、Email 或手機"
-          className="w-72 border border-cream-300 bg-white px-3 py-2 text-sm focus:border-taupe-500 focus:outline-none"
-        />
-        <button
-          type="submit"
-          className="border border-ink-900 px-4 py-2 text-sm transition-colors hover:bg-ink-900 hover:text-cream-50"
-        >
-          搜尋
-        </button>
-      </form>
+      <SearchForm
+        defaultValue={sp.q}
+        placeholder="搜尋姓名、Email 或手機"
+        width="sm:w-72"
+        className="mb-5"
+      />
 
       <DataTable
         headers={['姓名', 'Email', '手機', '登入方式', '有效訂單', '累積消費', '註冊時間']}

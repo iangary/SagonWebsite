@@ -63,7 +63,7 @@ export function PickupButton({
 
   if (calledToday) {
     return (
-      <div className="text-right text-xs text-taupe-600">
+      <div className="text-xs text-taupe-600 sm:text-right">
         <div>
           今天已呼叫黑貓收貨（{calledToday.quantity} 件，
           {calledToday.createdAt.toLocaleTimeString('zh-TW', { hour12: false })}）

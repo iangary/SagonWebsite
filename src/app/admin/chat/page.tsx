@@ -1,9 +1,14 @@
 import Link from 'next/link'
 import type { ChatStatus, Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
-import { cn } from '@/lib/utils'
 import { CONVERSATION_SUMMARY_SELECT } from '@/lib/chat'
-import { PageHeader, DataTable, Td, AdminPagination } from '@/components/admin/ui'
+import {
+  PageHeader,
+  DataTable,
+  Td,
+  AdminPagination,
+  FilterChips,
+} from '@/components/admin/ui'
 import { Badge } from '@/components/ui/badge'
 
 export const dynamic = 'force-dynamic'
@@ -65,24 +70,17 @@ export default async function AdminChatPage({
         description={waitingCount > 0 ? `${waitingCount} 則等待回覆` : '目前沒有待回覆的訊息'}
       />
 
-      <div className="mb-5 flex gap-2">
-        {[
-          { value: '', label: '全部' },
-          ...Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label })),
-        ].map((filter) => (
-          <Link
-            key={filter.value || 'all'}
-            href={filter.value ? `/admin/chat?status=${filter.value}` : '/admin/chat'}
-            className={cn(
-              'border px-3 py-1.5 text-xs transition-colors',
-              (sp.status ?? '') === filter.value
-                ? 'border-ink-900 bg-ink-900 text-cream-50'
-                : 'border-cream-300 text-ink-700 hover:border-taupe-400',
-            )}
-          >
-            {filter.label}
-          </Link>
-        ))}
+      <div className="mb-5">
+        <FilterChips
+          active={sp.status ?? ''}
+          items={[
+            { value: '', label: '全部' },
+            ...Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label })),
+          ].map((filter) => ({
+            ...filter,
+            href: filter.value ? `/admin/chat?status=${filter.value}` : '/admin/chat',
+          }))}
+        />
       </div>
 
       <DataTable

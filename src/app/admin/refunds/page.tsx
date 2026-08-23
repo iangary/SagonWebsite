@@ -7,7 +7,13 @@ import {
   REFUND_METHOD_LABEL,
   REFUND_STATUS_LABEL,
 } from '@/lib/orders/labels'
-import { PageHeader, DataTable, Td, AdminPagination } from '@/components/admin/ui'
+import {
+  PageHeader,
+  DataTable,
+  Td,
+  AdminPagination,
+  FilterChips,
+} from '@/components/admin/ui'
 import { RefundActions } from './refund-actions'
 
 export const dynamic = 'force-dynamic'
@@ -62,24 +68,14 @@ export default async function AdminRefundsPage({
         description={`共 ${total} 筆 ・ ${pendingCount} 筆待處理`}
       />
 
-      <div className="mb-5 flex flex-wrap gap-2">
-        {STATUS_FILTERS.map((filter) => {
-          const active = (sp.status ?? '') === filter.value
-          return (
-            <Link
-              key={filter.value || 'all'}
-              href={filter.value ? `/admin/refunds?status=${filter.value}` : '/admin/refunds'}
-              className={cn(
-                'border px-3 py-1.5 text-xs transition-colors',
-                active
-                  ? 'border-ink-900 bg-ink-900 text-cream-50'
-                  : 'border-cream-300 text-ink-700 hover:border-taupe-400',
-              )}
-            >
-              {filter.label}
-            </Link>
-          )
-        })}
+      <div className="mb-5">
+        <FilterChips
+          active={sp.status ?? ''}
+          items={STATUS_FILTERS.map((filter) => ({
+            ...filter,
+            href: filter.value ? `/admin/refunds?status=${filter.value}` : '/admin/refunds',
+          }))}
+        />
       </div>
 
       <DataTable

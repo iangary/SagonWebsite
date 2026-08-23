@@ -4,7 +4,14 @@ import { Plus } from 'lucide-react'
 import type { Prisma, ProductStatus } from '@prisma/client'
 import { db } from '@/lib/db'
 import { formatTWD, cn } from '@/lib/utils'
-import { PageHeader, DataTable, Td, AdminPagination } from '@/components/admin/ui'
+import {
+  PageHeader,
+  DataTable,
+  Td,
+  AdminPagination,
+  FilterChips,
+  SearchForm,
+} from '@/components/admin/ui'
 import { Badge } from '@/components/ui/badge'
 
 export const dynamic = 'force-dynamic'
@@ -67,46 +74,27 @@ export default async function AdminProductsPage({
         }
       />
 
-      <div className="mb-5 flex flex-wrap gap-3">
-        <form method="get" className="flex gap-2">
-          <input
-            name="q"
-            defaultValue={sp.q ?? ''}
-            placeholder="搜尋商品名稱或 SKU"
-            className="w-64 border border-cream-300 bg-white px-3 py-2 text-sm focus:border-taupe-500 focus:outline-none"
-          />
-          <button
-            type="submit"
-            className="border border-ink-900 px-4 py-2 text-sm transition-colors hover:bg-ink-900 hover:text-cream-50"
-          >
-            搜尋
-          </button>
-        </form>
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <SearchForm
+          defaultValue={sp.q}
+          placeholder="搜尋商品名稱或 SKU"
+          width="sm:w-64"
+          className="sm:w-auto"
+        />
 
-        <div className="flex gap-2">
-          {[{ value: '', label: '全部' }, ...Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label }))].map(
-            (filter) => {
-              const params = new URLSearchParams()
-              if (filter.value) params.set('status', filter.value)
-              if (sp.q) params.set('q', sp.q)
-              const qs = params.toString()
-              return (
-                <Link
-                  key={filter.value || 'all'}
-                  href={qs ? `/admin/products?${qs}` : '/admin/products'}
-                  className={cn(
-                    'border px-3 py-2 text-xs transition-colors',
-                    (sp.status ?? '') === filter.value
-                      ? 'border-ink-900 bg-ink-900 text-cream-50'
-                      : 'border-cream-300 text-ink-700 hover:border-taupe-400',
-                  )}
-                >
-                  {filter.label}
-                </Link>
-              )
-            },
-          )}
-        </div>
+        <FilterChips
+          active={sp.status ?? ''}
+          items={[
+            { value: '', label: '全部' },
+            ...Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label })),
+          ].map((filter) => {
+            const params = new URLSearchParams()
+            if (filter.value) params.set('status', filter.value)
+            if (sp.q) params.set('q', sp.q)
+            const qs = params.toString()
+            return { ...filter, href: qs ? `/admin/products?${qs}` : '/admin/products' }
+          })}
+        />
       </div>
 
       <DataTable

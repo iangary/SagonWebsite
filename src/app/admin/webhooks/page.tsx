@@ -2,7 +2,13 @@ import Link from 'next/link'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { cn } from '@/lib/utils'
-import { PageHeader, DataTable, Td, AdminPagination } from '@/components/admin/ui'
+import {
+  PageHeader,
+  DataTable,
+  Td,
+  AdminPagination,
+  FilterChips,
+} from '@/components/admin/ui'
 import { Badge } from '@/components/ui/badge'
 import { WebhookRetry, WebhookPayload } from './webhook-actions'
 
@@ -55,21 +61,15 @@ export default async function AdminWebhooksPage({
         description="綠界所有回拋的原始紀錄。處理失敗的可以在這裡重送。"
       />
 
-      <div className="mb-5 flex flex-wrap gap-2">
-        {filters.map((filter) => (
-          <Link
-            key={filter.value || 'all'}
-            href={filter.value ? `/admin/webhooks?state=${filter.value}` : '/admin/webhooks'}
-            className={cn(
-              'border px-3 py-1.5 text-xs transition-colors',
-              (sp.state ?? '') === filter.value
-                ? 'border-ink-900 bg-ink-900 text-cream-50'
-                : 'border-cream-300 text-ink-700 hover:border-taupe-400',
-            )}
-          >
-            {filter.label}
-          </Link>
-        ))}
+      <div className="mb-5">
+        <FilterChips
+          active={sp.state ?? ''}
+          items={filters.map((filter) => ({
+            value: filter.value,
+            label: filter.label,
+            href: filter.value ? `/admin/webhooks?state=${filter.value}` : '/admin/webhooks',
+          }))}
+        />
       </div>
 
       <DataTable

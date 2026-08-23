@@ -241,3 +241,73 @@
     transform: none;
   }
 }
+
+/*
+  後台列表在手機上改成「一列一張卡」。
+  原本只有 overflow-x-auto + min-w-[640px]，在 375px 寬的手機上等於每看一筆訂單
+  都要左右滑三四次，欄位對不回表頭 —— 實務上等於不能用。
+
+  欄位標籤不重寫一份：DataTable 把 headers 寫成 --col-1…--col-10（帶引號的 CSS 字串），
+  這裡用 ::before 讀回來。表頭改字、換順序，卡片上的標籤自動跟著動。
+
+  這段刻意不放進 @layer —— 未分層的規則優先於 Tailwind 的 utilities layer，
+  才蓋得掉頁面上直接寫在 <Td> 的 px-4 py-3 與 max-w-48 之類的寬度限制。
+  只覆蓋版面屬性（display/padding/width），顏色與字級仍由各頁的 utility 決定。
+*/
+@media (width < 40rem) {
+  .admin-table {
+    display: block;
+    min-width: 0;
+  }
+
+  .admin-table thead {
+    display: none;
+  }
+
+  .admin-table tbody,
+  .admin-table tr {
+    display: block;
+  }
+
+  .admin-table tr {
+    padding: 0.5rem 1rem;
+  }
+
+  .admin-table td {
+    display: grid;
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: start;
+    max-width: none;
+    padding: 0.375rem 0;
+  }
+
+  /* 空表頭（圖片欄、操作欄）的標籤是空字串，留下的縮排剛好跟其他列對齊 */
+  .admin-table td::before {
+    padding-top: 0.125rem;
+    color: var(--color-taupe-600);
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+
+  .admin-table td:nth-child(1)::before { content: var(--col-1, ''); }
+  .admin-table td:nth-child(2)::before { content: var(--col-2, ''); }
+  .admin-table td:nth-child(3)::before { content: var(--col-3, ''); }
+  .admin-table td:nth-child(4)::before { content: var(--col-4, ''); }
+  .admin-table td:nth-child(5)::before { content: var(--col-5, ''); }
+  .admin-table td:nth-child(6)::before { content: var(--col-6, ''); }
+  .admin-table td:nth-child(7)::before { content: var(--col-7, ''); }
+  .admin-table td:nth-child(8)::before { content: var(--col-8, ''); }
+  .admin-table td:nth-child(9)::before { content: var(--col-9, ''); }
+  .admin-table td:nth-child(10)::before { content: var(--col-10, ''); }
+
+  /* 「沒有資料」那格橫跨整列，不需要標籤欄 */
+  .admin-table td[colspan]::before {
+    content: '';
+    display: none;
+  }
+  .admin-table td[colspan] {
+    display: block;
+    padding: 3rem 0;
+  }
+}
