@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { enabledSsoProviders } from '@/lib/env'
 import { isCheckoutCallback } from '@/lib/auth/checkout-gate'
+import { signInErrorKey } from '@/lib/auth/sso'
 import { CheckoutGateNotice } from '@/components/auth/checkout-gate-notice'
 import { LoginForm } from './login-form'
 
@@ -41,7 +42,7 @@ export default async function LoginPage({
       <LoginForm
         callbackUrl={target ?? '/account'}
         ssoProviders={enabledSsoProviders}
-        initialError={error ? t('invalidCredentials') : undefined}
+        initialError={error ? t(signInErrorKey(error)) : undefined}
       />
     </div>
   )

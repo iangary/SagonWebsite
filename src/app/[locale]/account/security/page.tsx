@@ -2,7 +2,7 @@ import { getTranslations } from 'next-intl/server'
 import { db } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
 import { enabledSsoProviders } from '@/lib/env'
-import { SSO_PROVIDER_IDS } from '@/lib/auth/sso'
+import { SSO_PROVIDER_IDS, signInErrorKey } from '@/lib/auth/sso'
 import { maskMobile } from '@/lib/sms/provider'
 import { SecurityPanel } from './security-panel'
 
@@ -14,8 +14,17 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   return { title: t('security'), robots: { index: false } }
 }
 
-export default async function SecurityPage() {
+/**
+ * `?error=<code>` 是綁定 SSO 失敗時由 proxy 從 /login 轉過來的（見 src/proxy.ts）——
+ * Auth.js 的錯誤頁是全站設定，只能繞這一手把人帶回原本這一頁。
+ */
+export default async function SecurityPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>
+}) {
   const sessionUser = await requireUser()
+  const { error } = await searchParams
 
   const user = await db.user.findUniqueOrThrow({
     where: { id: sessionUser.id },
@@ -45,8 +54,11 @@ export default async function SecurityPage() {
   const methodCount =
     sso.filter((p) => p.linked).length + (hasPassword ? 1 : 0) + (hasPhone ? 1 : 0)
 
+  const tAuth = await getTranslations('auth')
+
   return (
     <SecurityPanel
+      linkError={error ? tAuth(signInErrorKey(error)) : null}
       email={user.email}
       maskedPhone={user.phone ? maskMobile(user.phone) : null}
       sso={sso}

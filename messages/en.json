@@ -370,6 +370,8 @@
     "noAccount": "Don't have an account?",
     "hasAccount": "Already have an account?",
     "invalidCredentials": "Incorrect email or password",
+    "ssoAccountTaken": "That third-party account is already linked to another member. Sign in the way you did before, or use a different third-party account.",
+    "loginFailed": "Sign-in did not complete. Please try again.",
     "invalidOtp": "Invalid or expired code",
     "otpSent": "Code sent",
     "signingIn": "Signing in…",

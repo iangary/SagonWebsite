@@ -25,6 +25,7 @@ export type SsoStatus = {
 }
 
 export function SecurityPanel({
+  linkError,
   email,
   maskedPhone,
   sso,
@@ -32,6 +33,8 @@ export function SecurityPanel({
   hasPhone,
   isLastMethod,
 }: {
+  /** 綁定 SSO 失敗的訊息，在 server 就翻好（見同層 page.tsx）；沒有失敗時是 null */
+  linkError: string | null
   email: string | null
   maskedPhone: string | null
   sso: SsoStatus[]
@@ -46,6 +49,15 @@ export function SecurityPanel({
       <section className="border border-cream-200 bg-white p-6">
         <h2 className="text-sm tracking-[0.1em]">{t('loginMethods')}</h2>
         <p className="mt-2 text-xs text-taupe-500">{t('loginMethodsHint')}</p>
+
+        {linkError && (
+          <p
+            role="alert"
+            className="mt-4 border border-sale/30 bg-sale/5 px-3 py-2 text-sm text-sale"
+          >
+            {linkError}
+          </p>
+        )}
 
         <ul className="mt-5 divide-y divide-cream-100">
           {sso.map((provider) => (

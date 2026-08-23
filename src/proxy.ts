@@ -147,7 +147,18 @@ export default async function proxy(req: NextRequest) {
 
   // 已登入的人不需要再看到登入/註冊頁（/login/sms 是第一次用手機登入的入口）
   if (isLoggedIn && (path === '/login' || path === '/login/sms' || path === '/register')) {
-    return NextResponse.redirect(new URL('/account', req.nextUrl.origin))
+    /**
+     * 唯一會帶著 ?error 走到這裡的情境是「已登入的會員在 /account/security
+     * 綁第二組 SSO 但失敗」—— Auth.js 的錯誤頁是全站設定（pages.signIn = /login，
+     * 見 lib/auth/config.ts），沒辦法按呼叫端改，所以由這裡把他送回原本那一頁。
+     * 直接丟去 /account 的話 query string 會連同錯誤原因一起消失，
+     * 使用者只會看到「按了綁定、轉一圈、什麼都沒發生」。
+     */
+    const error = req.nextUrl.searchParams.get('error')
+    const target = error
+      ? `/account/security?error=${encodeURIComponent(error)}`
+      : '/account'
+    return NextResponse.redirect(new URL(target, req.nextUrl.origin))
   }
 
   // 還沒設密碼的手機會員：除了設定頁本身，其他頁一律導回去。
