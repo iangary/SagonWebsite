@@ -33,6 +33,8 @@ export const authConfig = {
         // 手機驗證碼第一次登入（還沒有密碼）時為 true。SSO 走 PrismaAdapter，
         // user 上沒有這個欄位 → undefined → 不擋（他們本來就有免費的登入方式）。
         token.needsPassword = (user as { needsPassword?: boolean }).needsPassword ?? false
+        // 剛從資料庫讀出來的 role 當然是新的，蓋上時間戳讓 index.ts 那段節流不用馬上再查一次
+        token.roleCheckedAt = Date.now()
       }
       // 會員在 /account 改完資料、或在 header 換語系後呼叫 update()，讓 token 立刻反映新值
       if (trigger === 'update' && session) {

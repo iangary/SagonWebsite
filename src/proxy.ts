@@ -118,6 +118,16 @@ function ensureVisitorCookies(req: NextRequest, res: NextResponse) {
 
 export default async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
+
+  /**
+   * /403 放在 app/ 而不是 app/[locale]/，所以不能讓 next-intl 碰它 ——
+   * 它會把沒有語系前綴的路徑改寫成 /zh-TW/403，那個位置沒有頁面，使用者看到的是
+   * 「找不到頁面」而不是「沒有權限」。下面 /admin 那段用的是 rewrite（rewrite 不會
+   * 再跑一次 proxy，所以一直沒事），但後台 layout 撤權時走的是 redirect('/403')，
+   * 那條路會真的再進來這裡一次。
+   */
+  if (pathname === '/403') return NextResponse.next()
+
   const { isLoggedIn, role, locale, needsPassword } = await readSession(req)
 
   // 後台不做多語系，直接走 role 檢查

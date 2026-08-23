@@ -31,6 +31,12 @@ declare module 'next-auth/jwt' {
     locale?: 'zh-TW' | 'en' | null
     /** proxy 只讀 JWT（不碰 DB），所以這個旗標必須跟著 token 走 */
     needsPassword?: boolean
+    /**
+     * 上一次拿 role 去對資料庫的時間（epoch 毫秒）。
+     * 後台改了某人的權限之後，靠它讓 token 在幾分鐘內跟上，而不是等 30 天到期
+     * —— 節流邏輯在 src/lib/auth/index.ts 的 jwt callback。
+     */
+    roleCheckedAt?: number
   }
 }
 

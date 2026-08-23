@@ -26,6 +26,9 @@ const phoneSchema = z.object({
   code: z.string().min(4),
 })
 
+/** token 上的 role 最多能舊多久（毫秒）。見下方 jwt callback。 */
+const ROLE_TTL_MS = 5 * 60 * 1000
+
 /**
  * unstable_update 是 Auth.js v5 的 server 端 session 更新。
  * 名字帶 unstable 但它是 v5 唯一能從 server action 改 JWT 的官方入口 ——
@@ -41,7 +44,7 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
 
     /**
      * 先跑 edge-safe 的那份（釘 id/role/phone/locale/needsPassword），
-     * 再用資料庫把 needsPassword 修正回真實狀態。
+     * 再用資料庫把 needsPassword 與 role 修正回真實狀態。
      *
      * 為什麼需要這一步：`/api/auth/session` 每被打一次就會用它讀到的 token
      * **重新簽發 cookie**。SessionProvider 在頁面掛載時就會打它，若剛好和
@@ -62,6 +65,31 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
           select: { passwordHash: true },
         })
         if (user?.passwordHash) token.needsPassword = false
+      }
+
+      /**
+       * role 每隔 ROLE_TTL_MS 對照一次資料庫。
+       *
+       * proxy 只解 JWT、碰不到 Prisma（見 src/proxy.ts 檔頭），所以 token 上的 role
+       * 就是進不進得了 /admin 的唯一依據。後台把某位會員設成管理員之後，若不重簽 token，
+       * 他的 role 會一直是 CUSTOMER —— 最久要等 30 天（session maxAge）才生效。
+       *
+       * `/api/auth/session` 每被打一次就會用這裡算出的 token 重新簽發 cookie，
+       * 而 SessionProvider 在每次頁面掛載時都會打它，所以對方只要載入前台任何一頁，
+       * proxy 下一個請求就看得到新權限，不必登出再登入。
+       *
+       * 節流的理由是這個 callback 在每次讀 session 時都會跑。釘上時間戳之後，
+       * 成本降成「每位使用者每 5 分鐘一次主鍵查詢」，而不是每個請求一次。
+       * 撤權不靠這段（那會慢上 5 分鐘），由 requireAdmin() 與後台 layout 當場對資料庫。
+       */
+      if (typeof token?.id === 'string' && Date.now() - (token.roleCheckedAt ?? 0) > ROLE_TTL_MS) {
+        const user = await db.user.findUnique({
+          where: { id: token.id },
+          select: { role: true },
+        })
+        // 查不到就是帳號已經被刪掉，別讓 token 繼續帶著舊權限走
+        token.role = user?.role ?? 'CUSTOMER'
+        token.roleCheckedAt = Date.now()
       }
       return token
     },
@@ -246,9 +274,22 @@ export async function requireUser() {
   return user
 }
 
-/** 後台守衛。 */
+/**
+ * 目前的權限是否真的是管理員 —— 直接問資料庫，不看 token。
+ *
+ * session 上的 role 最多會舊 5 分鐘（見上方 jwt callback 的節流）。授權可以慢，
+ * **撤權不行**：把某人的管理員權限移掉之後，他不該還有五分鐘可以改商品或看訂單。
+ */
+export async function isDbAdmin(userId: string): Promise<boolean> {
+  const user = await db.user.findUnique({ where: { id: userId }, select: { role: true } })
+  return user?.role === 'ADMIN'
+}
+
+/** 後台守衛（Server Action / API 用）。 */
 export async function requireAdmin() {
   const user = await currentUser()
+  // 先看 token 擋掉絕大多數請求，確定是管理員才花一次查詢確認權限還在
   if (!user || user.role !== 'ADMIN') throw new Error('FORBIDDEN')
+  if (!(await isDbAdmin(user.id))) throw new Error('FORBIDDEN')
   return user
 }
