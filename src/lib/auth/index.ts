@@ -7,6 +7,7 @@ import Credentials from 'next-auth/providers/credentials'
 import { z } from 'zod'
 
 import { db } from '@/lib/db'
+import { claimAnonCart } from '@/lib/cart/shared'
 import { env, isGoogleAuthEnabled, isLineAuthEnabled, isFacebookAuthEnabled } from '@/lib/env'
 import { authConfig } from './config'
 import { verifyPassword } from './password'
@@ -189,6 +190,28 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
   ],
 
   events: {
+    /**
+     * 登入成功的當下把匿名購物車併進會員車。
+     *
+     * 不能只靠 getOrCreateCart() 裡那段合併 —— 那條路只有 Server Action 走得到，
+     * 登入後直接看 /cart 是純讀取，會員車只要存在（先前登入過就會留下一列，
+     * 就算是空的）匿名車就整台被擋在外面。症狀是「登入後購物車空了，
+     * 但隨便按一次『直接購買』東西又全部回來」。
+     *
+     * 這個 event 對四種登入方式都會觸發（密碼、手機驗證碼、SSO 的 callback），
+     * 而且跑在 /api/auth 的 route handler 裡，所以讀得到 cookie 也碰得到 Prisma。
+     * 併車失敗不該擋下登入，所以整段包在 try/catch 裡：東西還在匿名車上，
+     * 下一個 Server Action（加購物車、改數量、結帳）會再併一次。
+     */
+    async signIn({ user }) {
+      if (!user?.id) return
+      try {
+        await claimAnonCart(user.id)
+      } catch (error) {
+        console.error('[auth] 併入匿名購物車失敗', error)
+      }
+    },
+
     /**
      * PrismaAdapter 建立 SSO 使用者時不會帶 phone/role，
      * 這裡補一次 email 正規化，避免大小寫不同被當成兩個人。

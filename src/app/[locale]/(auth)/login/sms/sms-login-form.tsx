@@ -8,6 +8,7 @@ import { Link } from '@/i18n/routing'
 import { Button } from '@/components/ui/button'
 import { Input, Field } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
+import { notifyCartChanged } from '@/components/cart/cart-count-provider'
 import { cn } from '@/lib/utils'
 
 const RESEND_SECONDS = 60
@@ -100,6 +101,8 @@ export function SmsLoginForm({ callbackUrl }: { callbackUrl: string }) {
       setError(t('invalidOtp'))
       return
     }
+    // 登入會把匿名購物車併進會員車，header 的數字要跟著重讀（見 login-form）
+    notifyCartChanged()
     router.push(callbackUrl)
     router.refresh()
   }

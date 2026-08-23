@@ -8,6 +8,8 @@ import { db } from '@/lib/db'
 import {
   CART_COOKIE,
   availableStock,
+  claimAnonCart,
+  getCart,
   getCartItemCount,
   getOrCreateCart,
 } from '@/lib/cart'
@@ -163,6 +165,91 @@ describe('getOrCreateCart（登入合併）', () => {
     expect(byVariant.get(variants[0].id)).toBe(1)
     expect(byVariant.get(variants[1].id)).toBe(2)
     expect(await db.cart.count()).toBe(1)
+  })
+})
+
+describe('登入當下的合併（claimAnonCart）', () => {
+  /**
+   * 這組測的是回報過的災情：登入後購物車看起來空了，隨便按一次「直接購買」
+   * 東西又全部回來。原因是合併只發生在 Server Action，而登入後看 /cart 是純讀取。
+   */
+  it('會員車已存在但是空的 → 匿名車整台過戶，CartItem 的 id 不變', async () => {
+    const user = await createTestUser()
+    const { variants } = await createTestProduct({ stock: 10 })
+
+    const anonCart = await createTestCart({
+      anonId: 'anon-signin',
+      items: [{ variantId: variants[0].id, qty: 2 }],
+    })
+    // 先前登入過留下的空車 —— 就是它把匿名車擋在外面
+    const emptyUserCart = await createTestCart({ userId: user.id, items: [] })
+    const itemId = anonCart.items[0].id
+
+    jar.seed(CART_COOKIE, 'anon-signin')
+    await claimAnonCart(user.id)
+
+    mockAuthUser({ id: user.id, role: 'CUSTOMER' })
+    const cart = await getCart()
+
+    expect(cart.items).toHaveLength(1)
+    expect(cart.items[0].qty).toBe(2)
+    // id 保留，畫面上的加減數量與刪除按鈕才不會第一下就吃到「找不到這個項目」
+    expect(cart.items[0].id).toBe(itemId)
+    expect(cart.userId).toBe(user.id)
+    expect(await db.cart.findUnique({ where: { id: emptyUserCart.id } })).toBeNull()
+    expect(await db.cart.count()).toBe(1)
+  })
+
+  it('會員車有東西 → 數量相加，之後 getCart 讀到的是會員車', async () => {
+    const user = await createTestUser()
+    const { variants } = await createTestProduct({ stock: 10 })
+
+    await createTestCart({
+      anonId: 'anon-signin2',
+      items: [{ variantId: variants[0].id, qty: 2 }],
+    })
+    const userCart = await createTestCart({
+      userId: user.id,
+      items: [{ variantId: variants[0].id, qty: 3 }],
+    })
+
+    jar.seed(CART_COOKIE, 'anon-signin2')
+    await claimAnonCart(user.id)
+
+    mockAuthUser({ id: user.id, role: 'CUSTOMER' })
+    const cart = await getCart()
+
+    expect(cart.id).toBe(userCart.id)
+    expect(cart.items[0].qty).toBe(5)
+    expect(await db.cart.count()).toBe(1)
+  })
+
+  it('沒有 anonId cookie → 什麼都不做', async () => {
+    const user = await createTestUser()
+    await createTestCart({ userId: user.id, items: [] })
+
+    await expect(claimAnonCart(user.id)).resolves.toBeNull()
+    expect(await db.cart.count()).toBe(1)
+  })
+
+  it('合併沒跑到時 getCart／getCartItemCount 仍看得到匿名車（保險）', async () => {
+    const user = await createTestUser()
+    const { variants } = await createTestProduct({ stock: 10 })
+
+    await createTestCart({
+      anonId: 'anon-fallback',
+      items: [{ variantId: variants[0].id, qty: 2 }],
+    })
+    await createTestCart({ userId: user.id, items: [] })
+
+    jar.seed(CART_COOKIE, 'anon-fallback')
+    mockAuthUser({ id: user.id, role: 'CUSTOMER' })
+
+    // 刻意不呼叫 claimAnonCart
+    const cart = await getCart()
+    expect(cart.items).toHaveLength(1)
+    expect(cart.items[0].qty).toBe(2)
+    expect(await getCartItemCount()).toBe(2)
   })
 })
 

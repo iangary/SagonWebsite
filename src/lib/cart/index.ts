@@ -1,44 +1,19 @@
 import 'server-only'
 import { randomUUID } from 'node:crypto'
 import { cookies } from 'next/headers'
-import type { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
+import {
+  CART_COOKIE,
+  CART_COOKIE_MAX_AGE,
+  CART_INCLUDE,
+  absorbAnonCart,
+  readAnonId,
+  type CartWithItems,
+} from './shared'
 
-export const CART_COOKIE = 'sagon_cart'
-const CART_COOKIE_MAX_AGE = 60 * 60 * 24 * 30 // 30 天
-
-export type CartWithItems = Prisma.CartGetPayload<{
-  include: {
-    items: {
-      include: {
-        variant: {
-          include: {
-            product: { include: { images: true; brand: true } }
-          }
-        }
-      }
-    }
-  }
-}>
-
-const CART_INCLUDE = {
-  items: {
-    orderBy: { createdAt: 'asc' },
-    include: {
-      variant: {
-        include: {
-          product: {
-            include: {
-              images: { orderBy: { sortOrder: 'asc' }, take: 1 },
-              brand: true,
-            },
-          },
-        },
-      },
-    },
-  },
-} satisfies Prisma.CartInclude
+export { CART_COOKIE, claimAnonCart } from './shared'
+export type { CartWithItems } from './shared'
 
 /** 空車的替身，讓頁面不用到處判斷 null */
 function emptyCart(): CartWithItems {
@@ -54,30 +29,39 @@ function emptyCart(): CartWithItems {
 }
 
 /**
+ * 唯讀路徑要讀哪一台車。
+ *
+ * 會員車是空的時候還會回頭看一眼匿名車：購物車在登入當下就併好了
+ * （見 shared.ts 的 claimAnonCart），這裡是那次合併沒跑到時的保險 ——
+ * 東西至少不會從畫面上消失，下一個 Server Action 會把它正式併進會員車。
+ */
+async function resolveReadableCartId(): Promise<string | null> {
+  const [session, anonId] = await Promise.all([auth(), readAnonId()])
+
+  const peek = (where: { userId: string } | { anonId: string }) =>
+    db.cart.findUnique({ where, select: { id: true, _count: { select: { items: true } } } })
+
+  const userCart = session?.user?.id ? await peek({ userId: session.user.id }) : null
+  if (userCart && userCart._count.items > 0) return userCart.id
+
+  const anonCart = anonId ? await peek({ anonId }) : null
+  if (anonCart && anonCart._count.items > 0) return anonCart.id
+
+  return userCart?.id ?? anonCart?.id ?? null
+}
+
+/**
  * 唯讀取得購物車，給 Server Component 用。
  *
  * 這裡不寫 cookie 也不建立資料列 —— Next.js 不允許在 render 階段寫 cookie，
  * 而且 GET 一個頁面不該產生副作用。anonId 由 proxy.ts 事先發放。
  */
 export async function getCart(): Promise<CartWithItems> {
-  const session = await auth()
-  const jar = await cookies()
-  const anonId = jar.get(CART_COOKIE)?.value
+  const cartId = await resolveReadableCartId()
+  if (!cartId) return emptyCart()
 
-  if (session?.user?.id) {
-    const cart = await db.cart.findUnique({
-      where: { userId: session.user.id },
-      include: CART_INCLUDE,
-    })
-    if (cart) return cart
-  }
-
-  if (anonId) {
-    const cart = await db.cart.findUnique({ where: { anonId }, include: CART_INCLUDE })
-    if (cart) return cart
-  }
-
-  return emptyCart()
+  const cart = await db.cart.findUnique({ where: { id: cartId }, include: CART_INCLUDE })
+  return cart ?? emptyCart()
 }
 
 /**
@@ -85,7 +69,8 @@ export async function getCart(): Promise<CartWithItems> {
  * （會寫 cookie 與建立資料列）。
  *
  * 未登入時以 cookie 裡的 anonId 認人；登入後把 anon 車併進會員車，
- * 讓「先加購物車再登入」不會掉東西。
+ * 讓「先加購物車再登入」不會掉東西。合併本身在登入當下就做過一次了，
+ * 這裡是那次沒成功（例如 signIn event 拋錯）時的第二次機會。
  */
 export async function getOrCreateCart(): Promise<CartWithItems> {
   const session = await auth()
@@ -94,22 +79,11 @@ export async function getOrCreateCart(): Promise<CartWithItems> {
 
   if (session?.user?.id) {
     const userId = session.user.id
-    let cart = await db.cart.findUnique({ where: { userId }, include: CART_INCLUDE })
+    const merged = anonId ? await absorbAnonCart(userId, anonId) : null
+    if (merged) return merged
 
-    // 剛登入：把匿名車的東西搬過來
-    if (anonId) {
-      const anonCart = await db.cart.findUnique({ where: { anonId }, include: CART_INCLUDE })
-      if (anonCart && anonCart.items.length > 0) {
-        cart = await mergeCarts(anonCart, cart, userId)
-      } else if (anonCart) {
-        await db.cart.delete({ where: { id: anonCart.id } }).catch(() => {})
-      }
-    }
-
-    if (!cart) {
-      cart = await db.cart.create({ data: { userId }, include: CART_INCLUDE })
-    }
-    return cart
+    const cart = await db.cart.findUnique({ where: { userId }, include: CART_INCLUDE })
+    return cart ?? db.cart.create({ data: { userId }, include: CART_INCLUDE })
   }
 
   if (anonId) {
@@ -130,53 +104,13 @@ export async function getOrCreateCart(): Promise<CartWithItems> {
   return db.cart.create({ data: { anonId: newAnonId }, include: CART_INCLUDE })
 }
 
-async function mergeCarts(
-  anonCart: CartWithItems,
-  userCart: CartWithItems | null,
-  userId: string,
-): Promise<CartWithItems> {
-  if (!userCart) {
-    // 沒有會員車就直接把匿名車認領過來，省一輪搬移
-    await db.cart.update({
-      where: { id: anonCart.id },
-      data: { userId, anonId: null },
-    })
-    return db.cart.findUniqueOrThrow({ where: { id: anonCart.id }, include: CART_INCLUDE })
-  }
-
-  await db.$transaction(async (tx) => {
-    for (const item of anonCart.items) {
-      await tx.cartItem.upsert({
-        where: { cartId_variantId: { cartId: userCart.id, variantId: item.variantId } },
-        // 兩邊都有同一個變體時相加，而不是覆蓋
-        update: { qty: { increment: item.qty } },
-        create: { cartId: userCart.id, variantId: item.variantId, qty: item.qty },
-      })
-    }
-    await tx.cart.delete({ where: { id: anonCart.id } })
-  })
-
-  return db.cart.findUniqueOrThrow({ where: { id: userCart.id }, include: CART_INCLUDE })
-}
-
 /** 只算件數，給 header 的紅點用（不需要撈整台車）。 */
 export async function getCartItemCount(): Promise<number> {
-  const session = await auth()
-  const jar = await cookies()
-  const anonId = jar.get(CART_COOKIE)?.value
-
-  const where: Prisma.CartWhereInput | null = session?.user?.id
-    ? { userId: session.user.id }
-    : anonId
-      ? { anonId }
-      : null
-  if (!where) return 0
-
-  const cart = await db.cart.findFirst({ where, select: { id: true } })
-  if (!cart) return 0
+  const cartId = await resolveReadableCartId()
+  if (!cartId) return 0
 
   const agg = await db.cartItem.aggregate({
-    where: { cartId: cart.id },
+    where: { cartId },
     _sum: { qty: true },
   })
   return agg._sum.qty ?? 0

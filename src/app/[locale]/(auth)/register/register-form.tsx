@@ -9,6 +9,7 @@ import { Link } from '@/i18n/routing'
 import { Button } from '@/components/ui/button'
 import { Input, Field } from '@/components/ui/input'
 import { SsoButtons } from '@/components/auth/sso-buttons'
+import { notifyCartChanged } from '@/components/cart/cart-count-provider'
 import type { SsoProviderId } from '@/lib/auth/sso'
 import { registerAction, type RegisterState } from './actions'
 
@@ -46,6 +47,8 @@ export function RegisterForm({
     void getCsrfToken()
       .then(() => signIn('password', { ...credentials, redirect: false }))
       .then(() => {
+        // 登入會把匿名購物車併進會員車，header 的數字要跟著重讀（見 login-form）
+        notifyCartChanged()
         router.push(callbackUrl)
         router.refresh()
       })

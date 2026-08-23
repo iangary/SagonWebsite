@@ -8,6 +8,7 @@ import { Link } from '@/i18n/routing'
 import { Button } from '@/components/ui/button'
 import { Input, Field } from '@/components/ui/input'
 import { SsoButtons } from '@/components/auth/sso-buttons'
+import { notifyCartChanged } from '@/components/cart/cart-count-provider'
 import type { SsoProviderId } from '@/lib/auth/sso'
 
 /**
@@ -65,6 +66,9 @@ export function LoginForm({
       setError(t('invalidCredentials'))
       return
     }
+    // 登入時匿名購物車會併進會員車（見 src/lib/auth 的 signIn event），
+    // 件數可能因此變多；這是 client 端導頁，provider 不會重新掛載，得手動叫它重讀。
+    notifyCartChanged()
     router.push(callbackUrl)
     router.refresh()
   }
