@@ -10,6 +10,8 @@ import { createShipmentForOrder } from '@/lib/orders/logistics'
 import { callTcatPickup } from '@/lib/orders/tcat-pickup'
 import { issueReceiptForOrder, voidReceiptForOrder } from '@/lib/orders/receipt'
 import { releaseOrderReservations } from '@/lib/orders/stock'
+import { syncPaymentWithEcpay } from '@/lib/orders/payment'
+import { markCodCollected } from '@/lib/orders/payment-method'
 import { enqueue } from '@/lib/queue'
 
 export type AdminActionResult = { ok: true; message: string } | { ok: false; error: string }
@@ -316,5 +318,79 @@ export async function adminCancelOrder(orderId: string): Promise<AdminActionResu
     revalidatePath(`/admin/orders/${orderId}`)
     revalidatePath('/admin/orders')
     return '訂單已取消，庫存已釋放'
+  })
+}
+
+/**
+ * 向綠界查詢這張訂單到底付款了沒（QueryTradeInfo）。
+ *
+ * 存在的理由：ReturnURL 是「綠界打得到我們」才會成立的機制，CDN、憑證、
+ * 主機重啟都可能讓那通通知永久遺失 —— 消費者繳了錢、我們的訂單卻還停在待付款。
+ * 排程每 15 分鐘會自動掃一次（reconcile-payments），這支是客服當場想確認時用的。
+ */
+export async function adminSyncPayment(orderId: string): Promise<AdminActionResult> {
+  const admin = await requireAdmin()
+
+  return run('查詢綠界付款狀態', async () => {
+    const payment = await db.payment.findFirst({
+      where: { orderId, supersededAt: null },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, provider: true, merchantTradeNo: true },
+    })
+    if (!payment) throw new Error('這張訂單沒有付款紀錄')
+    if (payment.provider !== 'ECPAY') {
+      throw new Error('貨到付款不在綠界金流，請用「標記已收款」')
+    }
+
+    const result = await syncPaymentWithEcpay(payment.id)
+
+    await audit({
+      userId: admin.id,
+      action: 'payment.sync',
+      entity: 'Order',
+      entityId: orderId,
+      after: { tradeStatus: result.tradeStatus, paid: result.paid },
+    })
+
+    revalidatePath(`/admin/orders/${orderId}`)
+    revalidatePath('/admin/orders')
+
+    if (result.paid) {
+      return result.changed
+        ? '綠界確認已付款，訂單已更新為已付款並開始後續流程'
+        : '綠界確認已付款（我們這邊本來就已入帳）'
+    }
+    if (result.tradeStatus === '0') return '綠界回報：訂單已建立但消費者還沒付款'
+    if (result.tradeStatus === '10200095') return '綠界回報：交易失敗，消費者沒有完成付款'
+    return `綠界回報 TradeStatus=${result.tradeStatus || '(空值，查無此筆交易)'}`
+  })
+}
+
+/**
+ * 貨到付款：手動標記已收款。
+ *
+ * 正常情況下超商回拋「已取貨」或黑貓回報「已配達」就會自動標記
+ * （見 lib/orders/logistics.ts 的 advanceOrderForShipmentStatus），
+ * 這支留給對帳對出來、或物流狀態沒回來的例外情況。
+ */
+export async function adminMarkCodCollected(orderId: string): Promise<AdminActionResult> {
+  const admin = await requireAdmin()
+
+  return run('標記貨到付款已收款', async () => {
+    const collected = await markCodCollected(orderId, {
+      note: `由 ${admin.email ?? admin.id} 於後台手動確認收款`,
+    })
+    if (!collected) throw new Error('這張訂單沒有待收款的貨到付款紀錄')
+
+    await audit({
+      userId: admin.id,
+      action: 'payment.cod.collected',
+      entity: 'Order',
+      entityId: orderId,
+    })
+
+    revalidatePath(`/admin/orders/${orderId}`)
+    revalidatePath('/admin/orders')
+    return '已標記為收款完成'
   })
 }

@@ -12,13 +12,18 @@ export const OTP_RESEND_COOLDOWN_SECONDS = 60
 /** 同一支號碼每小時可索取的上限 */
 export const OTP_HOURLY_LIMIT = 5
 
-export type OtpPurpose = 'login' | 'bind'
+/**
+ * login：手機驗證碼登入（等同註冊）。**只有還沒設密碼的號碼才發** —— 見 requestOtp。
+ * bind：已登入的會員在帳號安全頁綁定／更換號碼。
+ * reset：忘記密碼。已設密碼的人唯一還會收到簡訊的路徑。
+ */
+export type OtpPurpose = 'login' | 'bind' | 'reset'
 
 export type RequestOtpResult =
   | { ok: true; cooldownSeconds: number; devCode?: string }
   | {
       ok: false
-      reason: 'invalid_phone' | 'cooldown' | 'rate_limited' | 'sms_failed'
+      reason: 'invalid_phone' | 'use_password' | 'no_account' | 'cooldown' | 'rate_limited' | 'sms_failed'
       retryAfterSeconds?: number
     }
 
@@ -35,6 +40,9 @@ export type VerifyOtpResult =
 export async function requestOtp(rawPhone: string, purpose: OtpPurpose = 'login'): Promise<RequestOtpResult> {
   const phone = normalizeTwMobile(rawPhone)
   if (!phone) return { ok: false, reason: 'invalid_phone' }
+
+  const denied = await checkPurposePolicy(phone, purpose)
+  if (denied) return denied
 
   const now = new Date()
 
@@ -107,6 +115,35 @@ export async function requestOtp(rawPhone: string, purpose: OtpPurpose = 'login'
     cooldownSeconds: OTP_RESEND_COOLDOWN_SECONDS,
     ...(sent.devEcho ? { devCode: code } : {}),
   }
+}
+
+/**
+ * 「驗證碼只在第一次發」的規則就在這裡。
+ *
+ * 簡訊每則都要錢，所以已經設過密碼的號碼平常一律不發：登入走密碼，
+ * 真的忘記密碼才用 purpose='reset' 再要一次碼（那條路才是例外）。
+ *
+ * 副作用是回應會透露「這支號碼有沒有帳號、有沒有密碼」。這是刻意接受的 ——
+ * 註冊表單早就會說「這個 Email 已經註冊過了」，而不講清楚的話使用者只會
+ * 一直按重寄然後以為系統壞了。
+ */
+async function checkPurposePolicy(
+  phone: string,
+  purpose: OtpPurpose,
+): Promise<RequestOtpResult | null> {
+  // 綁定是已登入會員在自己帳號頁上的操作，不受這條規則限制
+  if (purpose === 'bind') return null
+
+  const user = await db.user.findUnique({ where: { phone }, select: { passwordHash: true } })
+
+  if (purpose === 'login') {
+    // 沒有帳號 = 第一次（發碼即註冊）；有帳號但還沒設密碼也要放行，
+    // 否則他連進站設密碼的門都沒有。
+    return user?.passwordHash ? { ok: false, reason: 'use_password' } : null
+  }
+
+  // reset：沒有帳號就沒有密碼可重設，發了也是白花錢
+  return user ? null : { ok: false, reason: 'no_account' }
 }
 
 /** 驗證 OTP。成功後該筆立即標記為已使用，不能重放。 */

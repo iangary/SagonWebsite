@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import type {
   Coupon,
   OrderStatus,
+  Payment,
   PaymentStatus,
   Product,
   ProductVariant,
@@ -222,7 +223,7 @@ export async function createTestOrder(input: CreateTestOrderInput = {}) {
           },
         ],
       },
-      payment: {
+      payments: {
         create: {
           merchantTradeNo: orderNo,
           choosePayment: input.choosePayment ?? 'Credit',
@@ -265,7 +266,7 @@ export async function createTestOrder(input: CreateTestOrderInput = {}) {
     },
     include: {
       items: true,
-      payment: true,
+      payments: true,
       shipment: true,
       invoice: true,
       receipt: true,
@@ -280,15 +281,15 @@ export async function createTestOrder(input: CreateTestOrderInput = {}) {
     })
   }
 
-  return { order, variant }
+  return { order: withCurrentPayment(order), variant }
 }
 
 /** 讀回訂單的最新完整狀態，斷言用 */
 export async function reloadOrder(orderId: string) {
-  return db.order.findUniqueOrThrow({
+  const order = await db.order.findUniqueOrThrow({
     where: { id: orderId },
     include: {
-      payment: true,
+      payments: { orderBy: { createdAt: 'desc' } },
       shipment: { include: { logs: true } },
       receipt: true,
       invoice: true,
@@ -296,6 +297,21 @@ export async function reloadOrder(orderId: string) {
       items: true,
     },
   })
+  return withCurrentPayment(order)
+}
+
+/**
+ * payments 是一對多（消費者可以改付款方式），但幾乎所有斷言都只關心
+ * 「目前生效的那筆」。多掛一個 payment 欄位讓測試讀起來乾淨一點。
+ */
+function withCurrentPayment<T extends { payments: Payment[] }>(
+  order: T,
+): T & { payment: Payment | null } {
+  const live = order.payments.filter((p) => !p.supersededAt)
+  const pool = live.length > 0 ? live : order.payments
+  const payment =
+    pool.slice().sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] ?? null
+  return { ...order, payment }
 }
 
 export { db }

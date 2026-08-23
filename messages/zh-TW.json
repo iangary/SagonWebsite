@@ -49,6 +49,8 @@
     "selectVariant": "請選擇規格",
     "quantity": "數量",
     "description": "商品描述",
+    "expandDescription": "展開全部",
+    "collapseDescription": "收合",
     "specs": "規格說明",
     "reviews": "商品評論",
     "noReviews": "尚無評論",
@@ -115,7 +117,9 @@
     "shippingNote": "運費以結帳時選擇的配送方式為準",
     "couponPlaceholder": "輸入折扣碼",
     "couponAppliedCode": "已套用「{code}」",
-    "couponFailed": "折扣碼無法使用"
+    "couponFailed": "折扣碼無法使用",
+    "memberOnlyNotice": "結帳需要會員帳號，下一步會請您先註冊。",
+    "loginToCheckout": "已經有帳號？直接登入"
   },
   "checkout": {
     "title": "結帳",
@@ -167,7 +171,20 @@
     "securityNote": "點擊後將導向綠界科技安全付款頁面。",
     "reserveNote": "庫存會為您保留 30 分鐘。",
     "devWarningTitle": "開發環境提醒",
-    "devWarningBody": "目前 APP_URL 指向 localhost，綠界打不到我們的 callback，付款完成後訂單狀態不會自動更新。請先啟動通道並把 APP_URL 換成公開網址："
+    "devWarningBody": "目前 APP_URL 指向 localhost，綠界打不到我們的 callback，付款完成後訂單狀態不會自動更新。請先啟動通道並把 APP_URL 換成公開網址：",
+    "barcode": "超商條碼",
+    "barcodeNote": "下單後取得三段繳費條碼",
+    "barcodeExpireNote": "下單後取得繳費條碼，{days} 天內至超商櫃檯繳費",
+    "cvsExpireNote": "下單後取得繳費代碼，{days} 天內至超商繳費",
+    "atmExpireNote": "下單後取得轉帳帳號，{days} 天內完成轉帳",
+    "cod": "貨到付款",
+    "codNote": "取貨時再付款",
+    "codNoteWithFee": "取貨時再付款，需加收手續費 {fee}",
+    "codFee": "貨到付款手續費",
+    "noPaymentMethod": "目前沒有可用的付款方式，請聯繫客服或改選其他配送方式。",
+    "codSecurityNote": "訂單成立後我們會直接為您備貨，取貨時再付款。",
+    "codReserveNote": "貨到付款無需先付款，庫存已為您保留。",
+    "reserveNoteDays": "庫存會為您保留 {days} 天，逾期未付款訂單將自動取消。"
   },
   "result": {
     "successTitle": "訂單已成立",
@@ -213,7 +230,28 @@
     "awaitingTransfer": "待轉帳：{bankCode} / {vAccount}（期限 {expireDate}）",
     "awaitingPaymentCode": "待繳費代碼：{paymentNo}（期限 {expireDate}）",
     "grandTotal": "合計",
-    "polling": "正在向綠界確認付款結果…"
+    "polling": "正在向綠界確認付款結果…",
+    "paymentMethodLabel": "付款方式",
+    "codTitle": "貨到付款",
+    "codAmount": "取貨應付金額",
+    "codFeeLabel": "含貨到付款手續費",
+    "codHintCvs": "商品送達門市後會收到到店通知，請於取貨時在櫃檯付款。",
+    "codHintHome": "請於配送人員送達時付款，建議準備現金以免延誤。",
+    "barcodeTitle": "超商條碼繳費",
+    "barcodeHint": "條碼需由店員刷讀，請列印或存下繳費單後至超商櫃檯繳費。",
+    "printSlip": "列印／儲存繳費單",
+    "printSlipHint": "可存成圖片放進手機相簿，到超商時不需要網路也看得到。",
+    "changePaymentTitle": "想改用其他方式付款？",
+    "changePaymentHint": "選擇新的付款方式後，原本的繳費代碼／虛擬帳號會立即失效，請勿再拿舊代碼繳費。",
+    "changePaymentAction": "更改付款方式",
+    "changePaymentConfirm": "確認更改",
+    "cancel": "取消",
+    "contactLabel": "訂購時填的 Email 或手機",
+    "contactPlaceholder": "name@example.com 或 09xxxxxxxx",
+    "refundInProgressTitle": "退款處理中",
+    "refundRequestedHint": "客服已收到這筆退款，確認後會在 LINE 上與您聯繫。",
+    "refundApprovedHint": "退款已核准，正在處理退款作業，完成後會另行通知您。",
+    "awaitingCollection": "貨到付款：取貨時應付 {amount}"
   },
   "account": {
     "title": "會員中心",
@@ -239,7 +277,6 @@
     "ssoAccount": "{provider} 帳號",
     "linked": "已綁定",
     "notLinked": "未綁定",
-    "emailPassword": "Email 與密碼",
     "passwordSet": "已設定（{email}）",
     "passwordNotSet": "尚未設定密碼",
     "emailNotSet": "尚未設定 Email",
@@ -303,7 +340,17 @@
     "passwordChanged": "密碼已變更",
     "passwordCreated": "密碼已設定",
     "phoneBound": "手機已驗證綁定",
-    "profileUpdated": "個人資料已更新"
+    "profileUpdated": "個人資料已更新",
+    "emailUnverified": "電子信箱尚未驗證",
+    "emailUnverifiedHint": "驗證信已寄到 {email}。沒收到請看看垃圾信匣，或按右邊重新寄送。",
+    "resendVerification": "重寄驗證信",
+    "sendingVerification": "寄送中…",
+    "verificationSent": "驗證信已寄出，請至信箱點擊連結",
+    "verificationCooldown": "請稍候 {seconds} 秒後再重新寄送",
+    "verificationRateLimited": "索取次數過於頻繁，請一小時後再試",
+    "verificationSendFailed": "驗證信寄送失敗，請稍後再試",
+    "emailAlreadyVerified": "這個信箱已經驗證過了",
+    "accountPassword": "帳號與密碼"
   },
   "auth": {
     "loginTitle": "會員登入",
@@ -320,8 +367,6 @@
     "otpCode": "驗證碼",
     "sendOtp": "發送驗證碼",
     "resendOtp": "重新發送（{seconds} 秒）",
-    "loginWithPassword": "密碼登入",
-    "loginWithPhone": "手機登入",
     "noAccount": "還沒有帳號？",
     "hasAccount": "已經有帳號？",
     "invalidCredentials": "帳號或密碼錯誤",
@@ -334,7 +379,35 @@
     "otpSentDev": "驗證碼已發送（開發模式：{code}）",
     "sendFailed": "發送失敗",
     "phoneOptionalHint": "選填。填了之後也可以用手機驗證碼登入。",
-    "passwordHint": "至少 8 個字元"
+    "passwordHint": "至少 8 個字元",
+    "verifyEmailTitle": "信箱驗證",
+    "verifyEmailOk": "您的電子信箱已完成驗證，感謝您。之後登入只需要 Email 與密碼。",
+    "verifyEmailAlready": "這個信箱先前已完成驗證，不需要再驗一次。",
+    "verifyEmailExpired": "驗證連結已過期。請登入會員中心重新寄送一封。",
+    "verifyEmailInvalid": "驗證連結無效或已經使用過。請登入會員中心重新寄送一封。",
+    "verifyEmailGoAccount": "前往會員中心",
+    "verifyEmailResend": "前往會員中心重寄",
+    "identifier": "帳號",
+    "identifierHint": "手機號碼或電子信箱",
+    "forgotPassword": "忘記密碼？",
+    "forgotPasswordTitle": "重設密碼",
+    "forgotPasswordIntro": "輸入註冊時的手機號碼，我們會寄一組驗證碼給你，驗證後即可設定新密碼。",
+    "resetPasswordSubmit": "重設密碼並登入",
+    "backToLogin": "回到登入",
+    "resetNoAccount": "這支號碼沒有對應的會員",
+    "setPasswordTitle": "設定密碼",
+    "setPasswordIntro": "為了下次登入不必再等簡訊，請先設定密碼。設定後就能用手機號碼與密碼登入。",
+    "setPasswordSubmit": "設定密碼並繼續",
+    "setPasswordAccountHint": "你的帳號是 {phone}",
+    "passwordAlreadySet": "這個帳號已經有密碼了，請到「帳號安全」變更密碼",
+    "newPassword": "新密碼",
+    "checkoutNeedsAccount": "結帳需要會員帳號。註冊或登入之後，購物車裡的商品會原封不動帶過去。",
+    "resetDoneLoginManually": "密碼已重設，請回登入頁用新密碼登入",
+    "setPasswordAlready": "這個帳號已經設定過密碼了，點下方繼續即可回到會員中心。",
+    "setPasswordContinue": "繼續",
+    "firstTimePhoneLogin": "第一次用手機登入？",
+    "smsLoginTitle": "手機驗證碼登入",
+    "smsLoginIntro": "第一次用手機登入會直接為你建立會員。登入後請設定密碼，之後就用手機號碼與密碼登入，不必再等簡訊。"
   },
   "orderStatus": {
     "PENDING_PAYMENT": "待付款",
@@ -434,7 +507,10 @@
     "companyNote": "台北市中山區",
     "orderQueryTitle": "想查詢訂單狀態？",
     "orderQueryBody": "不需要來信，直接用訂單編號加上下單時填的手機或 Email 就能查詢。",
-    "orderQueryCta": "前往訂單查詢"
+    "orderQueryCta": "前往訂單查詢",
+    "lineTitle": "LINE 客服",
+    "lineNote": "退款、退換貨與訂單問題最快的管道",
+    "lineCta": "加 LINE 好友"
   },
   "faq": {
     "title": "常見問題",
@@ -442,7 +518,7 @@
     "q_payment": "有哪些付款方式？",
     "a_payment": "本站透過綠界科技 ECPay 提供信用卡（可分期）、ATM 虛擬帳號轉帳、超商代碼繳費三種方式。ATM 與超商代碼會在下單後產生繳費資訊，請於期限內完成付款，逾期訂單將自動取消並釋放庫存。",
     "q_modify": "下單後可以修改訂單嗎？",
-    "a_modify": "訂單成立後無法自行修改。若尚未出貨，請於客服時間內來信 {email}，並附上訂單編號，我們會協助處理。",
+    "a_modify": "訂單成立後無法自行修改。若尚未出貨，請於客服時間內用 LINE 客服聯繫我們並附上訂單編號，我們會協助處理。",
     "q_coupon": "折扣碼要怎麼使用？",
     "a_coupon": "在購物車頁面的「折扣碼」欄位輸入後按套用即可，折抵金額會即時反映在總計上。每張折扣碼有各自的使用門檻與次數限制，且一張訂單只能使用一組。",
     "shippingTitle": "運送與取貨",
@@ -459,7 +535,7 @@
     "a_returns": "依《消費者保護法》，您享有商品到貨後 7 天的鑑賞期（非試用期）。退回商品須為全新完整、包含原包裝與吊牌。基於衛生考量，貼身衣物一經拆封或試穿恕不接受退換。",
     "more_returns": "完整退換貨政策",
     "q_refund": "退款要多久？",
-    "a_refund": "我們收到退回商品並確認無誤後 3–7 個工作天完成退款。信用卡退刷依各發卡行作業時間，通常為 1–2 個帳單週期。",
+    "a_refund": "退款與退換貨請透過 LINE 客服申請。我們收到退回商品並確認無誤後 3–7 個工作天完成退款；信用卡退刷依各發卡行作業時間，通常為 1–2 個帳單週期，非信用卡付款則以匯款退回您指定的帳戶。",
     "more_refund": "退款方式與時程"
   },
   "chat": {
@@ -505,7 +581,8 @@
     "emailTaken": "這個 Email 已經註冊過了，請直接登入",
     "purchaseNotFound": "找不到對應的購買紀錄，或訂單尚未完成",
     "productMismatch": "商品資料不符",
-    "alreadyReviewed": "這個項目已經評論過了"
+    "alreadyReviewed": "這個項目已經評論過了",
+    "loginRequiredForCheckout": "請先註冊或登入會員再結帳"
   },
   "common": {
     "loading": "載入中…",
@@ -585,5 +662,26 @@
     "companyNameRequired": "請輸入公司抬頭",
     "ratingRequired": "請選擇評分",
     "reviewBodyMin": "評論至少 5 個字"
+  },
+  "slip": {
+    "title": "超商繳費單",
+    "intro": "可直接列印，或存成圖片放進手機相簿帶去超商。",
+    "imageAlt": "超商繳費單，含繳費代碼與條碼",
+    "saveHint": "手機請長按上方圖片即可儲存到相簿；條碼需由店員刷讀，請保持畫面清晰。",
+    "saveImage": "儲存為圖片",
+    "saving": "產生圖片中…",
+    "print": "列印",
+    "copyCode": "複製繳費代碼",
+    "copied": "已複製",
+    "unavailable": "這張訂單目前沒有可繳費的資訊（可能已完成付款、已取消，或選的是其他付款方式）。",
+    "backToOrder": "回訂單頁"
+  },
+  "refund": {
+    "contactTitle": "需要退款或退換貨？",
+    "contactBody": "請透過 LINE 客服與我們聯繫，並告知訂單編號 {orderNo}。瑕疵或寄錯商品請一併傳照片，客服確認後會告知退回方式與退款時程。",
+    "contactBodyEmail": "請來信客服信箱並附上訂單編號 {orderNo}。瑕疵或寄錯商品請一併附上照片，客服確認後會告知退回方式與退款時程。",
+    "lineCta": "聯繫 LINE 客服",
+    "lineId": "LINE ID：{id}",
+    "refundInProgressTitle": "退款處理中"
   }
 }

@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test'
-import { addFirstProductToCart, fillContact, fillHomeAddress, stubCvsStoreSelection } from './helpers/checkout'
+import {
+  fillContact,
+  fillHomeAddress,
+  startMemberCheckout,
+  stubCvsStoreSelection,
+} from './helpers/checkout'
 
 /**
  * 物流相關的結帳行為：選店結果的接收合約（postMessage / sessionStorage /
@@ -14,8 +19,7 @@ test.describe('結帳物流', () => {
   test.describe.configure({ timeout: 180_000 })
 
   test.beforeEach(async ({ page }) => {
-    await addFirstProductToCart(page)
-    await page.goto('/checkout')
+    await startMemberCheckout(page)
     await fillContact(page)
   })
 

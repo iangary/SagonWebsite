@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { Mail, Clock, Building2, Package } from 'lucide-react'
+import { Mail, Clock, Building2, Package, MessageCircle } from 'lucide-react'
 import { Link } from '@/i18n/routing'
 import { env } from '@/lib/env'
-import { shopName } from '@/lib/shop-config'
+import { lineSupport, shopName } from '@/lib/shop-config'
 
 export const revalidate = 3600
 
@@ -23,6 +23,19 @@ export default async function ContactPage({ params }: { params: Promise<{ locale
   const t = await getTranslations('contact')
 
   const channels = [
+    // LINE 放第一個：退款、退換貨與訂單問題都走這裡，是最主要的管道。
+    // 還沒設定官方帳號就整列不顯示 —— 顯示一列「尚未開放」對客人沒有意義。
+    ...(lineSupport
+      ? [
+          {
+            icon: MessageCircle,
+            title: t('lineTitle'),
+            body: lineSupport.id ?? t('lineCta'),
+            note: t('lineNote'),
+            href: lineSupport.url,
+          },
+        ]
+      : []),
     {
       icon: Mail,
       title: t('emailTitle'),
@@ -55,7 +68,19 @@ export default async function ContactPage({ params }: { params: Promise<{ locale
             <channel.icon size={20} strokeWidth={1.5} className="mt-0.5 shrink-0 text-taupe-500" />
             <div>
               <p className="text-xs tracking-wide text-taupe-600">{channel.title}</p>
-              <p className="mt-1 text-sm text-ink-900">{channel.body}</p>
+              {'href' in channel && channel.href ? (
+                // 外部連結用原生 <a>：next-intl 的 Link 會把它當站內路徑處理
+                <a
+                  href={channel.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 inline-block text-sm text-ink-900 underline underline-offset-4"
+                >
+                  {channel.body}
+                </a>
+              ) : (
+                <p className="mt-1 text-sm text-ink-900">{channel.body}</p>
+              )}
               <p className="mt-1 text-xs text-taupe-500">{channel.note}</p>
             </div>
           </li>

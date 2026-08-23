@@ -64,25 +64,104 @@
 }
 
 @layer components {
-  /* 商品描述是從來源站帶過來的 HTML，統一給它一套排版 */
+  /*
+    商品描述是從來源站帶過來的 HTML，統一給它一套排版。
+    前提是 normalizeDescriptionHtml 已經把 inline style 拔乾淨
+    （見 src/lib/catalog/description.ts）—— 留著 style 的話下面一條都不會生效。
+
+    尺度參考 Marais 瑪黑的商品介紹區（實測 16px / 1.8 / 0.01em / #404040，
+    段距 16px，欄寬 677px），行高沿用本站中文正文慣用的 1.9。
+  */
   .prose-product {
+    font-size: 0.9375rem;
+    line-height: 1.9;
+    letter-spacing: 0.02em;
+    color: var(--color-ink-700);
+    text-wrap: pretty;
+  }
+  @media (width >= 48rem) {
+    .prose-product {
+      font-size: 1rem;
+    }
+  }
+
+  /* line-height 要在這裡再寫一次：base layer 的 `p { line-height: 1.85 }` 是直接命中，
+     贏過從 .prose-product 繼承下來的 1.9 —— 只宣告在容器上等於沒生效 */
+  .prose-product p {
+    margin-block: 1.15rem;
     line-height: 1.9;
   }
-  .prose-product p {
-    margin-block: 0.75rem;
+  /* 首尾不要多出來的外距，否則和 h2 的間距、收摺的底線都會歪掉 */
+  .prose-product > :first-child {
+    margin-top: 0;
   }
+  .prose-product > :last-child {
+    margin-bottom: 0;
+  }
+
+  .prose-product h2,
+  .prose-product h3,
+  .prose-product h4 {
+    margin-block: 3rem 1rem;
+    font-family: var(--font-serif-display);
+    font-size: 1.0625rem;
+    letter-spacing: 0.08em;
+    color: var(--color-ink-900);
+  }
+
+  .prose-product strong {
+    font-weight: 600;
+    color: var(--color-ink-900);
+  }
+
+  /* 圖片與文字同寬，整段讀起來像一份排好的文件 */
   .prose-product img {
-    max-width: 100%;
+    display: block;
+    width: 100%;
     height: auto;
-    margin-block: 1rem;
+    margin-block: 2rem;
+    border-radius: var(--radius-card);
+  }
+  /* 來源站把每張圖各包一個 <p>，那層的段距會和圖片自己的疊起來 */
+  .prose-product p:has(> img) {
+    margin-block: 0;
+  }
+
+  .prose-product a {
+    color: var(--color-taupe-600);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    transition: color 0.3s;
+  }
+  .prose-product a:hover {
+    color: var(--color-ink-900);
+  }
+
+  .prose-product hr {
+    margin-block: 2.5rem;
+    border-color: var(--color-cream-200);
+  }
+
+  .prose-product ul,
+  .prose-product ol {
+    padding-inline-start: 1.5rem;
+    margin-block: 1.15rem;
   }
   .prose-product ul {
     list-style: disc;
-    padding-inline-start: 1.5rem;
-    margin-block: 0.75rem;
   }
-  .prose-product strong {
-    font-weight: 600;
+  .prose-product ol {
+    list-style: decimal;
+  }
+  .prose-product li {
+    margin-block: 0.35rem;
+  }
+
+  .prose-product blockquote {
+    margin-block: 1.75rem;
+    padding-inline-start: 1.25rem;
+    border-inline-start: 1px solid var(--color-cream-300);
+    color: var(--color-taupe-600);
   }
 }
 

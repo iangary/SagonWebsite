@@ -7,6 +7,7 @@ import { db } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
 import { hashPassword, verifyPassword } from '@/lib/auth/password'
 import { verifyOtp } from '@/lib/auth/otp'
+import { requestEmailVerification } from '@/lib/auth/email-verification'
 import { normalizeTwMobile } from '@/lib/sms/provider'
 
 export type ActionState = {
@@ -260,4 +261,46 @@ export async function unlinkProvider(provider: string): Promise<{ ok: boolean; e
 
   revalidatePath('/account/security')
   return { ok: true }
+}
+
+// ---------------------------------------------------------------------------
+// Email 驗證
+// ---------------------------------------------------------------------------
+
+/**
+ * 重寄註冊驗證信。
+ *
+ * 註冊時已經自動寄過一次，這支只是給「沒收到、被歸垃圾信、連結過期」的人用的補救，
+ * 節流（60 秒冷卻、每小時 5 次）在 requestEmailVerification 裡。
+ */
+export async function resendEmailVerification(): Promise<ActionState> {
+  const sessionUser = await requireUser()
+
+  const user = await db.user.findUniqueOrThrow({
+    where: { id: sessionUser.id },
+    select: { email: true, emailVerified: true },
+  })
+
+  const t = await getTranslations('account')
+  if (!user.email) return { ok: false, error: t('emailNotSet') }
+  if (user.emailVerified) return { ok: true, message: t('emailAlreadyVerified') }
+
+  const result = await requestEmailVerification(user.email)
+
+  if (!result.ok) {
+    const messages: Record<typeof result.reason, string> = {
+      no_account: t('verificationSendFailed'),
+      already_verified: t('emailAlreadyVerified'),
+      cooldown: t('verificationCooldown', { seconds: result.retryAfterSeconds ?? 60 }),
+      rate_limited: t('verificationRateLimited'),
+      mail_failed: t('verificationSendFailed'),
+    }
+    // already_verified 是好消息，不該長得像錯誤
+    return result.reason === 'already_verified'
+      ? { ok: true, message: messages.already_verified }
+      : { ok: false, error: messages[result.reason] }
+  }
+
+  revalidatePath('/account')
+  return { ok: true, message: t('verificationSent') }
 }

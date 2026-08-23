@@ -7,6 +7,7 @@ export const shopConfig = {
   name: env.SHOP_NAME,
   nameEn: env.SHOP_NAME_EN,
   taxId: env.SHOP_TAX_ID,
+  serviceEmail: env.SHOP_SERVICE_EMAIL,
   shippingFee: {
     CVS: env.SHIPPING_FEE_CVS,
     HOME: env.SHIPPING_FEE_HOME,
@@ -16,6 +17,16 @@ export const shopConfig = {
 } as const
 
 export type ShippingMethodKey = keyof typeof shopConfig.shippingFee
+
+/**
+ * LINE 官方帳號（退款與退換貨的客服入口）。
+ *
+ * 沒設定 SHOP_LINE_URL 時回 null，呼叫端要退回顯示客服信箱 ——
+ * 給客人一顆點了沒反應的「加 LINE 客服」按鈕比沒有這顆按鈕更糟。
+ */
+export const lineSupport: { url: string; id: string | null } | null = env.SHOP_LINE_URL
+  ? { url: env.SHOP_LINE_URL, id: env.SHOP_LINE_ID || null }
+  : null
 
 /**
  * 依語系挑店名。前台的 logo、頁尾、關於頁與 metadata 都走這裡，

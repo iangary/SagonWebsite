@@ -4,6 +4,7 @@ import { env } from '@/lib/env'
 import { db } from '@/lib/db'
 import { formatTWD } from '@/lib/utils'
 import { LOGISTICS_SUBTYPE_LABEL } from '@/lib/ecpay/logistics'
+import { currentPaymentOf } from '@/lib/orders/payment'
 
 let transporter: nodemailer.Transporter | null = null
 
@@ -27,7 +28,19 @@ function getTransporter(): nodemailer.Transporter {
   return transporter
 }
 
-export type EmailTemplate = 'order-confirmed' | 'payment-info' | 'shipped' | 'order-cancelled'
+export type EmailTemplate =
+  | 'order-confirmed'
+  | 'payment-info'
+  | 'shipped'
+  | 'order-cancelled'
+  | 'cod-confirmed'
+  | 'refund-requested'
+  | 'refund-approved'
+  | 'refund-rejected'
+  | 'refund-completed'
+
+/** 退款相關的信要嘛寄給客服、要嘛寄給消費者，收件人不同 */
+const TO_SERVICE: ReadonlySet<EmailTemplate> = new Set(['refund-requested'])
 
 /** 郵件內容不能用 Tailwind，只能用 inline style，這是共用的外框。 */
 function layout(title: string, body: string): string {
@@ -94,15 +107,62 @@ function orderLink(orderNo: string): string {
 }
 
 /**
+ * Email 註冊後的一次性驗證信。
+ *
+ * 和訂單通知信無關（沒有 orderId，也不進 BullMQ），所以不放進 EmailTemplate ——
+ * 但共用同一個 transporter 與外框，改版型時兩邊一起變。
+ */
+export async function sendEmailVerification(
+  to: string,
+  verifyUrl: string,
+  /** 有效時數。常數住在 email-verification.ts，用參數傳進來避免兩個模組互相 import。 */
+  expiresInHours: number,
+): Promise<void> {
+  const subject = `【${env.SHOP_NAME}】請驗證您的電子信箱`
+  const body = `
+    <p>您好，感謝您註冊 ${escapeHtml(env.SHOP_NAME)} 會員。</p>
+    <p>請點擊下方按鈕完成信箱驗證，之後登入只需要 Email 與密碼，不會再收到驗證信。</p>
+    <p style="margin:24px 0 0;"><a href="${escapeHtml(verifyUrl)}" style="display:inline-block;padding:11px 24px;background:#2b2724;color:#faf8f5;text-decoration:none;font-size:13px;letter-spacing:.05em;">驗證我的信箱</a></p>
+    <p style="margin:18px 0 0;font-size:12px;color:#857263;">
+      按鈕無法點擊時，請複製以下連結貼到瀏覽器：<br>
+      <span style="word-break:break-all;">${escapeHtml(verifyUrl)}</span>
+    </p>
+    <p style="margin:18px 0 0;font-size:12px;color:#857263;">
+      連結 ${expiresInHours} 小時內有效。若這不是您本人的操作，請忽略這封信，您的帳號不會有任何變動。
+    </p>`
+
+  await getTransporter().sendMail({
+    from: env.MAIL_FROM,
+    to,
+    subject,
+    html: layout('驗證您的電子信箱', body),
+  })
+}
+
+/**
  * 寄出訂單相關通知信。
  * 內容全部即時從 DB 組出來，所以 worker 重試時寄到的一定是最新狀態。
  */
-export async function sendOrderEmail(template: EmailTemplate, orderId: string): Promise<void> {
+export async function sendOrderEmail(
+  template: EmailTemplate,
+  orderId: string,
+  options: { refundId?: string } = {},
+): Promise<void> {
   const order = await db.order.findUnique({
     where: { id: orderId },
-    include: { items: true, payment: true, shipment: true, invoice: true },
+    include: {
+      items: true,
+      payments: { orderBy: { createdAt: 'desc' } },
+      shipment: true,
+      invoice: true,
+    },
   })
   if (!order) throw new Error(`找不到訂單：${orderId}`)
+
+  const payment = currentPaymentOf(order.payments)
+  const refund = options.refundId
+    ? await db.refundRequest.findUnique({ where: { id: options.refundId } })
+    : null
 
   let subject: string
   let body: string
@@ -132,7 +192,7 @@ export async function sendOrderEmail(template: EmailTemplate, orderId: string): 
     }
 
     case 'payment-info': {
-      const p = order.payment
+      const p = payment
       subject = `【${env.SHOP_NAME}】訂單 ${order.orderNo} 繳費資訊`
       body = `
         <p>${escapeHtml(order.recipientName)} 您好，您的訂單已成立，請於期限內完成付款。</p>
@@ -174,11 +234,96 @@ export async function sendOrderEmail(template: EmailTemplate, orderId: string): 
         <p>若仍想購買，歡迎重新下單。</p>`
       break
     }
+
+    case 'cod-confirmed': {
+      subject = `【${env.SHOP_NAME}】訂單 ${order.orderNo} 已成立（貨到付款）`
+      body = `
+        <p>${escapeHtml(order.recipientName)} 您好，您的訂單已成立，我們正在為您備貨。</p>
+        <p style="color:#857263;font-size:13px;">訂單編號：${order.orderNo}</p>
+        ${itemsTable(order.items)}
+        ${summary(order)}
+        <div style="margin:18px 0;padding:16px;background:#faf8f5;border:1px solid #e9e2d8;font-size:13px;">
+          付款方式：<strong>貨到付款</strong><br>
+          應付金額：<strong>${formatTWD(order.grandTotal)}</strong><br>
+          ${
+            order.shipment?.cvsStoreName
+              ? `取貨門市：${escapeHtml(order.shipment.cvsStoreName)}<br>請於取貨時在櫃檯付款。`
+              : '請於收到包裹時將款項交給配送人員。'
+          }
+        </div>
+        ${orderLink(order.orderNo)}`
+      break
+    }
+
+    case 'refund-requested': {
+      // 這封是寄給客服的內部通知，附上人工匯款要用的帳戶資訊
+      subject = `【${env.SHOP_NAME}】訂單 ${order.orderNo} 有新的退款申請`
+      body = `
+        <p>訂單 ${order.orderNo} 的消費者提出退款申請，請至後台處理。</p>
+        <div style="margin:18px 0;padding:16px;background:#faf8f5;border:1px solid #e9e2d8;font-size:13px;">
+          金額：<strong>${formatTWD(refund?.amount ?? order.grandTotal)}</strong><br>
+          原付款方式：${escapeHtml(payment?.choosePayment ?? '—')}<br>
+          退款方式：${refund?.method === 'CREDIT_REVERSE' ? '信用卡退刷' : '人工匯款'}<br>
+          ${
+            refund?.bankAccountNo
+              ? `收款帳戶：${escapeHtml(refund.bankCode ?? '')} / ${escapeHtml(refund.bankAccountNo)}（${escapeHtml(refund.accountName ?? '')}）<br>`
+              : ''
+          }
+          申請原因：${escapeHtml(refund?.reason ?? '')}
+        </div>
+        <p style="margin:24px 0 0;"><a href="${new URL('/admin/refunds', env.APP_URL).toString()}" style="display:inline-block;padding:11px 24px;background:#2b2724;color:#faf8f5;text-decoration:none;font-size:13px;letter-spacing:.05em;">前往後台</a></p>`
+      break
+    }
+
+    case 'refund-approved': {
+      subject = `【${env.SHOP_NAME}】訂單 ${order.orderNo} 退款申請已受理`
+      body = `
+        <p>${escapeHtml(order.recipientName)} 您好，您的退款申請已受理。</p>
+        <div style="margin:18px 0;padding:16px;background:#faf8f5;border:1px solid #e9e2d8;font-size:13px;">
+          訂單編號：${order.orderNo}<br>
+          退款金額：<strong>${formatTWD(refund?.amount ?? order.grandTotal)}</strong><br>
+          退款方式：${refund?.method === 'CREDIT_REVERSE' ? '刷退至原信用卡' : '匯款至您提供的帳戶'}
+        </div>
+        <p style="font-size:13px;color:#857263;">
+          ${
+            refund?.method === 'CREDIT_REVERSE'
+              ? '刷退作業依發卡銀行作業時間，通常會在下一期帳單或數個工作日內顯示。'
+              : '我們會在 3 個工作日內完成匯款，完成後另行通知。若尚未提供收款帳戶，請在 LINE 上告知客服。'
+          }
+        </p>`
+      break
+    }
+
+    case 'refund-rejected': {
+      subject = `【${env.SHOP_NAME}】訂單 ${order.orderNo} 退款申請結果`
+      body = `
+        <p>${escapeHtml(order.recipientName)} 您好，關於您訂單 ${order.orderNo} 的退款申請，我們目前無法受理。</p>
+        ${
+          refund?.adminNote
+            ? `<div style="margin:18px 0;padding:16px;background:#faf8f5;border:1px solid #e9e2d8;font-size:13px;">說明：${escapeHtml(refund.adminNote)}</div>`
+            : ''
+        }
+        <p style="font-size:13px;color:#857263;">若有疑問，歡迎在 LINE 上直接回覆客服，或來信 ${escapeHtml(env.SHOP_SERVICE_EMAIL)}。</p>`
+      break
+    }
+
+    case 'refund-completed': {
+      subject = `【${env.SHOP_NAME}】訂單 ${order.orderNo} 退款已完成`
+      body = `
+        <p>${escapeHtml(order.recipientName)} 您好，您的退款已處理完成。</p>
+        <div style="margin:18px 0;padding:16px;background:#faf8f5;border:1px solid #e9e2d8;font-size:13px;">
+          訂單編號：${order.orderNo}<br>
+          退款金額：<strong>${formatTWD(refund?.amount ?? order.grandTotal)}</strong><br>
+          退款方式：${refund?.method === 'CREDIT_REVERSE' ? '刷退至原信用卡' : '匯款'}
+        </div>
+        <p style="font-size:13px;color:#857263;">感謝您的耐心等候。</p>`
+      break
+    }
   }
 
   await getTransporter().sendMail({
     from: env.MAIL_FROM,
-    to: order.email,
+    to: TO_SERVICE.has(template) ? env.SHOP_SERVICE_EMAIL : order.email,
     subject,
     html: layout(subject.replace(/^【[^】]*】/, ''), body),
   })

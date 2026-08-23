@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Link } from '@/i18n/routing'
 import { env } from '@/lib/env'
+import { lineSupport } from '@/lib/shop-config'
 import { LegalPage, type LegalSection } from '@/components/legal/legal-page'
 
 export const revalidate = 3600
@@ -65,12 +66,16 @@ export default async function ReturnsPage({ params }: { params: Promise<{ locale
           terms: [
             {
               term: '第 1 步　提出申請',
-              description: `於鑑賞期內來信 ${env.SHOP_SERVICE_EMAIL}，附上訂單編號、欲退換的商品名稱與原因；如為瑕疵或寄送錯誤，請一併附上商品照片。`,
+              // 退款與退換貨一律走 LINE 客服；還沒設定 LINE 官方帳號時退回客服信箱
+              description: lineSupport
+                ? `於鑑賞期內透過 LINE 客服${lineSupport.id ? `（${lineSupport.id}）` : ''}與我們聯繫，告知訂單編號、欲退換的商品名稱與原因；如為瑕疵或寄送錯誤，請一併傳送商品照片。`
+                : `於鑑賞期內來信 ${env.SHOP_SERVICE_EMAIL}，附上訂單編號、欲退換的商品名稱與原因；如為瑕疵或寄送錯誤，請一併附上商品照片。`,
             },
             {
               term: '第 2 步　等待客服回覆',
-              description:
-                '客服確認後，會提供退貨方式與收件資訊。請勿自行寄回未經確認的包裹，以免無法核對訂單而延誤處理。',
+              description: lineSupport
+                ? '客服會在 LINE 上確認商品狀態，並提供退貨方式與收件資訊。請勿自行寄回未經確認的包裹，以免無法核對訂單而延誤處理。'
+                : '客服確認後，會提供退貨方式與收件資訊。請勿自行寄回未經確認的包裹，以免無法核對訂單而延誤處理。',
             },
             {
               term: '第 3 步　寄回商品',
@@ -103,9 +108,10 @@ export default async function ReturnsPage({ params }: { params: Promise<{ locale
                 '以原卡退刷。本站辦理後，實際退刷時間依發卡銀行作業而定，通常需 1–2 個帳單週期。',
             },
             {
-              term: 'ATM 虛擬帳號、超商代碼繳費',
-              description:
-                '退款至您指定的帳戶，請於申請時提供本人的銀行名稱、分行、戶名與帳號。',
+              term: 'ATM 虛擬帳號、超商代碼／條碼繳費、貨到付款',
+              description: lineSupport
+                ? '這些付款方式無法線上退刷，將以匯款方式退還，請於 LINE 客服對話中提供本人的銀行代碼、戶名與帳號。'
+                : '這些付款方式無法線上退刷，將以匯款方式退還，請於申請時提供本人的銀行名稱、分行、戶名與帳號。',
             },
           ],
         },
@@ -172,7 +178,7 @@ export default async function ReturnsPage({ params }: { params: Promise<{ locale
     <LegalPage
       eyebrow="Returns"
       title="退換貨政策"
-      intro="您享有消費者保護法保障的七天鑑賞期。以下說明哪些商品適用、退貨時商品需保持什麼狀態、怎麼申請，以及退款要多久會入帳。"
+      intro="您享有消費者保護法保障的七天鑑賞期。退換貨與退款一律透過 LINE 客服申請。以下說明哪些商品適用、退貨時商品需保持什麼狀態、怎麼申請，以及退款要多久會入帳。"
       updatedAt="2026-08-15"
       sections={sections}
     />

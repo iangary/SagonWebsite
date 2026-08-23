@@ -17,7 +17,7 @@ export interface AioOrderInput {
   tradeDesc: string
   items: { name: string; qty: number; unitPrice: number }[]
   choosePayment: ChoosePayment
-  /** 未付款訂單的有效期（ATM 是天、CVS 是分鐘），與庫存預扣時間對齊 */
+  /** 未付款訂單的有效期（一律傳分鐘，換算見 actualExpireMinutes），與庫存預扣時間對齊 */
   expireMinutes?: number
   customField1?: string
 }
@@ -53,24 +53,44 @@ export function generateMerchantTradeNo(prefix = 'SG'): string {
   return `${prefix}${ts}${rand}`.slice(0, 20)
 }
 
+/** 一天有幾分鐘。ATM／條碼的期限單位是天，換算時到處都要用。 */
+const MINUTES_PER_DAY = 60 * 24
+
+/** 超商代碼的 StoreExpireDate 單位是分鐘，上限 43200（30 天）。 */
+export const CVS_EXPIRE_MINUTES_MAX = 43_200
+/** 超商條碼的 StoreExpireDate 單位是「天」，上限 30 天（一般特店）。 */
+export const BARCODE_EXPIRE_DAYS_MAX = 30
+
 /**
  * 綠界「實際生效」的付款期限（分鐘）。
  *
- * ATM 的 ExpireDate 單位是天、下限 1 天 —— 就算我們只要求 30 分鐘，
- * 消費者實際上有一整天可以匯款。庫存預扣與訂單取消排程必須以這個
- * 換算後的值為準，否則會發生「訂單 30 分鐘就被取消、隔天錢卻進來了」。
- * CVS/BARCODE 單位是分鐘（1 ~ 43200），信用卡當場付款不受期限影響。
+ * 三種付款方式的單位都不一樣，而且都有下限，所以我們要求的期限與消費者
+ * 實際拿到的期限經常不同：
+ *   - ATM     ExpireDate      單位「天」，下限 1 天
+ *   - 超商代碼 StoreExpireDate 單位「分鐘」，1 ~ 43200（預設 7 天）
+ *   - 超商條碼 StoreExpireDate 單位「天」，1 ~ 30（預設 7 天）
+ *     （條碼與代碼同名參數卻不同單位，是綠界文件裡最容易踩的一格）
+ *
+ * 庫存預扣與訂單取消排程必須以這個換算後的值為準，否則會發生
+ * 「訂單 30 分鐘就被取消、隔天錢卻進來了」。信用卡當場付款不受期限影響。
  */
 export function actualExpireMinutes(
   choosePayment: ChoosePayment,
   requestedMinutes: number,
 ): number {
   if (choosePayment === 'ATM') {
-    const days = Math.max(1, Math.ceil(requestedMinutes / (60 * 24)))
-    return days * 60 * 24
+    const days = Math.max(1, Math.ceil(requestedMinutes / MINUTES_PER_DAY))
+    return days * MINUTES_PER_DAY
   }
-  if (choosePayment === 'CVS' || choosePayment === 'BARCODE') {
-    return Math.min(43200, Math.max(1, requestedMinutes))
+  if (choosePayment === 'BARCODE') {
+    const days = Math.min(
+      BARCODE_EXPIRE_DAYS_MAX,
+      Math.max(1, Math.ceil(requestedMinutes / MINUTES_PER_DAY)),
+    )
+    return days * MINUTES_PER_DAY
+  }
+  if (choosePayment === 'CVS') {
+    return Math.min(CVS_EXPIRE_MINUTES_MAX, Math.max(1, requestedMinutes))
   }
   return requestedMinutes
 }
@@ -110,10 +130,13 @@ export function buildAioCheckoutParams(input: AioOrderInput): Record<string, str
     const effective = actualExpireMinutes(input.choosePayment, input.expireMinutes)
     if (input.choosePayment === 'ATM') {
       // ATM 的單位是「天」，最少 1 天
-      params.ExpireDate = String(effective / (60 * 24))
-    } else if (input.choosePayment === 'CVS' || input.choosePayment === 'BARCODE') {
-      // CVS 的單位是「分鐘」，綠界限制 1 分鐘 ~ 43200 分鐘
+      params.ExpireDate = String(effective / MINUTES_PER_DAY)
+    } else if (input.choosePayment === 'CVS') {
+      // 超商代碼的單位是「分鐘」，綠界限制 1 ~ 43200 分鐘
       params.StoreExpireDate = String(effective)
+    } else if (input.choosePayment === 'BARCODE') {
+      // 超商條碼的同名參數單位是「天」，1 ~ 30 天
+      params.StoreExpireDate = String(effective / MINUTES_PER_DAY)
     }
   }
 
@@ -157,6 +180,19 @@ export function isSimulatedPayment(params: Record<string, string>): boolean {
 
 /** 綠界要求 callback 回覆這串純文字，否則會一直重送 */
 export const ECPAY_ACK = '1|OK'
+
+/**
+ * QueryTradeInfo 回傳的 TradeStatus。
+ *   0        已建立訂單，還沒付款
+ *   1        已付款
+ *   10200095 交易失敗（消費者沒有完成付款）
+ * 綠界文件另有 10200163（BNPL 申請未過），我們沒開 BNPL。
+ */
+export const TRADE_STATUS = {
+  unpaid: '0',
+  paid: '1',
+  failed: '10200095',
+} as const
 
 /** 查詢單筆訂單在綠界端的狀態，用於對帳與人工補單 */
 export async function queryTradeInfo(merchantTradeNo: string): Promise<Record<string, string>> {

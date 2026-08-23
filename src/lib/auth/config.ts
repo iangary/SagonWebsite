@@ -30,17 +30,28 @@ export const authConfig = {
         // SSO 登入不經過 authorize()，user 是 PrismaAdapter 直接吐出來的整列，
         // locale 還是未收斂的 string，所以這裡再過一次 toLocale。
         token.locale = toLocale((user as { locale?: string | null }).locale)
+        // 手機驗證碼第一次登入（還沒有密碼）時為 true。SSO 走 PrismaAdapter，
+        // user 上沒有這個欄位 → undefined → 不擋（他們本來就有免費的登入方式）。
+        token.needsPassword = (user as { needsPassword?: boolean }).needsPassword ?? false
       }
       // 會員在 /account 改完資料、或在 header 換語系後呼叫 update()，讓 token 立刻反映新值
       if (trigger === 'update' && session) {
+        // client 的 update(data) 直接給物件；server 的 unstable_update()
+        // 包成 { user: {...} }，兩種都要收。
         const patch = session as {
           name?: string
           phone?: string | null
           locale?: 'zh-TW' | 'en' | null
+          needsPassword?: boolean
+          user?: { needsPassword?: boolean }
         }
         if (patch.name !== undefined) token.name = patch.name
         if (patch.phone !== undefined) token.phone = patch.phone
         if (patch.locale !== undefined) token.locale = patch.locale
+        // 設完密碼後前端呼叫 update({ needsPassword: false }) 解鎖，
+        // 否則 proxy 會拿著舊 token 一直把他導回設定頁。
+        const needsPassword = patch.needsPassword ?? patch.user?.needsPassword
+        if (needsPassword !== undefined) token.needsPassword = needsPassword
       }
       return token
     },
@@ -51,6 +62,7 @@ export const authConfig = {
         session.user.role = (token.role as 'CUSTOMER' | 'ADMIN') ?? 'CUSTOMER'
         session.user.phone = (token.phone as string | null) ?? null
         session.user.locale = (token.locale as 'zh-TW' | 'en' | null) ?? null
+        session.user.needsPassword = token.needsPassword === true
       }
       return session
     },

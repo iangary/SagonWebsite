@@ -19,12 +19,18 @@ export interface PricingInput {
   shippingFees: Record<ShippingMethod, number>
   freeShippingThreshold: number
   coupon?: Coupon | null
+  /**
+   * 貨到付款手續費。只有選貨到付款時才傳。
+   * 刻意與運費分開 —— 免運門檻不該把手續費也免掉（那是代收的成本，不是運費）。
+   */
+  codFee?: number
 }
 
 export interface PricingResult {
   subtotal: number
   discountTotal: number
   shippingFee: number
+  codFee: number
   grandTotal: number
   /** 免運是門檻達成還是折扣碼給的，前台顯示的文案不一樣 */
   freeShippingReason: 'threshold' | 'coupon' | null
@@ -90,11 +96,14 @@ export function calculatePricing(input: PricingInput): PricingResult {
       ? ('coupon' as const)
       : null
 
+  const codFee = Math.max(0, input.codFee ?? 0)
+
   return {
     subtotal,
     discountTotal,
     shippingFee,
-    grandTotal: Math.max(0, subtotal - discountTotal + shippingFee),
+    codFee,
+    grandTotal: Math.max(0, subtotal - discountTotal + shippingFee + codFee),
     freeShippingReason: shippingFee === 0 ? freeShippingReason : null,
     couponError,
   }

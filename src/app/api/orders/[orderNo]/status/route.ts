@@ -12,13 +12,21 @@ export async function GET(_req: Request, { params }: { params: Promise<{ orderNo
 
   const order = await db.order.findUnique({
     where: { orderNo },
-    select: { status: true, payment: { select: { status: true } } },
+    select: {
+      status: true,
+      payments: {
+        where: { supersededAt: null },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { status: true },
+      },
+    },
   })
 
   if (!order) return NextResponse.json({ error: 'not found' }, { status: 404 })
 
   return NextResponse.json(
-    { status: order.status, paymentStatus: order.payment?.status ?? null },
+    { status: order.status, paymentStatus: order.payments[0]?.status ?? null },
     { headers: { 'Cache-Control': 'no-store' } },
   )
 }

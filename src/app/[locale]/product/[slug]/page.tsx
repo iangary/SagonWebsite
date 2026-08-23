@@ -5,11 +5,13 @@ import { Link } from '@/i18n/routing'
 import { env } from '@/lib/env'
 import { formatTWD, truncate } from '@/lib/utils'
 import { getProductBySlug, getRelatedProducts } from '@/lib/catalog/queries'
+import { normalizeDescriptionHtml } from '@/lib/catalog/description'
 import { localizedName } from '@/lib/i18n/localized'
 import { availableStock } from '@/lib/cart'
 import { ProductGallery } from '@/components/product/product-gallery'
 import { AddToCart } from '@/components/product/add-to-cart'
 import { ProductGrid } from '@/components/product/product-card'
+import { ProductDescription } from '@/components/product/product-description'
 import { ProductReviews } from '@/components/product/product-reviews'
 import { Badge } from '@/components/ui/badge'
 
@@ -79,6 +81,9 @@ export default async function ProductPage({
     compareAtPrice: v.compareAtPrice,
     available: availableStock(v),
   }))
+
+  // 來源站帶進來的 HTML 有 4457 個 inline style 會壓過所有 CSS，先正規化掉
+  const description = normalizeDescriptionHtml(product.descriptionHtml)
 
   const onSale = product.compareAtPrice !== null && product.compareAtPrice > product.basePrice
   const inStock = variants.some((v) => v.available > 0)
@@ -184,15 +189,21 @@ export default async function ProductPage({
           </div>
         </div>
 
-        {product.descriptionHtml && (
+        {description && (
           <section className="mt-20 border-t border-cream-200 pt-10">
-            <h2 className="text-lg tracking-[0.12em]">{t('description')}</h2>
-            <div
-              className="prose-product mt-6 max-w-3xl text-sm text-ink-700"
-              // 商品描述是從來源站帶進來的 HTML。正式營運時這段應改由後台的
-              // 富文字編輯器產生，並在寫入時做 sanitize。
-              dangerouslySetInnerHTML={{ __html: product.descriptionHtml }}
-            />
+            {/* 這一段刻意置中成一個編輯式區塊；下面的評論與相關商品維持左對齊 */}
+            <div className="mx-auto max-w-[42.5rem]">
+              <h2 className="text-center text-lg tracking-[0.12em]">{t('description')}</h2>
+              <div className="mt-8">
+                <ProductDescription
+                  html={description}
+                  labels={{
+                    expand: t('expandDescription'),
+                    collapse: t('collapseDescription'),
+                  }}
+                />
+              </div>
+            </div>
           </section>
         )}
 

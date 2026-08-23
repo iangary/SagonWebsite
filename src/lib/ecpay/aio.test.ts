@@ -78,11 +78,19 @@ describe('actualExpireMinutes — 各付款方式的實際生效期限', () => {
     expect(actualExpireMinutes('ATM', 2880)).toBe(2880) // 剛好 2 天不進位
   })
 
-  it('CVS/BARCODE 以分鐘為單位，夾在 1 ~ 43200 之間', () => {
+  it('超商代碼（CVS）以分鐘為單位，夾在 1 ~ 43200 之間', () => {
     expect(actualExpireMinutes('CVS', 30)).toBe(30)
     expect(actualExpireMinutes('CVS', 0)).toBe(1) // 下限 clamp（build 只在 truthy 時呼叫，但函式本身要守住）
     expect(actualExpireMinutes('CVS', 50000)).toBe(43200)
-    expect(actualExpireMinutes('BARCODE', 50000)).toBe(43200)
+  })
+
+  // 超商條碼與超商代碼共用 StoreExpireDate 這個參數名稱，單位卻是「天」不是分鐘。
+  // 照分鐘送出去的話，要求 2 天會變成 2 分鐘（綠界文件 2876）。
+  it('超商條碼（BARCODE）以「天」為單位無條件進位，夾在 1 ~ 30 天', () => {
+    expect(actualExpireMinutes('BARCODE', 30)).toBe(1440) // 30 分鐘 → 1 天
+    expect(actualExpireMinutes('BARCODE', 2880)).toBe(2880) // 剛好 2 天
+    expect(actualExpireMinutes('BARCODE', 2881)).toBe(4320) // 進位到 3 天
+    expect(actualExpireMinutes('BARCODE', 50000)).toBe(43200) // 上限 30 天
   })
 })
 
@@ -103,6 +111,19 @@ describe('buildAioCheckoutParams — 期限參數', () => {
 
     const long = buildAioCheckoutParams(baseInput({ choosePayment: 'CVS', expireMinutes: 50000 }))
     expect(long.StoreExpireDate).toBe('43200')
+  })
+
+  it('BARCODE 單的 StoreExpireDate 以「天」計，與 CVS 同名不同單位', () => {
+    const twoDays = buildAioCheckoutParams(
+      baseInput({ choosePayment: 'BARCODE', expireMinutes: 2880 }),
+    )
+    expect(twoDays.StoreExpireDate).toBe('2')
+    expect(twoDays).not.toHaveProperty('ExpireDate')
+
+    const capped = buildAioCheckoutParams(
+      baseInput({ choosePayment: 'BARCODE', expireMinutes: 60 * 24 * 90 }),
+    )
+    expect(capped.StoreExpireDate).toBe('30')
   })
 
   it('信用卡即使傳 expireMinutes 也不會出現期限參數', () => {

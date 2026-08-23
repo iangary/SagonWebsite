@@ -9,11 +9,10 @@ import {
   simulatePaid,
 } from './helpers/ecpay'
 import {
-  addFirstProductToCart,
   choosePayment,
   fillContact,
   gotoResult,
-  loginAsCustomer,
+  startMemberCheckout,
   stubCvsStoreSelection,
   submitAndCaptureOrderNo,
 } from './helpers/checkout'
@@ -34,10 +33,9 @@ async function orderStatus(request: APIRequestContext, orderNo: string) {
   return (await res.json()) as { status: string; paymentStatus: string | null }
 }
 
-/** 建一張等待付款的訂單（超商取貨 stub 門市），回傳訂單編號 */
+/** 建一張等待付款的訂單（新註冊的會員、超商取貨 stub 門市），回傳訂單編號 */
 async function placeOrder(page: Page, payment: 'Credit' | 'ATM' | 'CVS'): Promise<string> {
-  await addFirstProductToCart(page)
-  await page.goto('/checkout')
+  await startMemberCheckout(page)
   await fillContact(page)
   await stubCvsStoreSelection(page)
   await choosePayment(page, payment)
@@ -48,10 +46,7 @@ test.describe('結帳與付款回拋', () => {
   // dev 模式每個路由都要即時編譯，放寬單條時限
   test.describe.configure({ timeout: 240_000 })
 
-  test('訪客信用卡結帳：等待付款 → 模擬回拋 → 結果頁自動更新為已成立', async ({
-    page,
-    request,
-  }) => {
+  test('信用卡結帳：等待付款 → 模擬回拋 → 結果頁自動更新為已成立', async ({ page, request }) => {
     const orderNo = await placeOrder(page, 'Credit')
     await gotoResult(page, orderNo)
 
@@ -138,7 +133,6 @@ test.describe('結帳與付款回拋', () => {
   })
 
   test('會員結帳後訂單出現在帳戶的訂單列表', async ({ page, request }) => {
-    await loginAsCustomer(page)
     const orderNo = await placeOrder(page, 'Credit')
     await simulatePaid(request, orderNo)
 

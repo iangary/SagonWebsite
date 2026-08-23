@@ -5,10 +5,12 @@ import type { Order, OrderItem, Payment, Shipment, Invoice } from '@prisma/clien
 import { Badge, ORDER_STATUS_TONE, SHIPMENT_STATUS_TONE } from '@/components/ui/badge'
 import { formatTWD } from '@/lib/utils'
 import { shipmentStatusKey } from '@/lib/ecpay/logistics'
+import { currentPaymentOf } from '@/lib/orders/payment'
 
 type OrderWithDetails = Order & {
   items: OrderItem[]
-  payment: Payment | null
+  /** 一張訂單可能有多筆付款（改過付款方式），顯示目前生效的那筆 */
+  payments: Payment[]
   shipment: Shipment | null
   invoice: Invoice | null
 }
@@ -34,7 +36,9 @@ export async function OrderSummaryCard({
   ])
   const tCommon = await getTranslations('common')
 
-  const awaitingTransfer = order.payment?.status === 'AWAITING_TRANSFER'
+  const payment = currentPaymentOf(order.payments)
+  const awaitingTransfer = payment?.status === 'AWAITING_TRANSFER'
+  const awaitingCollection = payment?.status === 'AWAITING_COLLECTION'
 
   // 已取號的 ATM／超商不給重新付款 —— 重送一次會產生新的虛擬帳號，
   // 客戶手上就有兩組號碼了。訂單一旦離開 PENDING_PAYMENT，那支路由本身也會擋。
@@ -98,21 +102,26 @@ export async function OrderSummaryCard({
             {order.invoice.invoiceNumber}
           </p>
         )}
-        {awaitingTransfer && order.payment?.vAccount && (
+        {awaitingTransfer && payment?.vAccount && (
           <p className="text-sale">
             {tResult('awaitingTransfer', {
-              bankCode: order.payment.bankCode ?? '—',
-              vAccount: order.payment.vAccount,
-              expireDate: order.payment.expireDate ?? '—',
+              bankCode: payment.bankCode ?? '—',
+              vAccount: payment.vAccount,
+              expireDate: payment.expireDate ?? '—',
             })}
           </p>
         )}
-        {awaitingTransfer && order.payment?.paymentNo && (
+        {awaitingTransfer && payment?.paymentNo && (
           <p className="text-sale">
             {tResult('awaitingPaymentCode', {
-              paymentNo: order.payment.paymentNo,
-              expireDate: order.payment.expireDate ?? '—',
+              paymentNo: payment.paymentNo,
+              expireDate: payment.expireDate ?? '—',
             })}
+          </p>
+        )}
+        {awaitingCollection && (
+          <p className="text-ink-700">
+            {tResult('awaitingCollection', { amount: formatTWD(order.grandTotal) })}
           </p>
         )}
       </div>
@@ -131,6 +140,14 @@ export async function OrderSummaryCard({
             >
               {tResult('retryPayment')}
             </a>
+          )}
+          {awaitingTransfer && (payment?.paymentNo || payment?.barcode1 || payment?.vAccount) && (
+            <Link
+              href={`/checkout/slip?orderNo=${order.orderNo}`}
+              className="text-ink-900 underline underline-offset-4"
+            >
+              {tResult('printSlip')}
+            </Link>
           )}
           <Link
             href={`/checkout/result?orderNo=${order.orderNo}`}

@@ -37,7 +37,7 @@ export default async function FaqPage({ params }: { params: Promise<{ locale: st
       title: t('orderingTitle'),
       items: [
         { q: t('q_payment'), a: t('a_payment') },
-        { q: t('q_modify'), a: t('a_modify', { email: env.SHOP_SERVICE_EMAIL }) },
+        { q: t('q_modify'), a: t('a_modify') },
         { q: t('q_coupon'), a: t('a_coupon') },
       ],
     },

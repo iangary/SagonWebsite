@@ -15,26 +15,36 @@ import {
   createTestUser,
   reloadOrder,
 } from '../factories'
-import { MemoryCookieJar, enqueueMock, getCookieJar, mockAuthUser, resetCookieJar, withCookieJar } from './mocks'
+import { enqueueMock, getCookieJar, mockAuthUser, resetCookieJar, withAuthUser } from './mocks'
 
 /**
  * createOrderFromCart 的整合測試 —— 從購物車到完整訂單的全鏈路。
  *
- * 購物車靠 sagon_cart cookie（值就是 anonId）認人，這裡用記憶體
- * cookie jar 餵給 next/headers 的 mock；併發測試各自帶自己的 jar。
+ * **只有會員能下單**，所以每個案例都先開一個會員並把 auth mock 切成他；
+ * 併發測試（兩個人搶最後一件）用 withAuthUser 讓兩邊各自帶自己的身分。
+ * 訪客購物車還是存在（cookie 認人），只是走不到結帳 —— 見最後那個 describe。
  */
+
+/** 建一台會員購物車，並把 auth mock 切成該會員 */
+async function seedMemberCart(
+  items: Array<{ variantId: string; qty: number }>,
+  opts: { couponCode?: string } = {},
+) {
+  const user = await createTestUser()
+  const cart = await createTestCart({ userId: user.id, items, couponCode: opts.couponCode })
+  mockAuthUser({ id: user.id, role: 'CUSTOMER', email: user.email })
+  return { cart, user }
+}
 
 let anonSeq = 0
 
-/** 建一台訪客購物車，並把 anonId 種進「目前的」cookie jar */
-async function seedGuestCart(
-  items: Array<{ variantId: string; qty: number }>,
-  opts: { couponCode?: string; jar?: MemoryCookieJar } = {},
-) {
+/** 建一台訪客購物車（anonId 種進 cookie jar），身分保持未登入 */
+async function seedGuestCart(items: Array<{ variantId: string; qty: number }>) {
   anonSeq += 1
   const anonId = `test-anon-${Date.now()}-${anonSeq}`
-  const cart = await createTestCart({ anonId, items, couponCode: opts.couponCode })
-  ;(opts.jar ?? getCookieJar()).seed('sagon_cart', anonId)
+  const cart = await createTestCart({ anonId, items })
+  getCookieJar().seed('sagon_cart', anonId)
+  mockAuthUser(null)
   return cart
 }
 
@@ -95,7 +105,7 @@ beforeEach(() => {
 describe('createOrderFromCart — happy path', () => {
   it('CVS：建立完整訂單（快照/付款/物流/發票/收據/預扣）並清空購物車', async () => {
     const { product, variants } = await createTestProduct({ price: 500, stock: 10 })
-    const cart = await seedGuestCart([{ variantId: variants[0].id, qty: 2 }], {
+    const { cart } = await seedMemberCart([{ variantId: variants[0].id, qty: 2 }], {
       couponCode: 'LEFTOVER',
     })
 
@@ -147,12 +157,13 @@ describe('createOrderFromCart — happy path', () => {
     expect(order.receipt?.status).toBe('PENDING')
     expect(order.receipt?.amount).toBe(1060)
 
-    // 預扣：CVS 付款 → 30 分鐘（STOCK_RESERVATION_MINUTES 預設）
+    // 預扣：超商代碼的繳費期限預設 2 天（後台可調），預扣必須跟著一樣長 ——
+    // 否則會發生「代碼還有效、庫存卻被排程釋放」。
     expect(order.reservations).toHaveLength(1)
     expect(order.reservations[0].qty).toBe(2)
     const minutes = (order.reservations[0].expiresAt.getTime() - before) / 60_000
-    expect(minutes).toBeGreaterThan(28)
-    expect(minutes).toBeLessThan(32)
+    expect(minutes).toBeGreaterThan(2 * 1440 - 2)
+    expect(minutes).toBeLessThan(2 * 1440 + 2)
     expect((await freshVariant(variants[0].id)).reservedStock).toBe(2)
 
     // 購物車清空、殘留的折扣碼一併清掉
@@ -161,22 +172,22 @@ describe('createOrderFromCart — happy path', () => {
     expect(freshCart.couponCode).toBeNull()
   })
 
-  it('ATM：預扣有效期對齊綠界實際期限 ≈ 1 天（F1 修復後行為）', async () => {
+  it('ATM：預扣有效期對齊消費者實際拿到的付款期限（預設 2 天）', async () => {
     const { variants } = await createTestProduct({ stock: 10 })
-    await seedGuestCart([{ variantId: variants[0].id, qty: 1 }])
+    await seedMemberCart([{ variantId: variants[0].id, qty: 1 }])
 
     const before = Date.now()
     const result = assertOk(await createOrderFromCart(baseInput({ choosePayment: 'ATM' })))
 
     const order = await reloadOrder(result.orderId)
     const minutes = (order.reservations[0].expiresAt.getTime() - before) / 60_000
-    expect(minutes).toBeGreaterThan(1438) // 不是 30 分鐘
-    expect(minutes).toBeLessThan(1442)
+    expect(minutes).toBeGreaterThan(2 * 1440 - 2) // 不是 30 分鐘
+    expect(minutes).toBeLessThan(2 * 1440 + 2)
   })
 
   it('HOME：addressLine 與 receiverAddress 正確組合，物流走宅配', async () => {
     const { variants } = await createTestProduct({ stock: 10 })
-    await seedGuestCart([{ variantId: variants[0].id, qty: 1 }])
+    await seedMemberCart([{ variantId: variants[0].id, qty: 1 }])
 
     const result = assertOk(await createOrderFromCart(homeInput()))
 
@@ -196,25 +207,20 @@ describe('createOrderFromCart — happy path', () => {
     expect(order.shipment?.cvsStoreId).toBeNull()
   })
 
-  it('訪客下單 userId 為 null；登入會員下單綁 userId', async () => {
+  it('訂單綁在下單的會員身上', async () => {
     const { variants } = await createTestProduct({ stock: 10 })
-    await seedGuestCart([{ variantId: variants[0].id, qty: 1 }])
-    const guestResult = assertOk(await createOrderFromCart(baseInput()))
-    const guestOrder = await reloadOrder(guestResult.orderId)
-    expect(guestOrder.userId).toBeNull()
+    const { user } = await seedMemberCart([{ variantId: variants[0].id, qty: 1 }])
 
-    const user = await createTestUser()
-    mockAuthUser({ id: user.id, role: 'CUSTOMER' })
-    await createTestCart({ userId: user.id, items: [{ variantId: variants[0].id, qty: 1 }] })
-    const memberResult = assertOk(await createOrderFromCart(baseInput()))
-    const memberOrder = await reloadOrder(memberResult.orderId)
-    expect(memberOrder.userId).toBe(user.id)
+    const result = assertOk(await createOrderFromCart(baseInput()))
+
+    const order = await reloadOrder(result.orderId)
+    expect(order.userId).toBe(user.id)
   })
 
   it('金額一致性：grandTotal 貫穿付款/物流/收據，達免運門檻運費為 0', async () => {
     // 800 x 2 = 1600 ≥ FREE_SHIPPING_THRESHOLD(1500) → 免運
     const { variants } = await createTestProduct({ price: 800, stock: 10 })
-    await seedGuestCart([{ variantId: variants[0].id, qty: 2 }])
+    await seedMemberCart([{ variantId: variants[0].id, qty: 2 }])
 
     const result = assertOk(await createOrderFromCart(baseInput()))
 
@@ -229,7 +235,7 @@ describe('createOrderFromCart — happy path', () => {
 
   it('email 一律轉小寫存入', async () => {
     const { variants } = await createTestProduct({ stock: 10 })
-    await seedGuestCart([{ variantId: variants[0].id, qty: 1 }])
+    await seedMemberCart([{ variantId: variants[0].id, qty: 1 }])
 
     const result = assertOk(
       await createOrderFromCart(baseInput({ email: 'Buyer@TEST.Local' })),
@@ -242,7 +248,7 @@ describe('createOrderFromCart — happy path', () => {
 
 describe('createOrderFromCart — 前置檢查失敗', () => {
   it('空購物車直接失敗', async () => {
-    await seedGuestCart([])
+    await seedMemberCart([])
 
     const result = assertFail(await createOrderFromCart(baseInput()))
     expect(result.error).toBe('購物車是空的')
@@ -251,7 +257,7 @@ describe('createOrderFromCart — 前置檢查失敗', () => {
 
   it('變體已停用（isActive=false）：回「已下架」且無任何寫入', async () => {
     const { product, variants } = await createTestProduct({ isActiveVariant: false })
-    await seedGuestCart([{ variantId: variants[0].id, qty: 1 }])
+    await seedMemberCart([{ variantId: variants[0].id, qty: 1 }])
 
     const result = assertFail(await createOrderFromCart(baseInput()))
     expect(result.error).toBe(`「${product.name}」已下架，請從購物車移除`)
@@ -261,7 +267,7 @@ describe('createOrderFromCart — 前置檢查失敗', () => {
 
   it('商品是草稿（DRAFT）：同樣視為已下架', async () => {
     const { product, variants } = await createTestProduct({ status: 'DRAFT' })
-    await seedGuestCart([{ variantId: variants[0].id, qty: 1 }])
+    await seedMemberCart([{ variantId: variants[0].id, qty: 1 }])
 
     const result = assertFail(await createOrderFromCart(baseInput()))
     expect(result.error).toBe(`「${product.name}」已下架，請從購物車移除`)
@@ -270,7 +276,7 @@ describe('createOrderFromCart — 前置檢查失敗', () => {
 
   it('庫存不足：回錯誤、無訂單、reservedStock 不變', async () => {
     const { product, variants } = await createTestProduct({ stock: 2 })
-    await seedGuestCart([{ variantId: variants[0].id, qty: 3 }])
+    await seedMemberCart([{ variantId: variants[0].id, qty: 3 }])
 
     const result = assertFail(await createOrderFromCart(baseInput()))
     expect(result.error).toBe(`「${product.name} 單一規格」庫存不足，請調整數量`)
@@ -281,7 +287,7 @@ describe('createOrderFromCart — 前置檢查失敗', () => {
   it('部分預扣回滾：第二件庫存不足時，第一件的預扣也要回到原值', async () => {
     const { variants: okVariants } = await createTestProduct({ stock: 10 })
     const { variants: shortVariants } = await createTestProduct({ stock: 1 })
-    const cart = await seedGuestCart([
+    const { cart } = await seedMemberCart([
       { variantId: okVariants[0].id, qty: 1 },
       { variantId: shortVariants[0].id, qty: 5 },
     ])
@@ -303,7 +309,7 @@ describe('createOrderFromCart — 折扣碼', () => {
   it('折扣碼 happy path：discountTotal 正確、usedCount+1、建立兌換紀錄', async () => {
     const coupon = await createTestCoupon({ code: 'SAVE100', type: 'FIXED', value: 100 })
     const { variants } = await createTestProduct({ price: 500, stock: 10 })
-    await seedGuestCart([{ variantId: variants[0].id, qty: 2 }])
+    const member = await seedMemberCart([{ variantId: variants[0].id, qty: 2 }])
 
     const result = assertOk(await createOrderFromCart(baseInput({ couponCode: 'SAVE100' })))
 
@@ -320,12 +326,12 @@ describe('createOrderFromCart — 折扣碼', () => {
       where: { orderId: order.id },
     })
     expect(redemption.couponId).toBe(coupon.id)
-    expect(redemption.userId).toBeNull() // 訪客兌換
+    expect(redemption.userId).toBe(member.user.id)
   })
 
   it('過期 / 未生效 / 停用的折扣碼都被擋下且不建訂單', async () => {
     const { variants } = await createTestProduct({ stock: 10 })
-    await seedGuestCart([{ variantId: variants[0].id, qty: 1 }])
+    await seedMemberCart([{ variantId: variants[0].id, qty: 1 }])
 
     await createTestCoupon({ code: 'EXPIRED1', endsAt: new Date(Date.now() - 60_000) })
     const r1 = assertFail(await createOrderFromCart(baseInput({ couponCode: 'EXPIRED1' })))
@@ -365,7 +371,7 @@ describe('createOrderFromCart — 折扣碼', () => {
   it('確定性用罄：usedCount 已達 usageLimit 直接被 validateCoupon 擋下', async () => {
     await createTestCoupon({ code: 'USEDUP', usageLimit: 2, usedCount: 2 })
     const { variants } = await createTestProduct({ stock: 10 })
-    await seedGuestCart([{ variantId: variants[0].id, qty: 1 }])
+    await seedMemberCart([{ variantId: variants[0].id, qty: 1 }])
 
     const result = assertFail(await createOrderFromCart(baseInput({ couponCode: 'USEDUP' })))
     expect(result.error).toBe('折扣碼已被兌換完畢')
@@ -375,19 +381,21 @@ describe('createOrderFromCart — 折扣碼', () => {
     expect(coupon.usedCount).toBe(2) // 沒有被多加
   })
 
-  it('折扣碼用罄競態：兩個訪客同時搶最後一次兌換，恰一個成功、輸家預扣回滾', async () => {
+  it('折扣碼用罄競態：兩個會員同時搶最後一次兌換，恰一個成功、輸家預扣回滾', async () => {
     const coupon = await createTestCoupon({ code: 'LASTONE', usageLimit: 1, value: 100 })
     const { variants: variantsA } = await createTestProduct({ stock: 10 })
     const { variants: variantsB } = await createTestProduct({ stock: 10 })
 
-    const jarA = new MemoryCookieJar()
-    const jarB = new MemoryCookieJar()
-    await seedGuestCart([{ variantId: variantsA[0].id, qty: 1 }], { jar: jarA })
-    await seedGuestCart([{ variantId: variantsB[0].id, qty: 1 }], { jar: jarB })
+    const memberA = await seedMemberCart([{ variantId: variantsA[0].id, qty: 1 }])
+    const memberB = await seedMemberCart([{ variantId: variantsB[0].id, qty: 1 }])
 
     const results = await Promise.all([
-      withCookieJar(jarA, () => createOrderFromCart(baseInput({ couponCode: 'LASTONE' }))),
-      withCookieJar(jarB, () => createOrderFromCart(baseInput({ couponCode: 'LASTONE' }))),
+      withAuthUser({ id: memberA.user.id, role: 'CUSTOMER' }, () =>
+        createOrderFromCart(baseInput({ couponCode: 'LASTONE' })),
+      ),
+      withAuthUser({ id: memberB.user.id, role: 'CUSTOMER' }, () =>
+        createOrderFromCart(baseInput({ couponCode: 'LASTONE' })),
+      ),
     ])
 
     expect(results.filter((r) => r.ok)).toHaveLength(1)
@@ -407,17 +415,19 @@ describe('createOrderFromCart — 折扣碼', () => {
 })
 
 describe('createOrderFromCart — 全鏈搶庫存（C-02）', () => {
-  it('庫存只剩 1，兩個訪客同時下單：恰一個成功、訂單恰一筆、reservedStock=1', async () => {
+  it('庫存只剩 1，兩個會員同時下單：恰一個成功、訂單恰一筆、reservedStock=1', async () => {
     const { variants } = await createTestProduct({ stock: 1 })
 
-    const jarA = new MemoryCookieJar()
-    const jarB = new MemoryCookieJar()
-    await seedGuestCart([{ variantId: variants[0].id, qty: 1 }], { jar: jarA })
-    await seedGuestCart([{ variantId: variants[0].id, qty: 1 }], { jar: jarB })
+    const memberA = await seedMemberCart([{ variantId: variants[0].id, qty: 1 }])
+    const memberB = await seedMemberCart([{ variantId: variants[0].id, qty: 1 }])
 
     const results = await Promise.all([
-      withCookieJar(jarA, () => createOrderFromCart(baseInput())),
-      withCookieJar(jarB, () => createOrderFromCart(baseInput())),
+      withAuthUser({ id: memberA.user.id, role: 'CUSTOMER' }, () =>
+        createOrderFromCart(baseInput()),
+      ),
+      withAuthUser({ id: memberB.user.id, role: 'CUSTOMER' }, () =>
+        createOrderFromCart(baseInput()),
+      ),
     ])
 
     expect(results.filter((r) => r.ok)).toHaveLength(1)
@@ -429,5 +439,29 @@ describe('createOrderFromCart — 全鏈搶庫存（C-02）', () => {
     const v = await freshVariant(variants[0].id)
     expect(v.reservedStock).toBe(1) // 絕不能是 2
     expect(v.stock).toBe(1) // 尚未付款，stock 不動
+  })
+})
+
+describe('createOrderFromCart — 只有會員能下單', () => {
+  it('未登入：擋在最前面，不建訂單也不動庫存與購物車', async () => {
+    const { variants } = await createTestProduct({ stock: 10 })
+    const cart = await seedGuestCart([{ variantId: variants[0].id, qty: 1 }])
+
+    const result = assertFail(await createOrderFromCart(baseInput()))
+
+    expect(result.error).toBe('請先註冊或登入會員再結帳')
+    expect(await db.order.count()).toBe(0)
+    expect(await db.stockReservation.count()).toBe(0)
+    expect((await freshVariant(variants[0].id)).reservedStock).toBe(0)
+    // 訪客的車留著 —— 登入之後會被併進會員車，東西不能掉
+    expect(await db.cartItem.count({ where: { cartId: cart.id } })).toBe(1)
+  })
+
+  it('未登入且購物車是空的：也是先擋登入，不會先報「購物車是空的」', async () => {
+    await seedGuestCart([])
+
+    const result = assertFail(await createOrderFromCart(baseInput()))
+
+    expect(result.error).toBe('請先註冊或登入會員再結帳')
   })
 })

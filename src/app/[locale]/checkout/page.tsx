@@ -7,6 +7,8 @@ import { getCart } from '@/lib/cart'
 import { localizedName } from '@/lib/i18n/localized'
 import { shopConfig } from '@/lib/shop-config'
 import { isCallbackReachable } from '@/lib/ecpay/config'
+import { getPaymentSettings } from '@/lib/shop-settings'
+import { CHECKOUT_LOGIN_REDIRECT } from '@/lib/auth/checkout-gate'
 import { CheckoutForm } from './checkout-form'
 
 export const dynamic = 'force-dynamic'
@@ -25,18 +27,20 @@ export default async function CheckoutPage({ params }: { params: Promise<{ local
   const { locale } = await params
   setRequestLocale(locale)
 
+  // 只有會員能結帳。訪客先去註冊（註冊頁自己有「已有帳號 → 登入」的出口），
+  // 註冊或登入完成後由 callbackUrl 帶回這裡；購物車在登入時會自動併入會員車。
+  const session = await auth()
+  if (!session?.user?.id) redirect(CHECKOUT_LOGIN_REDIRECT)
+
   const cart = await getCart()
   if (cart.items.length === 0) redirect('/cart')
 
-  const session = await auth()
-
-  const [t, defaultAddress] = await Promise.all([
+  const [t, paymentSettings, defaultAddress] = await Promise.all([
     getTranslations('checkout'),
-    session?.user?.id
-      ? db.address.findFirst({
-          where: { userId: session.user.id, isDefault: true },
-        })
-      : null,
+    getPaymentSettings(),
+    db.address.findFirst({
+      where: { userId: session.user.id, isDefault: true },
+    }),
   ])
 
   const items = cart.items.map((item) => ({
@@ -68,7 +72,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ local
       <CheckoutForm
         items={items}
         couponCode={cart.couponCode}
-        defaultEmail={session?.user?.email ?? ''}
+        defaultEmail={session.user.email ?? ''}
         defaultAddress={
           defaultAddress
             ? {
@@ -83,6 +87,16 @@ export default async function CheckoutPage({ params }: { params: Promise<{ local
         }
         shippingFees={shopConfig.shippingFee}
         freeShippingThreshold={shopConfig.freeShippingThreshold}
+        payment={{
+          prepayEnabled: paymentSettings.prepayEnabled,
+          methods: paymentSettings.methods,
+          codEnabled: paymentSettings.codEnabled,
+          codShippingMethods: paymentSettings.codShippingMethods,
+          codFee: paymentSettings.codFee,
+          codMaxAmount: paymentSettings.codMaxAmount,
+          cvsExpireDays: paymentSettings.cvsExpireDays,
+          atmExpireDays: paymentSettings.atmExpireDays,
+        }}
       />
     </div>
   )

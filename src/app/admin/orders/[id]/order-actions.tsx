@@ -2,8 +2,14 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import type { InvoiceStatus, OrderStatus, ReceiptStatus, ShippingMethod } from '@prisma/client'
-import { Truck, Printer, Receipt, Ban, XCircle, FileText } from 'lucide-react'
+import type {
+  InvoiceStatus,
+  OrderStatus,
+  PaymentStatus,
+  ReceiptStatus,
+  ShippingMethod,
+} from '@prisma/client'
+import { Truck, Printer, Receipt, Ban, XCircle, FileText, RefreshCw, Banknote } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast'
 import {
@@ -14,6 +20,8 @@ import {
   adminRecordTcatShipment,
   adminUpdateOrderStatus,
   adminCancelOrder,
+  adminSyncPayment,
+  adminMarkCodCollected,
   type AdminActionResult,
 } from '../actions'
 
@@ -34,6 +42,8 @@ export function OrderActions({
   receiptStatus,
   printForm,
   manualNote,
+  paymentProvider,
+  paymentStatus,
 }: {
   orderId: string
   orderStatus: OrderStatus
@@ -46,6 +56,9 @@ export function OrderActions({
   printForm: { action: string; params: Record<string, string> } | null
   /** 建單曾轉人工處理的說明；存在時重按建單需要先確認（避免重複開單） */
   manualNote: string | null
+  /** ECPAY / COD。決定「確認付款」要走綠界查詢還是手動標記收款。 */
+  paymentProvider: string | null
+  paymentStatus: PaymentStatus | null
 }) {
   const router = useRouter()
   const { toast } = useToast()
@@ -89,6 +102,13 @@ export function OrderActions({
 
   const isPaid = !['PENDING_PAYMENT', 'CANCELLED'].includes(orderStatus)
   const isCvs = shippingMethod === 'CVS'
+  const isCod = paymentProvider === 'COD'
+  const codPending = isCod && paymentStatus === 'AWAITING_COLLECTION'
+
+  function markCollected() {
+    if (!window.confirm('確認已經收到這筆貨到付款的貨款？')) return
+    void perform('cod-collected', () => adminMarkCodCollected(orderId))
+  }
 
   function createShipment() {
     if (manualNote) {
@@ -103,6 +123,26 @@ export function OrderActions({
 
   return (
     <div className="flex flex-wrap items-center gap-2 border border-cream-200 bg-white p-4">
+      {/* 「客戶到底付款了沒」。
+          綠界金流：直接問綠界（QueryTradeInfo），可補回漏掉的 ReturnURL 通知。
+          貨到付款：物流回報已取貨時會自動標記，這顆是例外情況的手動確認。 */}
+      {isCod ? (
+        <Button size="sm" variant="outline" disabled={!codPending || pending !== null} onClick={markCollected}>
+          <Banknote size={14} />
+          {codPending ? '標記已收款' : '貨款已收'}
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={pending !== null || paymentProvider === null}
+          onClick={() => perform('sync-payment', () => adminSyncPayment(orderId))}
+        >
+          <RefreshCw size={14} />
+          向綠界查詢付款
+        </Button>
+      )}
+
       {/* 超商走綠界、宅配走黑貓，兩邊都由 adminCreateShipment 分流建單 */}
       <Button
         size="sm"

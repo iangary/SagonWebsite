@@ -155,7 +155,7 @@ describe('sendOrderEmail：payment-info', () => {
       unitPrice: 1200,
       shippingFee: 60,
     })
-    await db.payment.update({
+    await db.payment.updateMany({
       where: { orderId: order.id },
       data: { bankCode: '812', vAccount: '9103522175887271', expireDate: '2026/08/20' },
     })
@@ -179,7 +179,7 @@ describe('sendOrderEmail：payment-info', () => {
       unitPrice: 800,
       shippingFee: 60,
     })
-    await db.payment.update({
+    await db.payment.updateMany({
       where: { orderId: order.id },
       data: { paymentNo: 'LLL22006993456', expireDate: '2026/08/18 23:59:59' },
     })

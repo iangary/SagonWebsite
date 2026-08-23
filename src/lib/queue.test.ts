@@ -104,18 +104,27 @@ describe('enqueue', () => {
 })
 
 describe('registerRepeatableJobs', () => {
-  it('註冊兩個 cron job，jobId 穩定以便 BullMQ 去重', async () => {
+  it('註冊三個 cron job，jobId 穩定以便 BullMQ 去重', async () => {
     addMock.mockResolvedValue(undefined)
 
     await registerRepeatableJobs()
 
-    expect(addMock).toHaveBeenCalledTimes(2)
+    expect(addMock).toHaveBeenCalledTimes(3)
     expect(addMock).toHaveBeenCalledWith(
       'release-expired-reservations',
       {},
       expect.objectContaining({
         jobId: 'cron:release-expired-reservations',
         repeat: { pattern: '*/5 * * * *' },
+      }),
+    )
+    expect(addMock).toHaveBeenCalledWith(
+      'reconcile-payments',
+      {},
+      expect.objectContaining({
+        jobId: 'cron:reconcile-payments',
+        repeat: { pattern: '*/15 * * * *' },
+        attempts: 1,
       }),
     )
     expect(addMock).toHaveBeenCalledWith(

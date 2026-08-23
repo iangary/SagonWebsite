@@ -31,6 +31,8 @@ import * as chatActions from '@/app/admin/chat/actions'
 import * as couponsActions from '@/app/admin/coupons/actions'
 import * as ordersActions from '@/app/admin/orders/actions'
 import * as productsActions from '@/app/admin/products/actions'
+import * as refundsActions from '@/app/admin/refunds/actions'
+import * as settingsActions from '@/app/admin/settings/actions'
 import * as reviewsActions from '@/app/admin/reviews/actions'
 import * as taxonomyActions from '@/app/admin/taxonomy/actions'
 import * as webhooksActions from '@/app/admin/webhooks/actions'
@@ -47,7 +49,7 @@ import type { User } from '@prisma/client'
  * 後台權限全面掃描（檢核表 N-01）。
  *
  * 目標很單純：**每一支** admin server action，訪客與一般會員呼叫都必須被擋。
- * 所以這裡不是逐一寫測試，而是列一張表把七個 actions 檔的所有 export 都掃過；
+ * 所以這裡不是逐一寫測試，而是列一張表把所有 admin actions 檔的 export 都掃過；
  * 最後一條 meta 測試會反過來檢查「表格有沒有漏掉某支 action」——
  * 新增 action 卻忘了想權限的話，這條會紅。
  *
@@ -63,9 +65,11 @@ function formDataFrom(entries: Record<string, string>): FormData {
   return fd
 }
 
-/** 七個後台 actions 模組，meta 測試用它反查有沒有漏掉的 export */
+/** 所有後台 actions 模組，meta 測試用它反查有沒有漏掉的 export */
 const ACTION_MODULES: Record<string, Record<string, unknown>> = {
   orders: ordersActions,
+  refunds: refundsActions,
+  settings: settingsActions,
   products: productsActions,
   coupons: couponsActions,
   taxonomy: taxonomyActions,
@@ -97,6 +101,44 @@ const ADMIN_ACTIONS: AdminActionCase[] = [
     run: () => ordersActions.adminUpdateOrderStatus('order-x', 'SHIPPED'),
   },
   { name: 'orders.adminCancelOrder', run: () => ordersActions.adminCancelOrder('order-x') },
+  {
+    name: 'orders.adminCallTcatPickup',
+    run: () => ordersActions.adminCallTcatPickup(1, '偷叫的車'),
+  },
+  // 「客戶付款了沒」的兩支：一支去問綠界，一支手動標記貨到付款已收款。
+  // 兩支都會動到訂單狀態與庫存，非管理者呼叫必須擋在最前面。
+  { name: 'orders.adminSyncPayment', run: () => ordersActions.adminSyncPayment('order-x') },
+  {
+    name: 'orders.adminMarkCodCollected',
+    run: () => ordersActions.adminMarkCodCollected('order-x'),
+  },
+
+  // --- src/app/admin/refunds/actions.ts ---
+  // 退款是直接把錢送出去的動作，權限漏了等於任何人都能發起退款
+  {
+    name: 'refunds.adminCreateRefund',
+    run: () =>
+      refundsActions.adminCreateRefund({ orderId: 'order-x', reason: '偷開的退款單' }),
+  },
+  { name: 'refunds.adminApproveRefund', run: () => refundsActions.adminApproveRefund('refund-x') },
+  {
+    name: 'refunds.adminCompleteRefund',
+    run: () => refundsActions.adminCompleteRefund('refund-x', '偷匯的款'),
+  },
+  {
+    name: 'refunds.adminRejectRefund',
+    run: () => refundsActions.adminRejectRefund('refund-x', '偷拒的單'),
+  },
+
+  // --- src/app/admin/settings/actions.ts ---
+  {
+    name: 'settings.saveSettingsAction',
+    run: () =>
+      settingsActions.saveSettingsAction(
+        { ok: false },
+        formDataFrom({ codEnabled: 'on', cod_CVS: 'on', codFee: '0' }),
+      ),
+  },
 
   // --- src/app/admin/products/actions.ts ---
   {
@@ -295,11 +337,11 @@ describe('破壞性動作被拒絕後資料維持原狀', () => {
 
     const fresh = await db.order.findUniqueOrThrow({
       where: { id: order.id },
-      include: { payment: true, reservations: true },
+      include: { payments: true, reservations: true },
     })
     expect(fresh.status).toBe('PENDING_PAYMENT')
     expect(fresh.cancelledAt).toBeNull()
-    expect(fresh.payment?.status).toBe('PENDING')
+    expect(fresh.payments[0]?.status).toBe('PENDING')
     expect(fresh.reservations).toHaveLength(1)
 
     const freshVariant = await db.productVariant.findUniqueOrThrow({ where: { id: variant.id } })

@@ -37,7 +37,7 @@ model User {
   phoneVerified DateTime?
   passwordHash  String?
 
-  role      UserRole @default(CUSTOMER)
+  role UserRole @default(CUSTOMER)
 
   /// 會員自己選過的介面語系（'zh-TW' / 'en'）。null = 沒選過，跟著 Accept-Language 走。
   /// 不用 enum，多一個語系就得跑一次 migration；值域由 src/i18n/config.ts 的 locales 把關。
@@ -45,17 +45,20 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  accounts      Account[]
-  sessions      Session[]
-  addresses     Address[]
-  carts         Cart[]
-  orders        Order[]
-  reviews       Review[]
-  redemptions   CouponRedemption[]
-  auditLogs     AuditLog[]
-  pickupCalls   TcatPickupCall[]
-  conversations Conversation[]     @relation("UserConversations")
-  chatMessages  ChatMessage[]      @relation("UserChatMessages")
+  accounts        Account[]
+  sessions        Session[]
+  addresses       Address[]
+  carts           Cart[]
+  orders          Order[]
+  reviews         Review[]
+  redemptions     CouponRedemption[]
+  auditLogs       AuditLog[]
+  pickupCalls     TcatPickupCall[]
+  conversations   Conversation[]     @relation("UserConversations")
+  chatMessages    ChatMessage[]      @relation("UserChatMessages")
+  refunds         RefundRequest[]
+  reviewedRefunds RefundRequest[]    @relation("RefundReviewer")
+  shopSettings    ShopSetting[]
 
   @@index([role])
   @@map("users")
@@ -120,6 +123,25 @@ model PhoneOtp {
   @@index([phone, createdAt])
   @@index([expiresAt])
   @@map("phone_otps")
+}
+
+/// Email 註冊時寄出的一次性驗證連結。
+///
+/// token 以 SHA-256 雜湊後存 —— 明碼只出現在信裡。這裡不用 argon2（與 PhoneOtp 不同）：
+/// 驗證時手上只有連結裡的 token，必須靠它直接查到那一列，argon2 每次加鹽沒辦法反查。
+/// 安全性上可接受：token 是 32 bytes 的 CSPRNG 隨機值，不像 6 位數驗證碼可以暴力猜，
+/// 雜湊的目的只是讓資料庫外流時無法直接拿去驗證別人的信箱。
+model EmailVerification {
+  id         String    @id @default(cuid())
+  email      String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([email, createdAt])
+  @@index([expiresAt])
+  @@map("email_verifications")
 }
 
 model Address {
@@ -411,6 +433,8 @@ model Order {
   subtotal      Int
   discountTotal Int @default(0)
   shippingFee   Int @default(0)
+  /// 貨到付款手續費。與運費分開記，免運門檻不該把代收手續費也免掉。
+  codFee        Int @default(0)
   grandTotal    Int
 
   couponId String?
@@ -433,12 +457,16 @@ model Order {
   user         User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
   coupon       Coupon?            @relation(fields: [couponId], references: [id], onDelete: SetNull)
   items        OrderItem[]
-  payment      Payment?
+  /// 一張訂單可以有多筆付款紀錄 —— 消費者在待付款期間改用其他付款方式時，
+  /// 舊的那筆會被標記 supersededAt 但必須留著：綠界的回拋只帶
+  /// MerchantTradeNo，舊代碼被繳費時要找得回是哪張訂單。
+  payments     Payment[]
   shipment     Shipment?
   invoice      Invoice?
   receipt      Receipt?
   reservations StockReservation[]
   redemption   CouponRedemption?
+  refunds      RefundRequest[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -496,6 +524,7 @@ model StockReservation {
 enum PaymentStatus {
   PENDING
   AWAITING_TRANSFER // ATM/CVS 已取號，等待付款
+  AWAITING_COLLECTION // 貨到付款：等物流代收，錢還沒進來
   PAID
   FAILED
   EXPIRED
@@ -504,14 +533,17 @@ enum PaymentStatus {
 
 model Payment {
   id      String @id @default(cuid())
-  orderId String @unique
+  /// 不是 unique —— 改付款方式會產生第二筆。目前生效的那筆是 supersededAt = null 的。
+  orderId String
 
+  /// ECPAY = 綠界金流；COD = 貨到付款（由物流代收，不經綠界金流）
   provider        String  @default("ECPAY")
+  /// 綠界要求全站唯一且不可重送，所以改付款方式時會重新產生一組
   merchantTradeNo String  @unique
   /// 綠界的交易編號，付款完成才會有
   tradeNo         String?
 
-  /// 綠界 ChoosePayment：Credit / ATM / CVS / BARCODE / ALL
+  /// 綠界 ChoosePayment：Credit / ATM / CVS / BARCODE / ALL；貨到付款是 COD
   choosePayment String
   /// 綠界回傳的實際付款方式，例如 Credit_CreditCard、ATM_TAISHIN
   paymentType   String?
@@ -532,14 +564,102 @@ model Payment {
   rawCallback Json?
   failReason  String?
 
+  /// 消費者改用其他付款方式時填入。有值就代表這組帳號／代碼已作廢，
+  /// 但仍要留著比對逾期入帳。
+  supersededAt DateTime?
+  /// 最後一次主動向綠界查詢付款狀態的時間（QueryTradeInfo），對帳排程用它節流
+  syncedAt     DateTime?
+
   paidAt    DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  refunds RefundRequest[]
 
   @@index([status])
+  @@index([orderId, createdAt])
+  /// 對帳排程要掃「還沒付款、還沒作廢、很久沒查」的單
+  @@index([status, supersededAt, syncedAt])
   @@map("payments")
+}
+
+// ===========================================================================
+// 退款
+// ===========================================================================
+
+enum RefundStatus {
+  REQUESTED // 消費者已提出，等客服審核
+  APPROVED // 已同意，等實際退錢（信用卡退刷或人工匯款）
+  REJECTED
+  COMPLETED // 錢已經退出去
+  FAILED // 退刷失敗，需人工處理
+}
+
+/// 退款方式。ATM／超商代碼／條碼／貨到付款都沒有線上退款 API（綠界明確不支援），
+/// 只能請消費者提供帳戶後人工匯款，所以要分開記。
+enum RefundMethod {
+  CREDIT_REVERSE // 信用卡退刷（綠界 CreditDetail/DoAction）
+  MANUAL_TRANSFER // 人工匯款
+}
+
+model RefundRequest {
+  id        String  @id @default(cuid())
+  orderId   String
+  paymentId String?
+  userId    String?
+
+  status RefundStatus  @default(REQUESTED)
+  method RefundMethod?
+
+  /// 申請退款的金額。目前只支援全額，欄位先留著給日後的部分退款。
+  amount Int
+  reason String @db.Text
+
+  /// 人工匯款用的收款帳戶。消費者自己填的個資，只有後台看得到。
+  bankCode      String?
+  bankAccountNo String?
+  accountName   String?
+
+  /// 客服備註與退刷結果
+  adminNote   String? @db.Text
+  failReason  String?
+  rawResponse Json?
+
+  reviewedById String?
+  reviewedAt   DateTime?
+  completedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  payment    Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  reviewedBy User?    @relation("RefundReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([orderId])
+  @@map("refund_requests")
+}
+
+// ===========================================================================
+// 商店設定
+// ===========================================================================
+
+/// 後台可改的營運參數。一個 key 一列，值是 JSON，讀取時用 zod 補預設值 ——
+/// 這樣加欄位不需要 migration，也不會因為舊資料少一欄就整組壞掉。
+/// 環境變數仍是「部署層」的設定（金鑰、網域），這裡放的是「營運層」的（付款方式、期限）。
+model ShopSetting {
+  key   String @id
+  value Json
+
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+
+  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("shop_settings")
 }
 
 // ===========================================================================

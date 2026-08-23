@@ -4,6 +4,8 @@ import type {
   ShipmentStatus,
   InvoiceStatus,
   ReceiptStatus,
+  RefundStatus,
+  RefundMethod,
 } from '@prisma/client'
 
 /** 後台一律用繁中顯示，不走 i18n（後台只有一種語言）。 */
@@ -21,10 +23,24 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
 export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   PENDING: '尚未付款',
   AWAITING_TRANSFER: '已取號，等待付款',
+  AWAITING_COLLECTION: '貨到付款，尚未收款',
   PAID: '已付款',
   FAILED: '付款失敗',
-  EXPIRED: '已逾期',
+  EXPIRED: '已逾期／已作廢',
   REFUNDED: '已退款',
+}
+
+export const REFUND_STATUS_LABEL: Record<RefundStatus, string> = {
+  REQUESTED: '待審核',
+  APPROVED: '已同意，待退款',
+  REJECTED: '不受理',
+  COMPLETED: '已退款',
+  FAILED: '退刷失敗',
+}
+
+export const REFUND_METHOD_LABEL: Record<RefundMethod, string> = {
+  CREDIT_REVERSE: '信用卡退刷',
+  MANUAL_TRANSFER: '人工匯款',
 }
 
 export const SHIPMENT_STATUS_LABEL: Record<ShipmentStatus, string> = {
@@ -56,5 +72,18 @@ export const CHOOSE_PAYMENT_LABEL: Record<string, string> = {
   ATM: 'ATM 虛擬帳號',
   CVS: '超商代碼繳費',
   BARCODE: '超商條碼',
+  COD: '貨到付款',
   ALL: '未指定',
+}
+
+/**
+ * 付款方式對應到前台 messages 的 checkout.* key。
+ * 後台用上面的 CHOOSE_PAYMENT_LABEL（只有中文），前台要跟著語系走。
+ */
+export const PAYMENT_CHOICE_LABEL_KEY: Record<string, string> = {
+  Credit: 'credit',
+  ATM: 'atm',
+  CVS: 'cvsPayment',
+  BARCODE: 'barcode',
+  COD: 'cod',
 }

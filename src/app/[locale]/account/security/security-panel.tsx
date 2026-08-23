@@ -61,11 +61,12 @@ export function SecurityPanel({
           ))}
           <MethodRow
             icon={<KeyRound size={16} strokeWidth={1.5} />}
-            title={t('emailPassword')}
+            title={t('accountPassword')}
             status={
               hasPassword
-                ? t('passwordSet', { email: email ?? '—' })
-                : email
+                ? // 手機註冊的會員沒有 Email，他的帳號就是手機號碼
+                  t('passwordSet', { email: email ?? maskedPhone ?? '—' })
+                : email || maskedPhone
                   ? t('passwordNotSet')
                   : t('emailNotSet')
             }

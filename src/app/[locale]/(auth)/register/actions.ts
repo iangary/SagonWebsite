@@ -4,6 +4,7 @@ import { getTranslations } from 'next-intl/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
 import { hashPassword } from '@/lib/auth/password'
+import { maskEmail, requestEmailVerification } from '@/lib/auth/email-verification'
 import { normalizeTwMobile } from '@/lib/sms/provider'
 
 const schema = z
@@ -85,6 +86,7 @@ export async function registerAction(
         ...(phone ? { phone } : {}),
       },
     })
+    await sendVerification(email)
     return { ok: true }
   }
 
@@ -92,5 +94,19 @@ export async function registerAction(
     data: { name, email, passwordHash, phone },
   })
 
+  await sendVerification(email)
   return { ok: true }
+}
+
+/**
+ * 註冊當下寄一次驗證信 —— 只有這一次會發，驗過就不再發（見 lib/auth/email-verification.ts）。
+ *
+ * 寄不出去不擋註冊：SMTP 掛掉不是使用者的錯，而且未驗證本來就不影響登入與購買。
+ * 會員中心會顯示「尚未驗證」並提供重寄，所以這裡失敗只留 log。
+ */
+async function sendVerification(email: string): Promise<void> {
+  const result = await requestEmailVerification(email)
+  if (!result.ok && result.reason !== 'already_verified') {
+    console.error(`[register] 驗證信未寄出 email=${maskEmail(email)} reason=${result.reason}`)
+  }
 }

@@ -50,7 +50,12 @@ export default async function OrderQueryPage({
           ...(phone ? [{ phone }, { recipientPhone: phone }] : []),
         ],
       },
-      include: { items: true, payment: true, shipment: true, invoice: true },
+      include: {
+        items: true,
+        payments: { orderBy: { createdAt: 'desc' } },
+        shipment: true,
+        invoice: true,
+      },
     })
     notFound = order === null
   }

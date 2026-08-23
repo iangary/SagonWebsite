@@ -177,11 +177,11 @@ describe('releaseExpiredReservations — 逾期未付款掃描', () => {
 
     const fresh = await db.order.findUniqueOrThrow({
       where: { id: order.id },
-      include: { payment: true, reservations: true },
+      include: { payments: true, reservations: true },
     })
     expect(fresh.status).toBe('CANCELLED')
     expect(fresh.cancelledAt).not.toBeNull()
-    expect(fresh.payment?.status).toBe('EXPIRED')
+    expect(fresh.payments[0]?.status).toBe('EXPIRED')
     expect(fresh.reservations[0]?.releasedAt).not.toBeNull()
 
     const v = await freshVariant(variant.id)
@@ -199,10 +199,10 @@ describe('releaseExpiredReservations — 逾期未付款掃描', () => {
     expect(result.ordersCancelled).toBe(0)
     const fresh = await db.order.findUniqueOrThrow({
       where: { id: order.id },
-      include: { payment: true },
+      include: { payments: true },
     })
     expect(fresh.status).toBe('PENDING_PAYMENT')
-    expect(fresh.payment?.status).toBe('PENDING')
+    expect(fresh.payments[0]?.status).toBe('PENDING')
     expect((await freshVariant(variant.id)).reservedStock).toBe(1)
   })
 
@@ -218,10 +218,10 @@ describe('releaseExpiredReservations — 逾期未付款掃描', () => {
     expect(result.ordersCancelled).toBe(0)
     const fresh = await db.order.findUniqueOrThrow({
       where: { id: order.id },
-      include: { payment: true, reservations: true },
+      include: { payments: true, reservations: true },
     })
     expect(fresh.status).toBe('PAID')
-    expect(fresh.payment?.status).toBe('PAID')
+    expect(fresh.payments[0]?.status).toBe('PAID')
     expect(fresh.reservations[0]?.releasedAt).toBeNull()
     expect((await freshVariant(variant.id)).reservedStock).toBe(1)
   })

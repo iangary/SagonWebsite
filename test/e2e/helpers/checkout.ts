@@ -122,7 +122,7 @@ export async function gotoResult(page: Page, orderNo: string): Promise<void> {
 
 export async function loginAs(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/login')
-  await page.locator('#email').fill(email)
+  await page.locator('#identifier').fill(email)
   await page.locator('#password').fill(password)
   await page.getByRole('button', { name: '會員登入' }).click()
   await page.waitForURL(/\/(account|admin)/)
@@ -130,4 +130,39 @@ export async function loginAs(page: Page, email: string, password: string): Prom
 
 export async function loginAsCustomer(page: Page): Promise<void> {
   await loginAs(page, 'customer@sagon.local', process.env.SEED_ADMIN_PASSWORD ?? 'admin1234')
+}
+
+/**
+ * 註冊一個全新會員並自動登入。
+ *
+ * 每個測試都開自己的會員，而不是共用種子帳號 —— 購物車現在掛在會員身上，
+ * 共用一個帳號的話上一個測試沒結完的車會影響下一個測試的金額。
+ */
+export async function registerNewMember(page: Page): Promise<{ email: string; password: string }> {
+  const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6)}`
+  const email = `e2e+${stamp}@sagon.local`
+  const password = 'e2e-Pass-1234'
+
+  await page.goto('/register')
+  await page.locator('#name').fill(`E2E測試買家${stamp}`)
+  await page.locator('#email').fill(email)
+  await page.locator('#password').fill(password)
+  await page.locator('#confirmPassword').fill(password)
+  await page.getByRole('button', { name: '註冊會員' }).click()
+  await page.waitForURL(/\/account/)
+
+  return { email, password }
+}
+
+/**
+ * 走到結帳頁：註冊會員 → 加購物車 → /checkout。
+ *
+ * **只有會員能結帳**（見 lib/auth/checkout-gate.ts），所以要先有身分；
+ * 而且要先登入再加購物車，東西才會直接進會員車。訪客被擋下的行為由
+ * storefront.spec.ts 驗。
+ */
+export async function startMemberCheckout(page: Page): Promise<void> {
+  await registerNewMember(page)
+  await addFirstProductToCart(page)
+  await page.goto('/checkout')
 }

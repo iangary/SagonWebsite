@@ -59,7 +59,7 @@ test('商品詳情頁有價格、加入購物車與結構化資料', async ({ pa
   expect(parsed.offers.priceCurrency).toBe('TWD')
 })
 
-test('加入購物車後購物車頁看得到商品，且未登入時結帳頁可存取', async ({ page }) => {
+test('加入購物車後購物車頁看得到商品，未登入按結帳會被帶去註冊', async ({ page }) => {
   await page.goto('/product/all')
   await page.locator(PRODUCT_CARD).first().click()
   // 等真的離開列表頁再繼續，否則後面的選擇器會打到列表頁的篩選器
@@ -78,9 +78,16 @@ test('加入購物車後購物車頁看得到商品，且未登入時結帳頁�
   await expect(page.getByRole('heading', { name: '購物車' })).toBeVisible()
   await expect(page.getByRole('link', { name: '前往結帳' })).toBeVisible()
 
+  // 只有會員能結帳：訪客按下去會到註冊頁，並看到「為什麼在這裡」的提示
   await page.getByRole('link', { name: '前往結帳' }).click()
-  await expect(page.getByRole('heading', { name: '結帳' })).toBeVisible()
-  await expect(page.getByRole('button', { name: '確認送出訂單' })).toBeVisible()
+  await expect(page).toHaveURL(/\/register\?callbackUrl=%2Fcheckout/)
+  await expect(page.getByRole('heading', { name: '註冊會員' })).toBeVisible()
+  await expect(page.getByText('結帳需要會員帳號')).toBeVisible()
+})
+
+test('未登入直接開結帳頁會被導去註冊', async ({ page }) => {
+  await page.goto('/checkout')
+  await expect(page).toHaveURL(/\/register\?callbackUrl=%2Fcheckout/)
 })
 
 test('未登入時 /account 會導向登入頁', async ({ page }) => {

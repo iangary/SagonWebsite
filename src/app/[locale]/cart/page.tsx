@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { db } from '@/lib/db'
+import { auth } from '@/lib/auth'
 import { getCart, availableStock } from '@/lib/cart'
 import { shopConfig } from '@/lib/shop-config'
 import { localizedName } from '@/lib/i18n/localized'
@@ -23,7 +24,7 @@ export default async function CartPage({ params }: { params: Promise<{ locale: s
   const { locale } = await params
   setRequestLocale(locale)
 
-  const cart = await getCart()
+  const [cart, session] = await Promise.all([getCart(), auth()])
 
   const coupon = cart.couponCode
     ? await db.coupon.findUnique({ where: { code: cart.couponCode } })
@@ -61,6 +62,7 @@ export default async function CartPage({ params }: { params: Promise<{ locale: s
       pricing={pricing}
       couponCode={cart.couponCode}
       freeShippingThreshold={shopConfig.freeShippingThreshold}
+      isMember={Boolean(session?.user?.id)}
     />
   )
 }

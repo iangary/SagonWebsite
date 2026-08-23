@@ -10,6 +10,7 @@ import { db } from '@/lib/db'
 import { createShipmentForOrder } from '@/lib/orders/logistics'
 import { issueReceiptForOrder } from '@/lib/orders/receipt'
 import { releaseExpiredReservations } from '@/lib/orders/stock'
+import { reconcilePendingPayments } from '@/lib/orders/payment'
 import { pollTcatShipmentStatuses } from '@/lib/orders/tcat-status'
 import { sendOrderEmail } from '@/lib/email'
 
@@ -28,9 +29,17 @@ const handlers: {
     return { orderId }
   },
 
-  'send-email': async ({ template, orderId }) => {
-    await sendOrderEmail(template, orderId)
+  'send-email': async ({ template, orderId, refundId }) => {
+    await sendOrderEmail(template, orderId, { refundId })
     return { template, orderId }
+  },
+
+  'reconcile-payments': async () => {
+    const result = await reconcilePendingPayments()
+    if (result.paid > 0) {
+      console.info(`[worker] 對帳：查 ${result.checked} 筆，補回 ${result.paid} 筆漏收的付款`)
+    }
+    return result
   },
 
   'poll-tcat-status': async () => {

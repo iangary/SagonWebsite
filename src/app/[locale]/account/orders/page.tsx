@@ -27,7 +27,12 @@ export default async function AccountOrdersPage() {
     db.order.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: 'desc' },
-      include: { items: true, payment: true, shipment: true, invoice: true },
+      include: {
+        items: true,
+        payments: { orderBy: { createdAt: 'desc' } },
+        shipment: true,
+        invoice: true,
+      },
     }),
   ])
 

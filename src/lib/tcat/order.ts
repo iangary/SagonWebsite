@@ -19,6 +19,9 @@ import {
  * 所有清洗規則都在 fields.ts，這裡只負責挑欄位與套用固定的商業決定。
  */
 
+/** 代收貨款超過這個金額才需要報值（黑貓的賠償上限就是 2 萬）。 */
+export const DECLARE_THRESHOLD = 20_000
+
 export interface TcatOrderInput {
   orderNo: string
   recipientName: string
@@ -35,6 +38,11 @@ export interface TcatOrderInput {
   productName: string
   /** 訂單總件數，用來推材積 */
   totalQuantity: number
+  /**
+   * 代收貨款金額（貨到付款）。0 或不給 = 不代收。
+   * 黑貓的代收超過 2 萬要一併報值，否則遺失時只能按上限賠。
+   */
+  collectionAmount?: number
 }
 
 export interface TcatOrderConfig {
@@ -81,6 +89,8 @@ export function buildTcatOrder(
   }
 
   const { shipmentDate, deliveryDate } = shipmentDates(now)
+  // 金額一律取整數且不接受負數 —— 黑貓的欄位是整數，送小數會被退件
+  const collection = Math.max(0, Math.round(input.collectionAmount ?? 0))
 
   return {
     // 列印類別 01 = 由系統配號，所以託運單號留空
@@ -109,15 +119,16 @@ export function buildTcatOrder(
     DeliveryDate: deliveryDate,
     // 04 = 不指定。指定時段配送失敗率較高，且結帳流程沒有讓客戶選
     DeliveryTime: '04',
-    // 運費與貨款都在網站上收完了，不走到付也不代收
+    // 運費一律是我們付（月結），所以永遠 N；貨款則看訂單是不是貨到付款
     IsFreight: 'N',
-    IsCollection: 'N',
-    CollectionAmount: 0,
+    IsCollection: collection > 0 ? 'Y' : 'N',
+    CollectionAmount: collection,
+    // 司機的行動刷卡與行動支付要另外申請，沒開通就只能收現金
     IsSwipe: 'N',
     IsMobilePay: 'N',
-    // 報值只在代收金額 > 2 萬時才有意義，我們沒有代收
-    IsDeclare: 'N',
-    DeclareAmount: 0,
+    // 報值只在代收金額超過 2 萬時才有意義（遺失時的賠償上限）
+    IsDeclare: collection > DECLARE_THRESHOLD ? 'Y' : 'N',
+    DeclareAmount: collection > DECLARE_THRESHOLD ? collection : 0,
     ProductTypeId: config.productTypeId,
     ProductName: sanitizeProductName(input.productName),
     Memo: '',

@@ -2,6 +2,8 @@ import 'server-only'
 import { Queue, type JobsOptions } from 'bullmq'
 import IORedis from 'ioredis'
 import { env } from '@/lib/env'
+// 只取型別，不會把 nodemailer 帶進呼叫端
+import type { EmailTemplate } from '@/lib/email'
 
 /**
  * 背景工作佇列。
@@ -16,12 +18,20 @@ export type JobPayload = {
   'create-shipment': { orderId: string }
   'issue-receipt': { orderId: string }
   'send-email': {
-    template: 'order-confirmed' | 'payment-info' | 'shipped' | 'order-cancelled'
+    template: EmailTemplate
     orderId: string
+    /** 退款相關的信件要知道是哪一筆申請 */
+    refundId?: string
   }
   'release-expired-reservations': Record<string, never>
   /** 黑貓沒有貨態回拋，只能定期去問 */
   'poll-tcat-status': Record<string, never>
+  /**
+   * 主動向綠界查詢待付款訂單的真實狀態。
+   * ReturnURL 漏掉（CDN、憑證、主機重啟）時，訂單會卡在待付款而消費者已經繳費，
+   * 這支排程就是那種情況的唯一救援。
+   */
+  'reconcile-payments': Record<string, never>
 }
 
 export type JobName = keyof JobPayload
@@ -94,6 +104,19 @@ export async function registerRepeatableJobs(): Promise<void> {
     {
       repeat: { pattern: '*/5 * * * *' }, // 每 5 分鐘
       jobId: 'cron:release-expired-reservations',
+      removeOnComplete: { count: 20 },
+    },
+  )
+
+  await getQueue().add(
+    'reconcile-payments',
+    {},
+    {
+      // 每 15 分鐘查一批（一批最多 20 筆，同一筆至少隔 30 分鐘才再查）。
+      // 綠界對 API 有限速，太密會收到 403。
+      repeat: { pattern: '*/15 * * * *' },
+      jobId: 'cron:reconcile-payments',
+      attempts: 1,
       removeOnComplete: { count: 20 },
     },
   )

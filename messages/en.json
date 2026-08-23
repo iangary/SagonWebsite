@@ -49,6 +49,8 @@
     "selectVariant": "Select an option",
     "quantity": "Quantity",
     "description": "Description",
+    "expandDescription": "Read more",
+    "collapseDescription": "Show less",
     "specs": "Specifications",
     "reviews": "Reviews",
     "noReviews": "No reviews yet",
@@ -115,7 +117,9 @@
     "shippingNote": "Shipping is calculated from the delivery method you pick at checkout",
     "couponPlaceholder": "Enter coupon code",
     "couponAppliedCode": "“{code}” applied",
-    "couponFailed": "This coupon cannot be used"
+    "couponFailed": "This coupon cannot be used",
+    "memberOnlyNotice": "Checkout requires an account — the next step is a quick registration.",
+    "loginToCheckout": "Already have one? Sign in"
   },
   "checkout": {
     "title": "Checkout",
@@ -167,7 +171,20 @@
     "securityNote": "You'll be redirected to ECPay's secure payment page.",
     "reserveNote": "Your items are reserved for 30 minutes.",
     "devWarningTitle": "Development environment notice",
-    "devWarningBody": "APP_URL currently points at localhost, so ECPay cannot reach our callback and order status will not update automatically after payment. Start a tunnel and set APP_URL to a public address:"
+    "devWarningBody": "APP_URL currently points at localhost, so ECPay cannot reach our callback and order status will not update automatically after payment. Start a tunnel and set APP_URL to a public address:",
+    "barcode": "Convenience store barcode",
+    "barcodeNote": "Get three payment barcodes after ordering",
+    "barcodeExpireNote": "Get payment barcodes after ordering, pay at the counter within {days} days",
+    "cvsExpireNote": "Get a payment code after ordering, pay in store within {days} days",
+    "atmExpireNote": "Get a virtual account after ordering, transfer within {days} days",
+    "cod": "Cash on delivery",
+    "codNote": "Pay when you collect the parcel",
+    "codNoteWithFee": "Pay on collection, {fee} handling fee applies",
+    "codFee": "Cash-on-delivery fee",
+    "noPaymentMethod": "No payment method is available right now. Please contact us or choose another delivery method.",
+    "codSecurityNote": "We start preparing your order right away; you pay when the parcel arrives.",
+    "codReserveNote": "No prepayment needed. Your items are reserved.",
+    "reserveNoteDays": "Items are reserved for {days} days. Unpaid orders are cancelled automatically."
   },
   "result": {
     "successTitle": "Order confirmed",
@@ -213,7 +230,28 @@
     "awaitingTransfer": "Awaiting transfer: {bankCode} / {vAccount} (due {expireDate})",
     "awaitingPaymentCode": "Awaiting payment code: {paymentNo} (due {expireDate})",
     "grandTotal": "Total",
-    "polling": "Confirming your payment with ECPay…"
+    "polling": "Confirming your payment with ECPay…",
+    "paymentMethodLabel": "Payment method",
+    "codTitle": "Cash on delivery",
+    "codAmount": "Amount due on collection",
+    "codFeeLabel": "Includes handling fee",
+    "codHintCvs": "You will be notified when the parcel arrives at the store. Pay at the counter when you collect it.",
+    "codHintHome": "Please pay the courier on delivery. Cash is recommended to avoid delays.",
+    "barcodeTitle": "Convenience store barcode payment",
+    "barcodeHint": "The barcodes must be scanned by staff. Print or save the payment slip and pay at the counter.",
+    "printSlip": "Print / save payment slip",
+    "printSlipHint": "Save it to your phone gallery so it works offline at the store.",
+    "changePaymentTitle": "Want to pay another way?",
+    "changePaymentHint": "Choosing a new payment method voids the current payment code or virtual account immediately. Do not pay with the old code.",
+    "changePaymentAction": "Change payment method",
+    "changePaymentConfirm": "Confirm change",
+    "cancel": "Cancel",
+    "contactLabel": "Email or mobile used for the order",
+    "contactPlaceholder": "name@example.com or 09xxxxxxxx",
+    "refundInProgressTitle": "Refund in progress",
+    "refundRequestedHint": "We have this refund on file and will follow up with you on LINE.",
+    "refundApprovedHint": "Your refund has been approved and is being processed. We will notify you once it is done.",
+    "awaitingCollection": "Cash on delivery: {amount} due on collection"
   },
   "account": {
     "title": "My Account",
@@ -239,7 +277,6 @@
     "ssoAccount": "{provider} account",
     "linked": "Linked",
     "notLinked": "Not linked",
-    "emailPassword": "Email and password",
     "passwordSet": "Set ({email})",
     "passwordNotSet": "No password set",
     "emailNotSet": "No email set",
@@ -303,7 +340,17 @@
     "passwordChanged": "Password changed",
     "passwordCreated": "Password set",
     "phoneBound": "Mobile number verified and linked",
-    "profileUpdated": "Profile updated"
+    "profileUpdated": "Profile updated",
+    "emailUnverified": "Email not verified yet",
+    "emailUnverifiedHint": "We sent a verification link to {email}. Check your spam folder, or resend it.",
+    "resendVerification": "Resend link",
+    "sendingVerification": "Sending…",
+    "verificationSent": "Verification email sent — open it to finish",
+    "verificationCooldown": "Please wait {seconds}s before resending",
+    "verificationRateLimited": "Too many requests. Please try again in an hour.",
+    "verificationSendFailed": "Could not send the verification email. Please try again later.",
+    "emailAlreadyVerified": "This email address is already verified",
+    "accountPassword": "Account and password"
   },
   "auth": {
     "loginTitle": "Sign in",
@@ -320,8 +367,6 @@
     "otpCode": "Verification code",
     "sendOtp": "Send code",
     "resendOtp": "Resend ({seconds}s)",
-    "loginWithPassword": "Password",
-    "loginWithPhone": "Mobile",
     "noAccount": "Don't have an account?",
     "hasAccount": "Already have an account?",
     "invalidCredentials": "Incorrect email or password",
@@ -334,7 +379,35 @@
     "otpSentDev": "Code sent (dev mode: {code})",
     "sendFailed": "Could not send the code",
     "phoneOptionalHint": "Optional. Adding it lets you sign in with a verification code too.",
-    "passwordHint": "At least 8 characters"
+    "passwordHint": "At least 8 characters",
+    "verifyEmailTitle": "Email verification",
+    "verifyEmailOk": "Your email address is verified. From now on you only need your email and password to sign in.",
+    "verifyEmailAlready": "This email address was already verified — nothing else to do.",
+    "verifyEmailExpired": "This verification link has expired. Sign in and send yourself a new one.",
+    "verifyEmailInvalid": "This verification link is invalid or has already been used. Sign in and send yourself a new one.",
+    "verifyEmailGoAccount": "Go to my account",
+    "verifyEmailResend": "Go to my account to resend",
+    "identifier": "Account",
+    "identifierHint": "Mobile number or email",
+    "forgotPassword": "Forgot your password?",
+    "forgotPasswordTitle": "Reset password",
+    "forgotPasswordIntro": "Enter your registered mobile number. We will text you a code, then you can choose a new password.",
+    "resetPasswordSubmit": "Reset password and sign in",
+    "backToLogin": "Back to sign in",
+    "resetNoAccount": "No account is registered with this number",
+    "setPasswordTitle": "Set a password",
+    "setPasswordIntro": "Set a password so you do not have to wait for an SMS next time. You will then sign in with your mobile number and password.",
+    "setPasswordSubmit": "Set password and continue",
+    "setPasswordAccountHint": "Your account is {phone}",
+    "passwordAlreadySet": "This account already has a password — change it from Account security",
+    "newPassword": "New password",
+    "checkoutNeedsAccount": "Checkout requires an account. Your cart carries over once you register or sign in.",
+    "resetDoneLoginManually": "Your password was reset — please sign in with the new one",
+    "setPasswordAlready": "This account already has a password — continue to your account.",
+    "setPasswordContinue": "Continue",
+    "firstTimePhoneLogin": "First time signing in with your phone?",
+    "smsLoginTitle": "Sign in with an SMS code",
+    "smsLoginIntro": "Signing in with your phone for the first time creates your account. You will then set a password and sign in with your mobile number and password — no more waiting for a text."
   },
   "orderStatus": {
     "PENDING_PAYMENT": "Awaiting payment",
@@ -434,7 +507,10 @@
     "companyNote": "Zhongshan District, Taipei",
     "orderQueryTitle": "Looking for your order status?",
     "orderQueryBody": "No need to email — just use your order number plus the mobile number or email you gave at checkout.",
-    "orderQueryCta": "Track your order"
+    "orderQueryCta": "Track your order",
+    "lineTitle": "LINE support",
+    "lineNote": "The fastest way to reach us about refunds, returns and orders",
+    "lineCta": "Add us on LINE"
   },
   "faq": {
     "title": "Frequently asked questions",
@@ -442,7 +518,7 @@
     "q_payment": "Which payment methods do you accept?",
     "a_payment": "Through ECPay we accept credit cards (instalments available), ATM transfer to a virtual account, and convenience store payment codes. ATM and store codes are issued after you place the order — please pay before the deadline, as unpaid orders are cancelled automatically and the stock released.",
     "q_modify": "Can I change my order after placing it?",
-    "a_modify": "Orders cannot be edited once placed. If it hasn't shipped yet, email {email} during support hours with your order number and we'll help.",
+    "a_modify": "Orders cannot be edited once placed. If it has not shipped yet, message us on LINE during business hours with your order number and we will help.",
     "q_coupon": "How do I use a coupon code?",
     "a_coupon": "Enter it in the “Coupon code” field on the cart page and press Apply — the discount is reflected in the total straight away. Each code has its own minimum spend and usage limit, and only one code can be used per order.",
     "shippingTitle": "Shipping and pickup",
@@ -459,7 +535,7 @@
     "a_returns": "Under Taiwan's Consumer Protection Act you have a 7-day inspection period from delivery (an inspection period, not a trial period). Returned items must be unused and complete, with original packaging and tags. For hygiene reasons, intimate apparel cannot be returned or exchanged once opened or tried on.",
     "more_returns": "Full returns policy",
     "q_refund": "How long do refunds take?",
-    "a_refund": "3–7 business days after we receive the return and confirm its condition. Credit card reversals follow your issuing bank's schedule, usually 1–2 billing cycles.",
+    "a_refund": "Refunds and returns are handled through LINE support. Once we receive the returned item and check it, refunds are processed within 3–7 business days. Card refunds follow your issuer, usually 1–2 billing cycles; other payment methods are refunded by bank transfer.",
     "more_refund": "Refund methods and timing"
   },
   "chat": {
@@ -505,7 +581,8 @@
     "emailTaken": "This email is already registered — please sign in instead",
     "purchaseNotFound": "No matching purchase found, or the order is not completed yet",
     "productMismatch": "Product details do not match",
-    "alreadyReviewed": "You have already reviewed this item"
+    "alreadyReviewed": "You have already reviewed this item",
+    "loginRequiredForCheckout": "Please register or sign in before checking out."
   },
   "common": {
     "loading": "Loading…",
@@ -585,5 +662,26 @@
     "companyNameRequired": "Please enter the company name",
     "ratingRequired": "Please choose a rating",
     "reviewBodyMin": "Reviews must be at least 5 characters"
+  },
+  "slip": {
+    "title": "Payment slip",
+    "intro": "Print it, or save it to your phone gallery to take to the store.",
+    "imageAlt": "Convenience store payment slip with code and barcodes",
+    "saveImage": "Save as image",
+    "saveHint": "On a phone, press and hold the image to save it to your gallery. Keep it sharp so staff can scan the barcode.",
+    "saving": "Generating image…",
+    "print": "Print",
+    "copyCode": "Copy payment code",
+    "copied": "Copied",
+    "unavailable": "There is nothing to pay for this order right now (it may already be paid, cancelled, or use another payment method).",
+    "backToOrder": "Back to order"
+  },
+  "refund": {
+    "contactTitle": "Need a refund or exchange?",
+    "contactBody": "Please message us on LINE and quote order {orderNo}. For faulty or wrong items, send photos too — we will confirm how to return the item and when the refund lands.",
+    "contactBodyEmail": "Please email our support team and quote order {orderNo}. For faulty or wrong items, attach photos too — we will confirm how to return the item and when the refund lands.",
+    "lineCta": "Contact us on LINE",
+    "lineId": "LINE ID: {id}",
+    "refundInProgressTitle": "Refund in progress"
   }
 }

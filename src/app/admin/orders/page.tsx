@@ -2,7 +2,11 @@ import Link from 'next/link'
 import type { OrderStatus, Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { formatTWD } from '@/lib/utils'
-import { ORDER_STATUS_LABEL } from '@/lib/orders/labels'
+import {
+  CHOOSE_PAYMENT_LABEL,
+  ORDER_STATUS_LABEL,
+  PAYMENT_STATUS_LABEL,
+} from '@/lib/orders/labels'
 import { PageHeader, DataTable, Td, AdminPagination } from '@/components/admin/ui'
 import { Badge, ORDER_STATUS_TONE } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -19,10 +23,43 @@ const STATUS_FILTERS: { value: string; label: string }[] = [
   ...Object.entries(ORDER_STATUS_LABEL).map(([value, label]) => ({ value, label })),
 ]
 
+/**
+ * 「客戶到底付款了沒」的快篩。
+ *
+ * 訂單狀態不等於收款狀態 —— 貨到付款的訂單一成立就是備貨中，錢卻是取貨時才收；
+ * 待付款的訂單也分「還沒去繳」與「已取號等繳費」。這一排就是為了讓這件事一眼可見。
+ */
+const PAYMENT_FILTERS: { value: string; label: string; where: Prisma.OrderWhereInput }[] = [
+  { value: '', label: '全部', where: {} },
+  {
+    value: 'paid',
+    label: '已收款',
+    where: { payments: { some: { status: 'PAID' } } },
+  },
+  {
+    value: 'unpaid',
+    label: '未收款',
+    where: {
+      status: { in: ['PENDING_PAYMENT', 'PROCESSING'] },
+      payments: { none: { status: 'PAID' } },
+    },
+  },
+  {
+    value: 'awaiting',
+    label: '已取號待繳費',
+    where: { payments: { some: { supersededAt: null, status: 'AWAITING_TRANSFER' } } },
+  },
+  {
+    value: 'cod',
+    label: '貨到付款待收',
+    where: { payments: { some: { supersededAt: null, status: 'AWAITING_COLLECTION' } } },
+  },
+]
+
 export default async function AdminOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; page?: string }>
+  searchParams: Promise<{ status?: string; payment?: string; q?: string; page?: string }>
 }) {
   const sp = await searchParams
   const page = Math.max(1, Number.parseInt(sp.page ?? '1', 10) || 1)
@@ -31,6 +68,9 @@ export default async function AdminOrdersPage({
   if (sp.status && sp.status in ORDER_STATUS_LABEL) {
     where.status = sp.status as OrderStatus
   }
+  const paymentFilter = PAYMENT_FILTERS.find((f) => f.value && f.value === sp.payment)
+  if (paymentFilter) Object.assign(where, paymentFilter.where)
+
   if (sp.q?.trim()) {
     const q = sp.q.trim()
     where.OR = [
@@ -48,7 +88,13 @@ export default async function AdminOrdersPage({
       skip: (page - 1) * PER_PAGE,
       take: PER_PAGE,
       include: {
-        payment: { select: { status: true } },
+        // 只取目前生效的那筆付款（改過付款方式的訂單會有多筆）
+        payments: {
+          where: { supersededAt: null },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { status: true, choosePayment: true, expireDate: true },
+        },
         shipment: { select: { status: true } },
         _count: { select: { items: true } },
       },
@@ -83,6 +129,7 @@ export default async function AdminOrdersPage({
       <div className="mb-5 space-y-4">
         <form method="get" className="flex gap-2">
           {sp.status && <input type="hidden" name="status" value={sp.status} />}
+          {sp.payment && <input type="hidden" name="payment" value={sp.payment} />}
           <input
             name="q"
             defaultValue={sp.q ?? ''}
@@ -101,6 +148,7 @@ export default async function AdminOrdersPage({
           {STATUS_FILTERS.map((filter) => {
             const params = new URLSearchParams()
             if (filter.value) params.set('status', filter.value)
+            if (sp.payment) params.set('payment', sp.payment)
             if (sp.q) params.set('q', sp.q)
             const qs = params.toString()
             const active = (sp.status ?? '') === filter.value
@@ -120,10 +168,36 @@ export default async function AdminOrdersPage({
             )
           })}
         </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-taupe-500">收款狀態</span>
+          {PAYMENT_FILTERS.map((filter) => {
+            const params = new URLSearchParams()
+            if (filter.value) params.set('payment', filter.value)
+            if (sp.status) params.set('status', sp.status)
+            if (sp.q) params.set('q', sp.q)
+            const qs = params.toString()
+            const active = (sp.payment ?? '') === filter.value
+            return (
+              <Link
+                key={filter.value || 'all'}
+                href={qs ? `/admin/orders?${qs}` : '/admin/orders'}
+                className={cn(
+                  'border px-3 py-1.5 text-xs transition-colors',
+                  active
+                    ? 'border-ink-900 bg-ink-900 text-cream-50'
+                    : 'border-cream-300 text-ink-700 hover:border-taupe-400',
+                )}
+              >
+                {filter.label}
+              </Link>
+            )
+          })}
+        </div>
       </div>
 
       <DataTable
-        headers={['訂單編號', '收件人', '品項', '金額', '訂單狀態', '成立時間']}
+        headers={['訂單編號', '收件人', '品項', '金額', '收款', '訂單狀態', '成立時間']}
         empty={orders.length === 0}
       >
         {orders.map((order) => (
@@ -142,6 +216,29 @@ export default async function AdminOrdersPage({
             </Td>
             <Td className="tabular-nums text-taupe-600">{order._count.items}</Td>
             <Td className="tabular-nums">{formatTWD(order.grandTotal)}</Td>
+            <Td>
+              {order.payments[0] ? (
+                <>
+                  <div
+                    className={cn(
+                      'text-xs',
+                      order.payments[0].status === 'PAID' ? 'text-ink-900' : 'text-sale',
+                    )}
+                  >
+                    {PAYMENT_STATUS_LABEL[order.payments[0].status]}
+                  </div>
+                  <div className="mt-0.5 text-xs text-taupe-500">
+                    {CHOOSE_PAYMENT_LABEL[order.payments[0].choosePayment] ??
+                      order.payments[0].choosePayment}
+                    {order.payments[0].status === 'AWAITING_TRANSFER' &&
+                      order.payments[0].expireDate &&
+                      ` ・ 期限 ${order.payments[0].expireDate}`}
+                  </div>
+                </>
+              ) : (
+                <span className="text-xs text-taupe-500">—</span>
+              )}
+            </Td>
             <Td>
               <Badge tone={ORDER_STATUS_TONE[order.status]}>
                 {ORDER_STATUS_LABEL[order.status]}

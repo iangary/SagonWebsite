@@ -11,10 +11,25 @@ import {
   INVOICE_STATUS_LABEL,
   RECEIPT_STATUS_LABEL,
   CHOOSE_PAYMENT_LABEL,
+  REFUND_METHOD_LABEL,
+  REFUND_STATUS_LABEL,
 } from '@/lib/orders/labels'
+import { currentPaymentOf } from '@/lib/orders/payment'
+import { refundEligibility } from '@/lib/orders/refund'
+import { getPaymentSettings } from '@/lib/shop-settings'
 import { Badge, ORDER_STATUS_TONE } from '@/components/ui/badge'
 import { DataTable, Td } from '@/components/admin/ui'
 import { OrderActions } from './order-actions'
+import { RefundOpener } from './refund-opener'
+
+/** 不能開退款單時，把原因直接寫在區塊裡，免得客服對著空白區塊猜 */
+const REFUND_BLOCKED_NOTE: Record<string, string> = {
+  notPaid: '這張訂單還沒有收到款項，沒有東西可以退（未付款的訂單請直接取消）',
+  alreadyRequested: '已經有一筆退款單在處理中，請到退款頁繼續。',
+  cancelled: '訂單已取消，沒有款項需要退還。',
+  refunded: '這張訂單已經退款完成。',
+  none: '目前無法建立退款單。',
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -27,20 +42,32 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function AdminOrderDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
-  const order = await db.order.findUnique({
-    where: { id },
-    include: {
-      items: true,
-      payment: true,
-      invoice: true,
-      receipt: true,
-      coupon: true,
-      user: { select: { id: true, name: true, email: true } },
-      shipment: { include: { logs: { orderBy: { occurredAt: 'desc' } } } },
-    },
-  })
+  const [settings, order] = await Promise.all([
+    getPaymentSettings(),
+    db.order.findUnique({
+      where: { id },
+      include: {
+        items: true,
+        payments: { orderBy: { createdAt: 'desc' } },
+        refunds: { orderBy: { createdAt: 'desc' } },
+        invoice: true,
+        receipt: true,
+        coupon: true,
+        user: { select: { id: true, name: true, email: true } },
+        shipment: { include: { logs: { orderBy: { occurredAt: 'desc' } } } },
+      },
+    }),
+  ])
 
   if (!order) notFound()
+
+  // 目前生效的付款。改過付款方式的訂單會有多筆，舊的留著比對逾期入帳。
+  const payment = currentPaymentOf(order.payments)
+  const supersededPayments = order.payments.filter((p) => p.id !== payment?.id)
+
+  // 能不能開退款單。超過期限時仍顯示表單，但要客服明確勾選才建得起來。
+  // 刻意不叫 refund —— 下面列出既有退款單的 map 也用這個名字。
+  const refundability = refundEligibility(order, settings)
 
   // 列印一段標要 POST 到綠界，在伺服器端先把帶簽章的參數算好交給前端。
   // 只有超商取貨走綠界；宅配是黑貓，託運單 PDF 走 /api/admin/labels/[orderId]。
@@ -94,6 +121,9 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
         invoiceStatus={order.invoice?.status ?? null}
         receiptStatus={order.receipt?.status ?? null}
         printForm={printForm}
+        // 「客戶到底付款了沒」：綠界金流用 QueryTradeInfo 查，貨到付款則是手動標記
+        paymentProvider={payment?.provider ?? null}
+        paymentStatus={payment?.status ?? null}
       />
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
@@ -124,6 +154,9 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
                 label="運費"
                 value={order.shippingFee === 0 ? '免運費' : formatTWD(order.shippingFee)}
               />
+              {order.codFee > 0 && (
+                <Row label="貨到付款手續費" value={formatTWD(order.codFee)} />
+              )}
               <div className="flex justify-between border-t border-cream-200 pt-2 text-base">
                 <dt>總計</dt>
                 <dd className="tabular-nums">{formatTWD(order.grandTotal)}</dd>
@@ -167,26 +200,122 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
             <dl className="space-y-2 text-sm">
               <Row
                 label="方式"
-                value={CHOOSE_PAYMENT_LABEL[order.payment?.choosePayment ?? ''] ?? '—'}
+                value={CHOOSE_PAYMENT_LABEL[payment?.choosePayment ?? ''] ?? '—'}
               />
-              <Row
-                label="狀態"
-                value={order.payment ? PAYMENT_STATUS_LABEL[order.payment.status] : '—'}
-              />
-              {order.payment?.tradeNo && <Row label="綠界交易編號" value={order.payment.tradeNo} />}
-              {order.payment?.vAccount && (
+              <Row label="狀態" value={payment ? PAYMENT_STATUS_LABEL[payment.status] : '—'} />
+              {payment?.paidAt && (
+                <Row
+                  label="收款時間"
+                  value={payment.paidAt.toLocaleString('zh-TW', { hour12: false })}
+                />
+              )}
+              {payment?.expireDate && <Row label="繳費期限" value={payment.expireDate} />}
+              {payment?.tradeNo && <Row label="綠界交易編號" value={payment.tradeNo} />}
+              {payment?.merchantTradeNo && (
+                <Row label="金流單號" value={payment.merchantTradeNo} />
+              )}
+              {payment?.vAccount && (
                 <>
-                  <Row label="銀行代碼" value={order.payment.bankCode ?? '—'} />
-                  <Row label="虛擬帳號" value={order.payment.vAccount} />
+                  <Row label="銀行代碼" value={payment.bankCode ?? '—'} />
+                  <Row label="虛擬帳號" value={payment.vAccount} />
                 </>
               )}
-              {order.payment?.paymentNo && (
-                <Row label="繳費代碼" value={order.payment.paymentNo} />
+              {payment?.paymentNo && <Row label="繳費代碼" value={payment.paymentNo} />}
+              {payment?.barcode1 && (
+                <Row
+                  label="繳費條碼"
+                  value={[payment.barcode1, payment.barcode2, payment.barcode3]
+                    .filter(Boolean)
+                    .join(' / ')}
+                />
               )}
-              {order.payment?.failReason && (
-                <Row label="失敗原因" value={order.payment.failReason} tone="sale" />
+              {payment?.syncedAt && (
+                <Row
+                  label="最後對帳"
+                  value={payment.syncedAt.toLocaleString('zh-TW', { hour12: false })}
+                />
+              )}
+              {payment?.failReason && (
+                <Row label="失敗原因" value={payment.failReason} tone="sale" />
               )}
             </dl>
+
+            {/* 已作廢的付款紀錄：消費者改過付款方式時留下的。
+                一定要顯示 —— 舊的超商代碼在期限內仍然繳得成功，
+                客服要看得出「這張訂單還有另一組代碼在外面」。 */}
+            {supersededPayments.length > 0 && (
+              <div className="mt-4 border-t border-cream-200 pt-3">
+                <p className="mb-2 text-xs text-taupe-500">已作廢的付款紀錄</p>
+                <ul className="space-y-1.5 text-xs text-taupe-600">
+                  {supersededPayments.map((p) => (
+                    <li key={p.id} className="flex justify-between gap-3">
+                      <span>
+                        {CHOOSE_PAYMENT_LABEL[p.choosePayment] ?? p.choosePayment}
+                        {p.paymentNo && ` ・ ${p.paymentNo}`}
+                        {p.vAccount && ` ・ ${p.vAccount}`}
+                      </span>
+                      <span className="shrink-0">{PAYMENT_STATUS_LABEL[p.status]}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </Section>
+
+          <Section title="退款">
+            {order.refunds.length > 0 && (
+              <ul className="mb-4 space-y-3 text-sm">
+                {order.refunds.map((refund) => (
+                  <li key={refund.id} className="border-b border-cream-200 pb-3 last:border-0 last:pb-0">
+                    <div className="flex justify-between gap-3">
+                      <span>{formatTWD(refund.amount)}</span>
+                      <span
+                        className={
+                          refund.status === 'REQUESTED' || refund.status === 'FAILED'
+                            ? 'text-sale'
+                            : 'text-ink-700'
+                        }
+                      >
+                        {REFUND_STATUS_LABEL[refund.status]}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-taupe-600">{refund.reason}</p>
+                    <p className="mt-1 text-xs text-taupe-500">
+                      {refund.method ? REFUND_METHOD_LABEL[refund.method] : '方式未定'} ・{' '}
+                      {refund.createdAt.toLocaleString('zh-TW', { hour12: false })}
+                    </p>
+                    {refund.bankAccountNo && (
+                      <p className="mt-1 text-xs text-ink-700">
+                        匯款帳戶：{refund.bankCode} / {refund.bankAccountNo}（{refund.accountName}）
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {/* 客人是在 LINE 上談退款的（前台沒有申請表單），所以由客服在這裡開單。
+                已經有一筆在處理時不給再開 —— refundEligibility 會擋掉。 */}
+            {refundability.eligible || refundability.reasonKey === 'windowClosed' ? (
+              <RefundOpener
+                orderId={order.id}
+                needsBankAccount={refundability.needsBankAccount}
+                windowClosed={refundability.reasonKey === 'windowClosed'}
+              />
+            ) : (
+              <p className="text-sm text-taupe-500">
+                {REFUND_BLOCKED_NOTE[refundability.reasonKey ?? 'none']}
+              </p>
+            )}
+
+            {order.refunds.length > 0 && (
+              <Link
+                href="/admin/refunds"
+                className="mt-3 inline-block text-xs text-ink-900 underline underline-offset-4"
+              >
+                到退款頁處理
+              </Link>
+            )}
           </Section>
 
           <Section title="物流">

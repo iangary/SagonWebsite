@@ -36,21 +36,39 @@ type MockUser = { id: string; role: 'ADMIN' | 'CUSTOMER'; email?: string | null 
 /** 測試中途可換人：mockAuthUser(user) 之後，currentUser/requireUser/requireAdmin 都跟著變 */
 let authUser: MockUser = null
 
+// 併發測試（兩個會員同時下單搶最後一件）各自要有自己的身分，
+// 跟 cookie jar 同一個道理：全域變數會互相蓋掉。
+const authStorage = new AsyncLocalStorage<{ user: MockUser }>()
+
 export function mockAuthUser(user: MockUser): void {
   authUser = user
 }
 
+/** 在指定身分下執行 fn，可安全用於 Promise.all */
+export async function withAuthUser<T>(user: MockUser, fn: () => Promise<T>): Promise<T> {
+  return authStorage.run({ user }, fn)
+}
+
+function currentAuthUser(): MockUser {
+  return authStorage.getStore()?.user ?? authUser
+}
+
 export function authMockModule() {
   return {
-    auth: vi.fn(async () => (authUser ? { user: authUser } : null)),
-    currentUser: vi.fn(async () => authUser),
+    auth: vi.fn(async () => {
+      const user = currentAuthUser()
+      return user ? { user } : null
+    }),
+    currentUser: vi.fn(async () => currentAuthUser()),
     requireUser: vi.fn(async () => {
-      if (!authUser) throw new Error('UNAUTHORIZED')
-      return authUser
+      const user = currentAuthUser()
+      if (!user) throw new Error('UNAUTHORIZED')
+      return user
     }),
     requireAdmin: vi.fn(async () => {
-      if (!authUser || authUser.role !== 'ADMIN') throw new Error('FORBIDDEN')
-      return authUser
+      const user = currentAuthUser()
+      if (!user || user.role !== 'ADMIN') throw new Error('FORBIDDEN')
+      return user
     }),
     normalizeTwMobile: (value: string) => {
       const digits = value.replace(/\D/g, '')

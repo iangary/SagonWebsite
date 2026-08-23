@@ -4,9 +4,16 @@ import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { shopConfig } from '@/lib/shop-config'
 import { getOrCreateCart } from '@/lib/cart'
-import { actualExpireMinutes, generateMerchantTradeNo, type ChoosePayment } from '@/lib/ecpay/aio'
+import { enqueue } from '@/lib/queue'
+import { generateMerchantTradeNo } from '@/lib/ecpay/aio'
+import {
+  getPaymentSettings,
+  holdMinutesFor,
+  isCodAvailable,
+  type PaymentChoice,
+} from '@/lib/shop-settings'
 import { calculatePricing, validateCoupon } from './pricing'
-import { reserveStock, releaseReservation } from './stock'
+import { commitOrderReservations, reserveStock, releaseReservation } from './stock'
 
 export interface CreateOrderInput {
   email: string
@@ -29,7 +36,7 @@ export interface CreateOrderInput {
   addressDistrict?: string
   addressLine?: string
 
-  choosePayment: ChoosePayment
+  choosePayment: PaymentChoice
   couponCode?: string
   note?: string
 
@@ -42,17 +49,30 @@ export interface CreateOrderInput {
 }
 
 export type CreateOrderResult =
-  | { ok: true; orderId: string; orderNo: string; grandTotal: number }
+  | {
+      ok: true
+      orderId: string
+      orderNo: string
+      grandTotal: number
+      /** 貨到付款不必去綠界，前台要導去訂單結果頁而不是收銀台 */
+      isCod: boolean
+    }
   | { ok: false; error: string }
 
 /**
  * 從購物車成立訂單。
+ *
+ * **只有會員能下單。** 前台在購物車與結帳頁就會把訪客導去註冊，這裡是最後一道
+ * 關卡 —— 直接打 Server Action，或填單途中 session 過期，都要在這裡被擋下。
  *
  * 整段跑在一個交易裡：驗庫存並預扣、建訂單、建付款/物流/發票紀錄、清空購物車。
  * 任何一步失敗就整筆回滾，不會留下「訂單建了但庫存沒扣」這種半套狀態。
  */
 export async function createOrderFromCart(input: CreateOrderInput): Promise<CreateOrderResult> {
   const session = await auth()
+  const userId = session?.user?.id
+  if (!userId) return { ok: false, error: '請先註冊或登入會員再結帳' }
+
   const cart = await getOrCreateCart()
 
   if (cart.items.length === 0) return { ok: false, error: '購物車是空的' }
@@ -79,15 +99,16 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
     const couponError = validateCoupon(coupon, subtotal)
     if (couponError) return { ok: false, error: couponError }
 
-    if (session?.user?.id) {
-      const used = await db.couponRedemption.count({
-        where: { couponId: coupon.id, userId: session.user.id },
-      })
-      if (used >= coupon.perUserLimit) {
-        return { ok: false, error: '您已達到這張折扣碼的使用次數上限' }
-      }
+    const used = await db.couponRedemption.count({
+      where: { couponId: coupon.id, userId },
+    })
+    if (used >= coupon.perUserLimit) {
+      return { ok: false, error: '您已達到這張折扣碼的使用次數上限' }
     }
   }
+
+  const settings = await getPaymentSettings()
+  const isCod = input.choosePayment === 'COD'
 
   const pricing = calculatePricing({
     lines,
@@ -95,17 +116,24 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
     shippingFees: shopConfig.shippingFee,
     freeShippingThreshold: shopConfig.freeShippingThreshold,
     coupon,
+    codFee: isCod ? settings.codFee : 0,
   })
   if (pricing.couponError) return { ok: false, error: pricing.couponError }
 
+  // 付款方式的開關是後台設定，前端送什麼都要在這裡重驗一次
+  if (input.choosePayment === 'COD') {
+    if (!isCodAvailable(settings, input.shippingMethod, pricing.grandTotal)) {
+      return { ok: false, error: '這筆訂單不適用貨到付款，請改選其他付款方式' }
+    }
+  } else if (!settings.prepayEnabled || !settings.methods[input.choosePayment]) {
+    return { ok: false, error: '這個付款方式目前沒有開放' }
+  }
+
   const orderNo = generateMerchantTradeNo()
-  // 預扣有效期必須對齊「綠界實際給消費者的付款期限」：
-  // ATM 的期限單位是天、下限 1 天，若照 30 分鐘就取消訂單，
-  // 消費者隔天匯款會變成「錢收到了、訂單卻已取消」。
-  const reservationMinutes = actualExpireMinutes(
-    input.choosePayment,
-    shopConfig.stockReservationMinutes,
-  )
+  // 預扣有效期必須對齊「消費者實際拿到的付款期限」：
+  // 超商代碼可以是好幾天，若照 30 分鐘就取消訂單，
+  // 消費者隔天繳費會變成「錢收到了、訂單卻已取消」。
+  const reservationMinutes = holdMinutesFor(input.choosePayment, settings)
   const expiresAt = new Date(Date.now() + reservationMinutes * 60 * 1000)
 
   try {
@@ -124,13 +152,15 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
       const created = await tx.order.create({
         data: {
           orderNo,
-          userId: session?.user?.id ?? null,
+          userId,
           email: input.email.toLowerCase(),
           phone: input.phone,
-          status: 'PENDING_PAYMENT',
+          // 貨到付款不等錢進來，直接進備貨；線上付款要等綠界的通知
+          status: isCod ? 'PROCESSING' : 'PENDING_PAYMENT',
           subtotal: pricing.subtotal,
           discountTotal: pricing.discountTotal,
           shippingFee: pricing.shippingFee,
+          codFee: pricing.codFee,
           grandTotal: pricing.grandTotal,
           couponId: coupon?.id ?? null,
           shippingMethod: input.shippingMethod,
@@ -165,12 +195,14 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
             })),
           },
 
-          payment: {
+          payments: {
             create: {
-              merchantTradeNo: orderNo,
+              // 貨到付款不經綠界，但 merchantTradeNo 是唯一鍵，還是給一組好對帳
+              merchantTradeNo: isCod ? generateMerchantTradeNo('CD') : orderNo,
+              provider: isCod ? 'COD' : 'ECPAY',
               choosePayment: input.choosePayment,
               amount: pricing.grandTotal,
-              status: 'PENDING',
+              status: isCod ? 'AWAITING_COLLECTION' : 'PENDING',
             },
           },
 
@@ -192,6 +224,8 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
                       .join('')
                   : null,
               status: 'PENDING',
+              // 貨到付款：請超商／黑貓代收貨款
+              isCollection: isCod,
               goodsAmount: pricing.grandTotal,
             },
           },
@@ -230,11 +264,15 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
         await tx.couponRedemption.create({
           data: {
             couponId: coupon.id,
-            userId: session?.user?.id ?? null,
+            userId,
             orderId: created.id,
           },
         })
       }
+
+      // 貨到付款沒有付款通知會來，預扣要當場轉實扣 ——
+      // 留著預扣會被逾期排程當成「沒付款」而取消整張訂單。
+      if (isCod) await commitOrderReservations(tx, created.id)
 
       // 訂單成立就清空購物車，避免使用者重整結帳頁又下一次
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } })
@@ -243,11 +281,21 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
       return created
     })
 
+    // 貨到付款直接進備貨：建物流單（帶代收）與通知信都在這裡發車
+    if (isCod) {
+      await enqueue('create-shipment', { orderId: order.id })
+      await enqueue('send-email', {
+        template: 'cod-confirmed',
+        orderId: order.id,
+      })
+    }
+
     return {
       ok: true,
       orderId: order.id,
       orderNo: order.orderNo,
       grandTotal: order.grandTotal,
+      isCod,
     }
   } catch (error) {
     if (error instanceof OutOfStockError) {

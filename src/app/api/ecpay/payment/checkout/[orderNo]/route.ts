@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { env } from '@/lib/env'
-import { shopConfig } from '@/lib/shop-config'
+import { getPaymentSettings, holdMinutesFor, type PaymentChoice } from '@/lib/shop-settings'
+import { currentPaymentOf } from '@/lib/orders/payment'
 import { buildAioCheckoutParams, type ChoosePayment } from '@/lib/ecpay/aio'
 import { ecpayEndpoints } from '@/lib/ecpay/config'
 import { renderAutoSubmitForm } from '@/lib/ecpay/auto-submit'
@@ -19,10 +20,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ orderNo
 
   const order = await db.order.findUnique({
     where: { orderNo },
-    include: { items: true, payment: true },
+    include: { items: true, payments: { orderBy: { createdAt: 'desc' } } },
   })
 
-  if (!order || !order.payment) {
+  const payment = order ? currentPaymentOf(order.payments) : null
+
+  if (!order || !payment) {
     return NextResponse.json({ error: '找不到訂單' }, { status: 404 })
   }
 
@@ -34,8 +37,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ orderNo
     )
   }
 
+  // 貨到付款沒有收銀台可以去
+  if (payment.provider !== 'ECPAY' || payment.choosePayment === 'COD') {
+    return NextResponse.redirect(
+      new URL(`/checkout/result?orderNo=${orderNo}`, env.APP_URL),
+      303,
+    )
+  }
+
+  const settings = await getPaymentSettings()
+
   const ecpayParams = buildAioCheckoutParams({
-    merchantTradeNo: order.orderNo,
+    // 一定要用 payment 自己的單號，不能用 order.orderNo ——
+    // 消費者改過付款方式的話，生效的那筆已經是另一組 MerchantTradeNo。
+    merchantTradeNo: payment.merchantTradeNo,
     totalAmount: order.grandTotal,
     tradeDesc: `${env.SHOP_NAME} 訂單 ${order.orderNo}`,
     items: order.items.map((item) => ({
@@ -43,9 +58,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ orderNo
       qty: item.qty,
       unitPrice: item.unitPrice,
     })),
-    choosePayment: order.payment.choosePayment as ChoosePayment,
+    choosePayment: payment.choosePayment as ChoosePayment,
     // 綠界的付款期限與我們的庫存保留時間對齊，避免「繳費成功但庫存已釋放」
-    expireMinutes: shopConfig.stockReservationMinutes,
+    expireMinutes: holdMinutesFor(payment.choosePayment as PaymentChoice, settings),
     customField1: order.id,
   })
 

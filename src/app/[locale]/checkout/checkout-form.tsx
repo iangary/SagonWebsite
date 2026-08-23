@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useActionState } from 'react'
 import { useTranslations } from 'next-intl'
 import Image from 'next/image'
-import { Store, Truck, Check, CreditCard, Building, Barcode } from 'lucide-react'
+import { Store, Truck, Check, CreditCard, Building, Barcode, ScanBarcode, Banknote } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea, Select, Field } from '@/components/ui/input'
 import { calculatePricing } from '@/lib/orders/pricing'
@@ -35,7 +35,26 @@ const PAYMENT_OPTIONS = [
   { value: 'Credit', labelKey: 'credit', noteKey: 'creditNote', icon: CreditCard },
   { value: 'ATM', labelKey: 'atm', noteKey: 'atmNote', icon: Building },
   { value: 'CVS', labelKey: 'cvsPayment', noteKey: 'cvsPaymentNote', icon: Barcode },
+  { value: 'BARCODE', labelKey: 'barcode', noteKey: 'barcodeNote', icon: ScanBarcode },
+  { value: 'COD', labelKey: 'cod', noteKey: 'codNote', icon: Banknote },
 ] as const
+
+type PaymentValue = (typeof PAYMENT_OPTIONS)[number]['value']
+
+/** 後台的付款設定，由 page.tsx 讀出來傳進來 */
+export type CheckoutPaymentSettings = {
+  prepayEnabled: boolean
+  methods: { Credit: boolean; ATM: boolean; CVS: boolean; BARCODE: boolean }
+  codEnabled: boolean
+  codShippingMethods: ('CVS' | 'HOME')[]
+  codFee: number
+  codMaxAmount: number
+  cvsExpireDays: number
+  atmExpireDays: number
+}
+
+/** 綠界超商取貨付款的代收上限，超過建不了單（10500040） */
+const CVS_COLLECTION_MAX = 20_000
 
 /**
  * 縣市送出的值必須是中文 —— 綠界與黑貓的地址欄位只吃中文。
@@ -57,6 +76,7 @@ export function CheckoutForm({
   defaultAddress,
   shippingFees,
   freeShippingThreshold,
+  payment,
 }: {
   items: Item[]
   couponCode: string | null
@@ -71,6 +91,7 @@ export function CheckoutForm({
   } | null
   shippingFees: { CVS: number; HOME: number }
   freeShippingThreshold: number
+  payment: CheckoutPaymentSettings
 }) {
   const t = useTranslations('checkout')
   const tCart = useTranslations('cart')
@@ -84,12 +105,14 @@ export function CheckoutForm({
   const [homeSubType, setHomeSubType] = React.useState('TCAT')
   const [store, setStore] = React.useState<CvsStore | null>(null)
   const [invoiceType, setInvoiceType] = React.useState<'PERSONAL' | 'COMPANY'>('PERSONAL')
+  const [choosePayment, setChoosePayment] = React.useState<PaymentValue>('Credit')
 
   // 成功後導向綠界收銀台。用 location.assign 而不是 router.push，
   // 因為目標是一支會回 HTML 表單的 route handler，不是 Next 的頁面。
+  // 失敗時也可能帶網址 —— 填單途中 session 過期就是導去登入頁。
   React.useEffect(() => {
-    if (state.ok && state.redirectTo) window.location.assign(state.redirectTo)
-  }, [state.ok, state.redirectTo])
+    if (state.redirectTo) window.location.assign(state.redirectTo)
+  }, [state.redirectTo])
 
   // 接收綠界電子地圖選店的結果
   React.useEffect(() => {
@@ -144,19 +167,84 @@ export function CheckoutForm({
     } catch {
       // 沒有 sessionStorage 就不帶 token，map-reply 會原樣帶回空字串
     }
-    const url = `/api/ecpay/logistics/map?subType=${cvsSubType}&token=${token}`
+    // 貨到付款要帶 collection=1 —— 不是每間門市都支援代收，綠界地圖會篩掉不能收款的店
+    const collection = choosePayment === 'COD' && codAvailable ? '&collection=1' : ''
+    const url = `/api/ecpay/logistics/map?subType=${cvsSubType}&token=${token}${collection}`
     window.open(url, 'ecpay-cvs-map', 'width=1000,height=720,menubar=no,toolbar=no')
   }
 
-  // 前端即時試算，最終金額仍以伺服器端的 createOrderFromCart 為準
-  const pricing = calculatePricing({
-    lines: items.map((i) => ({ variantId: i.id, unitPrice: i.unitPrice, qty: i.qty })),
+  const lines = items.map((i) => ({ variantId: i.id, unitPrice: i.unitPrice, qty: i.qty }))
+
+  // 先算一份不含貨到付款手續費的金額，用來判斷貨到付款能不能選 ——
+  // 拿含手續費的金額去比上限，臨界金額的訂單會因為手續費而自己把選項關掉。
+  const basePricing = calculatePricing({
+    lines,
     shippingMethod,
     shippingFees,
     freeShippingThreshold,
   })
 
+  const codLimit =
+    shippingMethod === 'CVS'
+      ? Math.min(payment.codMaxAmount, CVS_COLLECTION_MAX)
+      : payment.codMaxAmount
+  const codAvailable =
+    payment.codEnabled &&
+    payment.codShippingMethods.includes(shippingMethod) &&
+    basePricing.grandTotal <= codLimit
+
+  const availablePayments = PAYMENT_OPTIONS.filter((option) =>
+    option.value === 'COD' ? codAvailable : payment.prepayEnabled && payment.methods[option.value],
+  )
+
+  /**
+   * 換了配送方式可能讓選好的付款方式消失（例如宅配沒開貨到付款）。
+   * 用「推導」而不是在 effect 裡改 state —— 後者會讓同一次 render 的金額
+   * 與選項對不上（手續費還加著、選項卻已經換成信用卡）。
+   */
+  const choice: PaymentValue = availablePayments.some((option) => option.value === choosePayment)
+    ? choosePayment
+    : (availablePayments[0]?.value ?? choosePayment)
+
+  // 前端即時試算，最終金額仍以伺服器端的 createOrderFromCart 為準
+  const pricing =
+    choice === 'COD' && payment.codFee > 0
+      ? calculatePricing({
+          lines,
+          shippingMethod,
+          shippingFees,
+          freeShippingThreshold,
+          codFee: payment.codFee,
+        })
+      : basePricing
+
   const errors = state.fieldErrors ?? {}
+
+  /** 付款方式卡片下的小字：期限與手續費都是後台可調的，不能寫死在翻譯檔裡 */
+  function paymentNote(value: PaymentValue): string {
+    switch (value) {
+      case 'COD':
+        return payment.codFee > 0
+          ? t('codNoteWithFee', { fee: formatTWD(payment.codFee) })
+          : t('codNote')
+      case 'ATM':
+        return t('atmExpireNote', { days: payment.atmExpireDays })
+      case 'CVS':
+        return t('cvsExpireNote', { days: payment.cvsExpireDays })
+      case 'BARCODE':
+        return t('barcodeExpireNote', { days: payment.cvsExpireDays })
+      default:
+        return t('creditNote')
+    }
+  }
+
+  /** 庫存保留多久 —— 跟著付款期限走，見 lib/shop-settings.ts 的 holdMinutesFor */
+  function reserveNote(): string {
+    if (choice === 'COD') return t('codReserveNote')
+    if (choice === 'Credit') return t('reserveNote')
+    const days = choice === 'ATM' ? payment.atmExpireDays : payment.cvsExpireDays
+    return t('reserveNoteDays', { days })
+  }
 
   return (
     <form action={formAction} className="mt-10 gap-12 lg:flex lg:items-start">
@@ -388,7 +476,7 @@ export function CheckoutForm({
         <section>
           <SectionTitle step={3} title={t('paymentMethod')} />
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            {PAYMENT_OPTIONS.map((option, i) => (
+            {availablePayments.map((option) => (
               <label
                 key={option.value}
                 className="flex cursor-pointer items-start gap-3 border border-cream-300 p-4 transition-colors has-checked:border-ink-900 has-checked:bg-white"
@@ -397,7 +485,8 @@ export function CheckoutForm({
                   type="radio"
                   name="choosePayment"
                   value={option.value}
-                  defaultChecked={i === 0}
+                  checked={choice === option.value}
+                  onChange={() => setChoosePayment(option.value)}
                   className="mt-0.5 accent-[#2b2724]"
                 />
                 <span>
@@ -405,11 +494,21 @@ export function CheckoutForm({
                     <option.icon size={15} strokeWidth={1.5} />
                     {t(option.labelKey)}
                   </span>
-                  <span className="mt-1 block text-xs text-taupe-500">{t(option.noteKey)}</span>
+                  <span className="mt-1 block text-xs text-taupe-500">
+                    {paymentNote(option.value)}
+                  </span>
                 </span>
               </label>
             ))}
           </div>
+          {availablePayments.length === 0 && (
+            <p
+              role="alert"
+              className="mt-6 border border-sale/30 bg-sale/5 px-4 py-3 text-sm text-sale"
+            >
+              {t('noPaymentMethod')}
+            </p>
+          )}
         </section>
 
         {/* 發票 */}
@@ -512,6 +611,12 @@ export function CheckoutForm({
                   : formatTWD(pricing.shippingFee)}
               </dd>
             </div>
+            {pricing.codFee > 0 && (
+              <div className="flex justify-between">
+                <dt className="text-ink-700">{t('codFee')}</dt>
+                <dd className="tabular-nums">{formatTWD(pricing.codFee)}</dd>
+              </div>
+            )}
             {couponCode && (
               <div className="flex justify-between text-xs text-taupe-600">
                 <dt>{tCart('couponCode')}</dt>
@@ -530,9 +635,9 @@ export function CheckoutForm({
           </Button>
 
           <p className="mt-3 text-center text-[11px] leading-relaxed text-taupe-500">
-            {t('securityNote')}
+            {choice === 'COD' ? t('codSecurityNote') : t('securityNote')}
             <br />
-            {t('reserveNote')}
+            {reserveNote()}
           </p>
         </div>
       </aside>

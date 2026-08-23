@@ -1,5 +1,6 @@
 import type * as React from 'react'
 import { env } from '@/lib/env'
+import { lineSupport } from '@/lib/shop-config'
 
 /**
  * 政策條款頁的共用版面（隱私權政策、服務條款、退換貨政策）。
@@ -125,6 +126,21 @@ export function LegalPage({
           </a>
           （客服時間 週一至週五 10:00–18:00）。來信請附上訂單編號，能加快處理速度。
         </p>
+        {/* 退款與退換貨走 LINE 客服比信件快得多，有設定官方帳號時多給一條路 */}
+        {lineSupport && (
+          <p className="mt-3 text-sm leading-loose text-ink-700">
+            退款與退換貨的申請請直接聯繫
+            <a
+              href={lineSupport.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mx-1 text-ink-900 underline underline-offset-4"
+            >
+              LINE 客服{lineSupport.id ? `（${lineSupport.id}）` : ''}
+            </a>
+            ，對話中可以直接傳照片與確認退回方式。
+          </p>
+        )}
       </section>
     </article>
   )

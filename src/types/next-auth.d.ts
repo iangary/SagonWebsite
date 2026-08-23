@@ -10,6 +10,8 @@ declare module 'next-auth' {
       role: 'CUSTOMER' | 'ADMIN'
       phone: string | null
       locale: 'zh-TW' | 'en' | null
+      /** 手機驗證碼登入進來、但帳號還沒有密碼 —— proxy 會把他擋在設定密碼頁 */
+      needsPassword: boolean
     } & DefaultSession['user']
   }
 
@@ -17,6 +19,7 @@ declare module 'next-auth' {
     role?: 'CUSTOMER' | 'ADMIN'
     phone?: string | null
     locale?: 'zh-TW' | 'en' | null
+    needsPassword?: boolean
   }
 }
 
@@ -26,6 +29,8 @@ declare module 'next-auth/jwt' {
     role?: 'CUSTOMER' | 'ADMIN'
     phone?: string | null
     locale?: 'zh-TW' | 'en' | null
+    /** proxy 只讀 JWT（不碰 DB），所以這個旗標必須跟著 token 走 */
+    needsPassword?: boolean
   }
 }
 

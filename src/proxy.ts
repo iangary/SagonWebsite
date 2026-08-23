@@ -32,7 +32,12 @@ async function readSession(req: NextRequest) {
     secureCookie: process.env.NODE_ENV === 'production',
   })
   // role 與 locale 的型別來自 src/types/next-auth.d.ts 對 JWT 的擴充，不用再轉型
-  return { isLoggedIn: Boolean(token), role: token?.role, locale: token?.locale }
+  return {
+    isLoggedIn: Boolean(token),
+    role: token?.role,
+    locale: token?.locale,
+    needsPassword: token?.needsPassword === true,
+  }
 }
 
 const LOCALE_COOKIE = 'NEXT_LOCALE'
@@ -60,7 +65,15 @@ function stripLocale(pathname: string): string {
 }
 
 /** 需要登入的前台路徑 */
-const PROTECTED = [/^\/account(\/|$)/]
+const PROTECTED = [/^\/account(\/|$)/, /^\/set-password(\/|$)/]
+
+/**
+ * 手機驗證碼第一次登入（帳號還沒有密碼）時唯一能停留的路徑。
+ *
+ * 全站硬擋是刻意的：簡訊每則都要錢，讓他當下把密碼設好，下次就能用
+ * 手機號碼＋密碼登入而不必再發碼。只想逛不想設的人可以登出當訪客逛。
+ */
+const SET_PASSWORD_PATH = '/set-password'
 
 const CART_COOKIE = 'sagon_cart'
 const CART_COOKIE_MAX_AGE = 60 * 60 * 24 * 30
@@ -105,7 +118,7 @@ function ensureVisitorCookies(req: NextRequest, res: NextResponse) {
 
 export default async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
-  const { isLoggedIn, role, locale } = await readSession(req)
+  const { isLoggedIn, role, locale, needsPassword } = await readSession(req)
 
   // 後台不做多語系，直接走 role 檢查
   if (pathname.startsWith('/admin')) {
@@ -116,6 +129,10 @@ export default async function proxy(req: NextRequest) {
     }
     if (role !== 'ADMIN') {
       return NextResponse.rewrite(new URL('/403', req.nextUrl.origin))
+    }
+    // 後台也一樣要先設密碼（種子管理員本來就有密碼，這是防手滑的保險）
+    if (needsPassword) {
+      return NextResponse.redirect(new URL(SET_PASSWORD_PATH, req.nextUrl.origin))
     }
     return NextResponse.next()
   }
@@ -128,9 +145,15 @@ export default async function proxy(req: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // 已登入的人不需要再看到登入/註冊頁
-  if (isLoggedIn && (path === '/login' || path === '/register')) {
+  // 已登入的人不需要再看到登入/註冊頁（/login/sms 是第一次用手機登入的入口）
+  if (isLoggedIn && (path === '/login' || path === '/login/sms' || path === '/register')) {
     return NextResponse.redirect(new URL('/account', req.nextUrl.origin))
+  }
+
+  // 還沒設密碼的手機會員：除了設定頁本身，其他頁一律導回去。
+  // 登出走 /api/auth/signout，被 matcher 排除掉了，所以不會把人鎖在裡面。
+  if (isLoggedIn && needsPassword && path !== SET_PASSWORD_PATH) {
+    return NextResponse.redirect(new URL(SET_PASSWORD_PATH, req.nextUrl.origin))
   }
 
   const restored = applyAccountLocale(req, locale)

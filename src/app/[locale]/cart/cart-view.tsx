@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
 import { useCartCount } from '@/components/cart/cart-count-provider'
 import { updateCartItemQty, removeCartItem, applyCoupon } from '@/lib/cart/actions'
+import { CHECKOUT_LOGIN_HREF, CHECKOUT_REGISTER_HREF } from '@/lib/auth/checkout-gate'
 import type { PricingResult } from '@/lib/orders/pricing'
 import { formatTWD } from '@/lib/utils'
 
@@ -32,11 +33,14 @@ export function CartView({
   pricing,
   couponCode,
   freeShippingThreshold,
+  isMember,
 }: {
   items: CartItemView[]
   pricing: PricingResult
   couponCode: string | null
   freeShippingThreshold: number
+  /** 訪客也有購物車，但結帳需要會員 —— 決定結帳鈕要去結帳頁還是註冊頁 */
+  isMember: boolean
 }) {
   const t = useTranslations('cart')
   const router = useRouter()
@@ -208,8 +212,21 @@ export function CartView({
             </dl>
 
             <Button asChild size="lg" full className="mt-6">
-              <Link href="/checkout">{t('checkout')}</Link>
+              <Link href={isMember ? '/checkout' : CHECKOUT_REGISTER_HREF}>{t('checkout')}</Link>
             </Button>
+
+            {/* 訪客先說清楚會被帶去註冊，別讓人按下去才發現 */}
+            {!isMember && (
+              <p className="mt-3 text-xs leading-relaxed text-taupe-600">
+                {t('memberOnlyNotice')}{' '}
+                <Link
+                  href={CHECKOUT_LOGIN_HREF}
+                  className="text-ink-900 underline underline-offset-4"
+                >
+                  {t('loginToCheckout')}
+                </Link>
+              </p>
+            )}
           </div>
 
           <Link

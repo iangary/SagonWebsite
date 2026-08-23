@@ -1,11 +1,11 @@
 import { test, expect, type Page } from '@playwright/test'
 import { ecpayEnvReady, simulatePaid } from './helpers/ecpay'
 import {
-  addFirstProductToCart,
   choosePayment,
   fillContact,
   fillHomeAddress,
   gotoResult,
+  startMemberCheckout,
   stubCvsStoreSelection,
   submitAndCaptureOrderNo,
 } from './helpers/checkout'
@@ -21,8 +21,7 @@ import { loginAsAdmin, openAdminOrder } from './helpers/admin'
 test.skip(!ecpayEnvReady(), '缺少 ECPAY_* 環境變數（.env），略過後台訂單 E2E')
 
 async function placeCvsOrder(page: Page): Promise<string> {
-  await addFirstProductToCart(page)
-  await page.goto('/checkout')
+  await startMemberCheckout(page)
   await fillContact(page)
   await stubCvsStoreSelection(page)
   await choosePayment(page, 'Credit')
@@ -74,8 +73,7 @@ test.describe('後台訂單操作', () => {
 
   test('宅配訂單可回填黑貓托運單號，格式錯誤會被擋', async ({ page, request }) => {
     // 建一張宅配訂單
-    await addFirstProductToCart(page)
-    await page.goto('/checkout')
+    await startMemberCheckout(page)
     await fillContact(page)
     await fillHomeAddress(page)
     await choosePayment(page, 'Credit')

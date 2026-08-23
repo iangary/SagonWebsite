@@ -23,6 +23,7 @@ import { isDeliverable } from '@/lib/tcat/fields'
 import { saveLabel } from '@/lib/tcat/labels'
 import { buildTcatOrder, goodsNameFor, totalQuantityOf, TcatOrderInvalid } from '@/lib/tcat/order'
 import { parseEcpayDate } from './payment'
+import { markCodCollected } from './payment-method'
 
 /**
  * 出貨分兩條路：超商取貨走綠界，宅配走黑貓（我們自己簽約的，不經綠界）。
@@ -85,6 +86,8 @@ export const ecpayCvsProvider: ShippingProvider = {
       receiverCellphone: order.shipment.receiverCell,
       receiverEmail: order.email,
       receiverStoreId: order.shipment.cvsStoreId,
+      // 貨到付款：請超商代收貨款。代收金額由綠界規定必須等於 GoodsAmount。
+      isCollection: order.shipment.isCollection,
     })
 
     if (!result.ok) {
@@ -162,6 +165,8 @@ export const tcatProvider: ShippingProvider = {
           senderAddress: senderConfig.address,
           productName: goodsNameFor(order.items),
           totalQuantity: totalQuantityOf(order.items),
+          // 貨到付款：請黑貓司機代收貨款
+          collectionAmount: shipment.isCollection ? order.grandTotal : 0,
         },
         {
           productTypeId: tcatConfig.productTypeId,
@@ -374,6 +379,16 @@ export async function advanceOrderForShipmentStatus(
 
   const order = await db.order.findUnique({ where: { id: orderId }, select: { status: true } })
   if (!order) return
+
+  // 貨到付款的錢是在取貨／配達那一刻收到的（超商櫃檯或司機收現），
+  // 這是唯一能自動確認「客戶付了」的時點。沒有這段，貨到付款的訂單
+  // 會永遠停在「尚未收款」，後台看不出到底收到錢了沒。
+  if (mapped === 'PICKED_UP') {
+    const collected = await markCodCollected(orderId, { note: '物流回報已取貨／已配達，代收貨款視為已收' })
+    if (collected) {
+      await enqueue('send-email', { template: 'order-confirmed', orderId })
+    }
+  }
 
   // 已完成的訂單不要被較早的狀態往回推
   const isRegression = order.status === 'COMPLETED' && orderStatus === 'SHIPPED'

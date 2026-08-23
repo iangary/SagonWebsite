@@ -3,6 +3,8 @@
 import { getTranslations } from 'next-intl/server'
 import { z } from 'zod'
 import type { LogisticsSubType } from '@prisma/client'
+import { auth } from '@/lib/auth'
+import { CHECKOUT_LOGIN_HREF } from '@/lib/auth/checkout-gate'
 import { createOrderFromCart } from '@/lib/orders/create'
 import { normalizeTwMobile } from '@/lib/sms/provider'
 
@@ -31,7 +33,8 @@ const schema = z
     addressDistrict: z.string().trim().optional().default(''),
     addressLine: z.string().trim().optional().default(''),
 
-    choosePayment: z.enum(['Credit', 'ATM', 'CVS']),
+    // COD = 貨到付款（由物流代收，不經綠界金流）。開關在後台，createOrderFromCart 會再驗一次。
+    choosePayment: z.enum(['Credit', 'ATM', 'CVS', 'BARCODE', 'COD']),
     couponCode: z.string().trim().optional().default(''),
     note: z.string().trim().max(500).optional().default(''),
 
@@ -69,7 +72,7 @@ export type CheckoutState = {
   ok: boolean
   error?: string
   fieldErrors?: Record<string, string>
-  /** 成功時前端要導向的付款網址 */
+  /** 前端要導去的網址：成功時是付款頁，未登入被擋下時是登入頁 */
   redirectTo?: string
 }
 
@@ -77,6 +80,18 @@ export async function submitCheckout(
   _prev: CheckoutState,
   formData: FormData,
 ): Promise<CheckoutState> {
+  // 只有會員能結帳。結帳頁進來時就擋過一次，這裡是為了「填單填到一半 session
+  // 過期」與直接打 Server Action 的情況 —— 帶著網址把人送回登入頁。
+  const session = await auth()
+  if (!session?.user?.id) {
+    const t = await getTranslations('errors')
+    return {
+      ok: false,
+      error: t('loginRequiredForCheckout'),
+      redirectTo: CHECKOUT_LOGIN_HREF,
+    }
+  }
+
   const raw = Object.fromEntries(formData.entries()) as Record<string, string>
   const parsed = schema.safeParse(raw)
 
@@ -127,6 +142,9 @@ export async function submitCheckout(
 
   return {
     ok: true,
-    redirectTo: `/api/ecpay/payment/checkout/${result.orderNo}`,
+    // 貨到付款沒有收銀台可以去，直接看訂單結果頁
+    redirectTo: result.isCod
+      ? `/checkout/result?orderNo=${result.orderNo}`
+      : `/api/ecpay/payment/checkout/${result.orderNo}`,
   }
 }

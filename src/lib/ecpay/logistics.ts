@@ -88,14 +88,19 @@ export const TRACKING_URL: Partial<Record<LogisticsSubType, string>> = {
  * 注意：電子地圖這一支「不需要」CheckMacValue，綠界文件明確說明。
  * ExtraData 會原封不動回拋，用來把選店結果對回是哪一次結帳。
  */
-export function buildExpressMapParams(subType: CvsSubType, extraData: string) {
+export function buildExpressMapParams(
+  subType: CvsSubType,
+  extraData: string,
+  isCollection = false,
+) {
   return {
     action: ecpayEndpoints.logisticsMap,
     params: {
       MerchantID: logisticsConfig.merchantId,
       LogisticsType: 'CVS',
       LogisticsSubType: subType,
-      IsCollection: 'N',
+      // 有開貨到付款時要帶 Y —— 不是每間門市都支援代收，帶錯會選到不能收款的店
+      IsCollection: isCollection ? 'Y' : 'N',
       ServerReplyURL: callbackUrl('/api/ecpay/logistics/map-reply'),
       ExtraData: extraData,
       Device: '0',
@@ -138,6 +143,8 @@ export interface CreateShipmentInput {
   receiverEmail?: string
   /** 電子地圖回傳的門市代號 */
   receiverStoreId: string
+  /** 超商取貨付款（貨到付款）：由超商代收貨款，代收金額必須等於 GoodsAmount */
+  isCollection?: boolean
 }
 
 /** 綠界物流的日期格式與金流不同：yyyy/MM/dd HH:mm:ss（同樣是台北時間） */
@@ -195,8 +202,12 @@ export function buildCreateShipmentParams(input: CreateShipmentInput): Record<st
     ReceiverCellPhone: input.receiverCellphone,
     ReceiverStoreID: input.receiverStoreId,
     ServerReplyURL: callbackUrl('/api/ecpay/logistics/reply'),
-    IsCollection: 'N',
+    IsCollection: input.isCollection ? 'Y' : 'N',
   }
+
+  // 超商取貨付款：綠界規定代收金額必須等於商品金額（7-11 交貨便／超商／冷凍店取），
+  // 所以不另外送一個數字，直接跟 GoodsAmount 一致。
+  if (input.isCollection) params.CollectionAmount = String(input.goodsAmount)
 
   if (input.receiverEmail) params.ReceiverEmail = input.receiverEmail
 

@@ -20,7 +20,7 @@ function uniqueName() {
 
 async function loginAsAdmin(page: Page) {
   await page.goto('/login')
-  await page.locator('#email').fill(ADMIN_EMAIL)
+  await page.locator('#identifier').fill(ADMIN_EMAIL)
   await page.locator('#password').fill(ADMIN_PASSWORD)
   await page.getByRole('button', { name: '會員登入' }).click()
   await page.waitForURL(/\/account/)

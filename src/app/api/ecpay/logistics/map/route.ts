@@ -23,7 +23,11 @@ export async function GET(req: NextRequest) {
   // 用一個隨機 token 當 ExtraData，選店結果回來時據此確認是這一次開的視窗
   const token = req.nextUrl.searchParams.get('token') ?? crypto.randomUUID()
 
-  const { action, params } = buildExpressMapParams(subType, token)
+  // 貨到付款的門市與純取貨的門市不完全一樣（不是每間都支援代收），
+  // 結帳頁選了貨到付款時會帶 collection=1 進來。
+  const isCollection = req.nextUrl.searchParams.get('collection') === '1'
+
+  const { action, params } = buildExpressMapParams(subType, token, isCollection)
 
   return renderAutoSubmitForm({
     action,

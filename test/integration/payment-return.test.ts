@@ -211,10 +211,17 @@ describe('handlePaymentReturn — 冪等與競態', () => {
     expect(fresh.payment?.status).toBe('PAID')
     expect(fresh.payment?.tradeNo).toBe(params.TradeNo)
     expect(fresh.payment?.failReason).toBe('逾期入帳：訂單已取消但仍收到付款，需人工退款')
-    // 不 commit 預扣、不 enqueue 任何後續工作
+    // 不 commit 預扣、不出貨、不開收據、不寄「付款成功」給客人
     expect(fresh.reservations[0]?.committedAt).toBeNull()
     expect((await freshVariant(variant.id)).stock).toBe(10)
-    expect(enqueueMock).not.toHaveBeenCalled()
+
+    // 但要開一張退款單並通知客服 —— 錢收了卻不會出貨，不能靜靜躺著
+    const refund = await db.refundRequest.findFirstOrThrow({ where: { orderId: order.id } })
+    expect(refund.status).toBe('REQUESTED')
+    expect(refund.reason).toContain('逾期入帳')
+    expect(jobs()).toEqual([
+      ['send-email', { template: 'refund-requested', orderId: order.id, refundId: refund.id }],
+    ])
   })
 
   it('C-05：到期釋放與付款通知同時發生，終態必為合法組合且不變量成立', async () => {

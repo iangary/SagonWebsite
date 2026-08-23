@@ -14,6 +14,8 @@ import {
   Webhook,
   MessagesSquare,
   Store,
+  Undo2,
+  Settings,
   LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -21,6 +23,7 @@ import { cn } from '@/lib/utils'
 const LINKS = [
   { href: '/admin', label: '總覽', icon: LayoutDashboard, exact: true },
   { href: '/admin/orders', label: '訂單', icon: ShoppingCart },
+  { href: '/admin/refunds', label: '退款', icon: Undo2 },
   { href: '/admin/chat', label: '客服訊息', icon: MessagesSquare, badge: 'chat' as const },
   { href: '/admin/products', label: '商品', icon: Package },
   { href: '/admin/taxonomy', label: '分類與品牌', icon: FolderTree },
@@ -28,6 +31,7 @@ const LINKS = [
   { href: '/admin/reviews', label: '評論', icon: Star },
   { href: '/admin/members', label: '會員', icon: Users },
   { href: '/admin/webhooks', label: 'Webhook', icon: Webhook },
+  { href: '/admin/settings', label: '付款設定', icon: Settings },
 ]
 
 /**

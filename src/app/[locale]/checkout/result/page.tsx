@@ -1,15 +1,22 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { CheckCircle2, Clock, XCircle, Copy, ExternalLink } from 'lucide-react'
+import { CheckCircle2, Clock, XCircle, Copy, ExternalLink, Printer } from 'lucide-react'
 import { Link } from '@/i18n/routing'
 import { db } from '@/lib/db'
+import { currentUser } from '@/lib/auth'
+import { getPaymentSettings } from '@/lib/shop-settings'
+import { currentPaymentOf } from '@/lib/orders/payment'
+import { refundEligibility } from '@/lib/orders/refund'
+import { PAYMENT_CHOICE_LABEL_KEY } from '@/lib/orders/labels'
 import { Button } from '@/components/ui/button'
 import { Badge, ORDER_STATUS_TONE, SHIPMENT_STATUS_TONE } from '@/components/ui/badge'
 import { formatTWD } from '@/lib/utils'
 import { TRACKING_URL, shipmentStatusKey } from '@/lib/ecpay/logistics'
 import { ShipmentTimeline } from '@/components/order/shipment-timeline'
 import { PaymentPoller } from './payment-poller'
+import { PaymentSwitcher, type SwitchableChoice } from './payment-switcher'
+import { RefundContact } from './refund-contact'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,33 +42,72 @@ export default async function CheckoutResultPage({
   const { orderNo } = await searchParams
   if (!orderNo) notFound()
 
-  const [t, tStatus, tShipment, tLogistics, order] = await Promise.all([
-    getTranslations('result'),
-    getTranslations('orderStatus'),
-    getTranslations('shipmentStatus'),
-    getTranslations('logistics'),
-    db.order.findUnique({
-      where: { orderNo },
-      include: {
-        items: true,
-        payment: true,
-        invoice: true,
-        shipment: { include: { logs: { orderBy: { occurredAt: 'desc' } } } },
-      },
-    }),
-  ])
+  const [t, tStatus, tShipment, tLogistics, tCheckout, settings, viewer, order] =
+    await Promise.all([
+      getTranslations('result'),
+      getTranslations('orderStatus'),
+      getTranslations('shipmentStatus'),
+      getTranslations('logistics'),
+      getTranslations('checkout'),
+      getPaymentSettings(),
+      currentUser(),
+      db.order.findUnique({
+        where: { orderNo },
+        include: {
+          items: true,
+          payments: { orderBy: { createdAt: 'desc' } },
+          invoice: true,
+          refunds: { orderBy: { createdAt: 'desc' } },
+          shipment: { include: { logs: { orderBy: { occurredAt: 'desc' } } } },
+        },
+      }),
+    ])
 
   if (!order) notFound()
 
-  const payment = order.payment
+  const payment = currentPaymentOf(order.payments)
   const isPaid = order.status !== 'PENDING_PAYMENT' && order.status !== 'CANCELLED'
   const isCancelled = order.status === 'CANCELLED'
   const awaitingTransfer = payment?.status === 'AWAITING_TRANSFER'
+  const awaitingCollection = payment?.status === 'AWAITING_COLLECTION'
   const paymentFailed = payment?.status === 'FAILED'
   const paymentExpired = payment?.status === 'EXPIRED'
 
-  // 已取號的 ATM／超商不給重新付款 —— 重送一次會產生新的虛擬帳號。
+  // 已取號的 ATM／超商不給用同一筆重新付款 —— 重送一次會產生新的虛擬帳號。
+  // 想換方式的人走下面的 PaymentSwitcher（會作廢舊代碼、開一筆新的）。
   const canRetryPayment = order.status === 'PENDING_PAYMENT' && !awaitingTransfer
+
+  // 繳費單只在「已取號、還沒繳」時有意義
+  const hasSlip =
+    awaitingTransfer && Boolean(payment?.paymentNo || payment?.vAccount || payment?.barcode1)
+
+  /**
+   * 待付款期間可以改用哪些付款方式。
+   * 貨到付款要看後台設定與金額上限（超商代收上限 2 萬）。
+   */
+  const codLimit =
+    order.shippingMethod === 'CVS'
+      ? Math.min(settings.codMaxAmount, 20_000)
+      : settings.codMaxAmount
+  const switchChoices: SwitchableChoice[] = [
+    ...(settings.prepayEnabled
+      ? (['Credit', 'ATM', 'CVS', 'BARCODE'] as const).filter((m) => settings.methods[m])
+      : []),
+    ...(settings.codEnabled &&
+    settings.codShippingMethods.includes(order.shippingMethod) &&
+    order.grandTotal <= codLimit
+      ? (['COD'] as const)
+      : []),
+  ]
+  const canChangePayment = order.status === 'PENDING_PAYMENT' && switchChoices.length > 1
+
+  // 訪客（訂單沒綁會員，或不是本人在看）動手之前要用 Email／手機確認身分
+  const needsContact = !(viewer && order.userId && viewer.id === order.userId)
+
+  const refund = refundEligibility(order, settings)
+  const openRefund = order.refunds.find(
+    (r) => r.status === 'REQUESTED' || r.status === 'APPROVED',
+  )
 
   const trackingUrl = order.shipment ? TRACKING_URL[order.shipment.logisticsSubType] : undefined
 
@@ -86,6 +132,13 @@ export default async function CheckoutResultPage({
         <div className="mt-4">
           <Badge tone={ORDER_STATUS_TONE[order.status]}>{tStatus(order.status)}</Badge>
         </div>
+        {payment && (
+          <p className="mt-3 text-xs text-taupe-600">
+            {t('paymentMethodLabel')}
+            {' '}
+            {tCheckout(PAYMENT_CHOICE_LABEL_KEY[payment.choosePayment] ?? 'credit')}
+          </p>
+        )}
       </div>
 
       {/* 付款未完成／逾期。
@@ -98,6 +151,22 @@ export default async function CheckoutResultPage({
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-ink-700">
             {paymentExpired ? t('paymentExpiredHint') : t('paymentFailedHint')}
+          </p>
+        </section>
+      )}
+
+      {/* 貨到付款：沒有要先繳的錢，只提醒取貨時要付多少 */}
+      {awaitingCollection && (
+        <section className="mt-10 border border-cream-300 bg-white p-6">
+          <h2 className="text-sm tracking-[0.1em]">{t('codTitle')}</h2>
+          <dl className="mt-4 space-y-3 text-sm">
+            <InfoRow label={t('codAmount')} value={formatTWD(payment?.amount ?? order.grandTotal)} />
+            {order.codFee > 0 && (
+              <InfoRow label={t('codFeeLabel')} value={formatTWD(order.codFee)} />
+            )}
+          </dl>
+          <p className="mt-4 text-xs leading-relaxed text-taupe-600">
+            {order.shipment?.cvsStoreName ? t('codHintCvs') : t('codHintHome')}
           </p>
         </section>
       )}
@@ -127,6 +196,42 @@ export default async function CheckoutResultPage({
           </dl>
           <p className="mt-4 text-xs leading-relaxed text-taupe-600">{t('cvsHint')}</p>
         </section>
+      )}
+
+      {/* 超商條碼：三段條碼要刷讀，只能看圖，所以直接把人帶到繳費單 */}
+      {awaitingTransfer && payment?.barcode1 && (
+        <section className="mt-10 border border-cream-300 bg-white p-6">
+          <h2 className="text-sm tracking-[0.1em]">{t('barcodeTitle')}</h2>
+          <dl className="mt-4 space-y-3 text-sm">
+            <InfoRow label={t('paymentAmount')} value={formatTWD(payment.amount)} />
+            <InfoRow label={t('expireDate')} value={payment.expireDate ?? '—'} />
+          </dl>
+          <p className="mt-4 text-xs leading-relaxed text-taupe-600">{t('barcodeHint')}</p>
+        </section>
+      )}
+
+      {/* 繳費單：可列印、可存成圖片帶去超商（離線也看得到） */}
+      {hasSlip && (
+        <div className="mt-6">
+          <Button asChild variant="outline">
+            <Link href={`/checkout/slip?orderNo=${order.orderNo}`}>
+              <Printer size={16} />
+              {t('printSlip')}
+            </Link>
+          </Button>
+          <p className="mt-2 text-xs text-taupe-500">{t('printSlipHint')}</p>
+        </div>
+      )}
+
+      {/* 改用其他付款方式 */}
+      {canChangePayment && (
+        <PaymentSwitcher
+          orderNo={order.orderNo}
+          choices={switchChoices}
+          currentChoice={payment?.choosePayment ?? ''}
+          codFee={settings.codFee}
+          needsContact={needsContact}
+        />
       )}
 
       {/* 訂單內容 */}
@@ -224,6 +329,20 @@ export default async function CheckoutResultPage({
           logs={order.shipment.logs}
           subType={order.shipment.logisticsSubType}
         />
+      )}
+
+      {/* 退款：已經有在處理的申請就顯示進度，否則顯示申請入口 */}
+      {openRefund ? (
+        <section className="mt-8 border border-cream-300 bg-white p-6">
+          <h2 className="text-sm tracking-[0.1em]">{t('refundInProgressTitle')}</h2>
+          <p className="mt-2 text-sm text-ink-700">
+            {openRefund.status === 'APPROVED'
+              ? t('refundApprovedHint')
+              : t('refundRequestedHint')}
+          </p>
+        </section>
+      ) : (
+        refund.eligible && <RefundContact orderNo={order.orderNo} />
       )}
 
       <div className="mt-12 flex flex-col gap-3 sm:flex-row sm:justify-center">
