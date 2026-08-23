@@ -214,6 +214,46 @@ async function applySuccessfulPayment(input: SuccessfulPayment): Promise<void> {
 }
 
 /**
+ * 匯款到公司帳戶：後台確認錢進來了。
+ *
+ * 這個付款方式沒有金流商，也就沒有回拋與對帳 API —— 唯一的入帳來源就是有人
+ * 去看銀行帳戶。所以這支是**人按的**，而且是這種訂單唯一的付款成立路徑。
+ *
+ * 後續動作（庫存實扣、建物流單、開收據、寄確認信）與綠界付款成功完全一樣，
+ * 刻意走同一支 applySuccessfulPayment，避免「人工入帳的單沒扣庫存」這種
+ * 只在特定路徑發生的 bug。連「錢進來得太晚」也一併沿用：訂單已被逾期排程
+ * 取消時它會自動開一張退款單，而不是把已取消的訂單偷偷復活。
+ *
+ * @returns false = 這張訂單沒有等待匯款的紀錄（已收過款、或不是匯款訂單）
+ */
+export async function markBankTransferPaid(input: {
+  orderId: string
+  /** 對帳資訊，例如「帳號末五碼 12345、8/23 入帳」。會存進 payment 供日後查。 */
+  note?: string
+}): Promise<boolean> {
+  const payment = await db.payment.findFirst({
+    where: { orderId: input.orderId, provider: 'BANK', supersededAt: null },
+    orderBy: { createdAt: 'desc' },
+    include: { order: { select: { status: true } } },
+  })
+  if (!payment || payment.status === 'PAID') return false
+
+  await applySuccessfulPayment({
+    paymentId: payment.id,
+    orderId: input.orderId,
+    orderStatus: payment.order.status,
+    alreadyPaid: false,
+    superseded: false,
+    // 沒有金流商，沒有交易編號可記
+    tradeNo: null,
+    paymentType: 'BankTransfer',
+    paidAt: new Date(),
+    raw: { source: 'admin-manual', note: input.note ?? '' },
+  })
+  return true
+}
+
+/**
  * 系統自己發現「收了不該收的錢」時開一張退款單，讓它出現在後台的退款佇列。
  * 只開一次 —— 綠界重送通知不該產生第二張。
  */
@@ -305,7 +345,7 @@ export async function syncPaymentWithEcpay(paymentId: string): Promise<{
   })
 
   if (payment.provider !== 'ECPAY') {
-    throw new Error('貨到付款的訂單不在綠界金流，查不到交易')
+    throw new Error('這張訂單不是綠界金流（貨到付款／匯款），查不到交易')
   }
 
   const info = await queryTradeInfo(payment.merchantTradeNo)

@@ -536,14 +536,17 @@ model Payment {
   /// 不是 unique —— 改付款方式會產生第二筆。目前生效的那筆是 supersededAt = null 的。
   orderId String
 
-  /// ECPAY = 綠界金流；COD = 貨到付款（由物流代收，不經綠界金流）
+  /// ECPAY = 綠界金流；COD = 貨到付款（由物流代收）；BANK = 匯款到公司帳戶。
+  /// 後兩者都不經綠界金流，沒有回拋也沒有對帳 API：COD 由物流貨態帶動，
+  /// BANK 只能由後台人工確認入帳（見 lib/orders/payment.ts 的 markBankTransferPaid）。
   provider        String  @default("ECPAY")
   /// 綠界要求全站唯一且不可重送，所以改付款方式時會重新產生一組
   merchantTradeNo String  @unique
   /// 綠界的交易編號，付款完成才會有
   tradeNo         String?
 
-  /// 綠界 ChoosePayment：Credit / ATM / CVS / BARCODE / ALL；貨到付款是 COD
+  /// 綠界 ChoosePayment：Credit / ATM / CVS / BARCODE / ALL；
+  /// 不經綠界的是 BANK（匯款到公司帳戶）與 COD（貨到付款）
   choosePayment String
   /// 綠界回傳的實際付款方式，例如 Credit_CreditCard、ATM_TAISHIN
   paymentType   String?

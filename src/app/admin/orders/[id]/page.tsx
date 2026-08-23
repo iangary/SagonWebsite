@@ -65,6 +65,13 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
   const payment = currentPaymentOf(order.payments)
   const supersededPayments = order.payments.filter((p) => p.id !== payment?.id)
 
+  // 匯款是人工入帳，對帳備註（末五碼、入帳日）存在 rawCallback 裡，
+  // 不能放 failReason —— 那格在畫面上是紅字的「失敗原因」。
+  const bankPaidNote =
+    payment?.provider === 'BANK' && payment.rawCallback && typeof payment.rawCallback === 'object'
+      ? String((payment.rawCallback as Record<string, unknown>).note ?? '')
+      : ''
+
   // 能不能開退款單。超過期限時仍顯示表單，但要客服明確勾選才建得起來。
   // 刻意不叫 refund —— 下面列出既有退款單的 map 也用這個名字。
   const refundability = refundEligibility(order, settings)
@@ -209,7 +216,12 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
                   value={payment.paidAt.toLocaleString('zh-TW', { hour12: false })}
                 />
               )}
-              {payment?.expireDate && <Row label="繳費期限" value={payment.expireDate} />}
+              {payment?.expireDate && (
+                <Row
+                  label={payment.provider === 'BANK' ? '匯款期限' : '繳費期限'}
+                  value={payment.expireDate}
+                />
+              )}
               {payment?.tradeNo && <Row label="綠界交易編號" value={payment.tradeNo} />}
               {payment?.merchantTradeNo && (
                 <Row label="金流單號" value={payment.merchantTradeNo} />
@@ -235,6 +247,7 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
                   value={payment.syncedAt.toLocaleString('zh-TW', { hour12: false })}
                 />
               )}
+              {bankPaidNote && <Row label="入帳備註" value={bankPaidNote} />}
               {payment?.failReason && (
                 <Row label="失敗原因" value={payment.failReason} tone="sale" />
               )}

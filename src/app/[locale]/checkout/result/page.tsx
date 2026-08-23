@@ -5,8 +5,9 @@ import { CheckCircle2, Clock, XCircle, Copy, ExternalLink, Printer } from 'lucid
 import { Link } from '@/i18n/routing'
 import { db } from '@/lib/db'
 import { currentUser } from '@/lib/auth'
-import { getPaymentSettings } from '@/lib/shop-settings'
+import { getPaymentSettings, isBankTransferAvailable } from '@/lib/shop-settings'
 import { currentPaymentOf } from '@/lib/orders/payment'
+import { bankAccountOf } from '@/lib/orders/bank-transfer'
 import { refundEligibility } from '@/lib/orders/refund'
 import { PAYMENT_CHOICE_LABEL_KEY } from '@/lib/orders/labels'
 import { Button } from '@/components/ui/button'
@@ -69,6 +70,9 @@ export default async function CheckoutResultPage({
   const isPaid = order.status !== 'PENDING_PAYMENT' && order.status !== 'CANCELLED'
   const isCancelled = order.status === 'CANCELLED'
   const awaitingTransfer = payment?.status === 'AWAITING_TRANSFER'
+  // 匯款：帳號不存在 payment 上（只有一組公司帳戶），顯示時從設定讀
+  const awaitingBankTransfer = awaitingTransfer && payment?.provider === 'BANK'
+  const bankAccount = bankAccountOf(settings)
   const awaitingCollection = payment?.status === 'AWAITING_COLLECTION'
   const paymentFailed = payment?.status === 'FAILED'
   const paymentExpired = payment?.status === 'EXPIRED'
@@ -93,6 +97,7 @@ export default async function CheckoutResultPage({
     ...(settings.prepayEnabled
       ? (['Credit', 'ATM', 'CVS', 'BARCODE'] as const).filter((m) => settings.methods[m])
       : []),
+    ...(isBankTransferAvailable(settings) ? (['BANK'] as const) : []),
     ...(settings.codEnabled &&
     settings.codShippingMethods.includes(order.shippingMethod) &&
     order.grandTotal <= codLimit
@@ -168,6 +173,25 @@ export default async function CheckoutResultPage({
           <p className="mt-4 text-xs leading-relaxed text-taupe-600">
             {order.shipment?.cvsStoreName ? t('codHintCvs') : t('codHintHome')}
           </p>
+        </section>
+      )}
+
+      {/* 匯款到公司帳戶：沒有金流商，帳號是固定那組，入帳要人工確認 */}
+      {awaitingBankTransfer && (
+        <section className="mt-10 border border-cream-300 bg-white p-6">
+          <h2 className="text-sm tracking-[0.1em]">{t('bankTransferTitle')}</h2>
+          <dl className="mt-4 space-y-3 text-sm">
+            <InfoRow label={t('bankName')} value={bankAccount.bankName} />
+            <InfoRow label={t('bankCode')} value={bankAccount.bankCode} copyable />
+            <InfoRow label={t('bankAccountNo')} value={bankAccount.accountNo} copyable />
+            <InfoRow label={t('bankAccountName')} value={bankAccount.accountName} />
+            <InfoRow label={t('transferAmount')} value={formatTWD(payment?.amount ?? order.grandTotal)} />
+            <InfoRow label={t('bankDeadline')} value={payment?.expireDate ?? '—'} />
+          </dl>
+          {bankAccount.note && (
+            <p className="mt-4 text-xs leading-relaxed text-ink-700">{bankAccount.note}</p>
+          )}
+          <p className="mt-2 text-xs leading-relaxed text-taupe-600">{t('bankTransferHint')}</p>
         </section>
       )}
 

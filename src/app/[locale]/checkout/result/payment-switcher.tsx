@@ -2,8 +2,9 @@
 
 import * as React from 'react'
 import { useActionState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { CreditCard, Building, Barcode, ScanBarcode, Banknote, RefreshCw } from 'lucide-react'
+import { CreditCard, Building, Barcode, ScanBarcode, Banknote, Landmark, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input, Field } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -14,6 +15,7 @@ const ICONS = {
   ATM: Building,
   CVS: Barcode,
   BARCODE: ScanBarcode,
+  BANK: Landmark,
   COD: Banknote,
 } as const
 
@@ -45,6 +47,7 @@ export function PaymentSwitcher({
 }) {
   const t = useTranslations('result')
   const tCheckout = useTranslations('checkout')
+  const router = useRouter()
   const [state, formAction, pending] = useActionState(changePaymentAction, INITIAL)
   const [open, setOpen] = React.useState(false)
   const [choice, setChoice] = React.useState<SwitchableChoice | null>(null)
@@ -52,6 +55,11 @@ export function PaymentSwitcher({
   React.useEffect(() => {
     if (state.ok && state.redirectTo) window.location.assign(state.redirectTo)
   }, [state.ok, state.redirectTo])
+
+  // 改成匯款：帳號與期限就印在這一頁上，要重新取一次才看得到
+  React.useEffect(() => {
+    if (state.ok && state.refresh) router.refresh()
+  }, [state.ok, state.refresh, router])
 
   const selectable = choices.filter((c) => c !== currentChoice)
   if (selectable.length === 0) return null
@@ -152,5 +160,6 @@ const LABEL_KEYS = {
   ATM: 'atm',
   CVS: 'cvsPayment',
   BARCODE: 'barcode',
+  BANK: 'bankTransfer',
   COD: 'cod',
 } as const

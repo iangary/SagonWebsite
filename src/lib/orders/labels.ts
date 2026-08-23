@@ -72,6 +72,7 @@ export const CHOOSE_PAYMENT_LABEL: Record<string, string> = {
   ATM: 'ATM 虛擬帳號',
   CVS: '超商代碼繳費',
   BARCODE: '超商條碼',
+  BANK: '匯款到公司帳戶',
   COD: '貨到付款',
   ALL: '未指定',
 }
@@ -85,5 +86,6 @@ export const PAYMENT_CHOICE_LABEL_KEY: Record<string, string> = {
   ATM: 'atm',
   CVS: 'cvsPayment',
   BARCODE: 'barcode',
+  BANK: 'bankTransfer',
   COD: 'cod',
 }

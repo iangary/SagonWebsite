@@ -9,9 +9,11 @@ import { generateMerchantTradeNo } from '@/lib/ecpay/aio'
 import {
   getPaymentSettings,
   holdMinutesFor,
+  isBankTransferAvailable,
   isCodAvailable,
   type PaymentChoice,
 } from '@/lib/shop-settings'
+import { formatTransferDeadline } from './bank-transfer'
 import { calculatePricing, validateCoupon } from './pricing'
 import { commitOrderReservations, reserveStock, releaseReservation } from './stock'
 
@@ -56,6 +58,8 @@ export type CreateOrderResult =
       grandTotal: number
       /** 貨到付款不必去綠界，前台要導去訂單結果頁而不是收銀台 */
       isCod: boolean
+      /** 不經綠界的付款方式（貨到付款、銀行匯款）沒有收銀台可以去 */
+      needsGateway: boolean
     }
   | { ok: false; error: string }
 
@@ -109,6 +113,9 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
 
   const settings = await getPaymentSettings()
   const isCod = input.choosePayment === 'COD'
+  // 匯款到公司帳戶：訂單一樣要等錢進來才出貨，但錢不經綠界，
+  // 帳號在下單當下就已經知道，所以不必去收銀台、也不會有取號通知。
+  const isBank = input.choosePayment === 'BANK'
 
   const pricing = calculatePricing({
     lines,
@@ -124,6 +131,10 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
   if (input.choosePayment === 'COD') {
     if (!isCodAvailable(settings, input.shippingMethod, pricing.grandTotal)) {
       return { ok: false, error: '這筆訂單不適用貨到付款，請改選其他付款方式' }
+    }
+  } else if (input.choosePayment === 'BANK') {
+    if (!isBankTransferAvailable(settings)) {
+      return { ok: false, error: '匯款付款目前沒有開放，請改選其他付款方式' }
     }
   } else if (!settings.prepayEnabled || !settings.methods[input.choosePayment]) {
     return { ok: false, error: '這個付款方式目前沒有開放' }
@@ -197,12 +208,19 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
 
           payments: {
             create: {
-              // 貨到付款不經綠界，但 merchantTradeNo 是唯一鍵，還是給一組好對帳
-              merchantTradeNo: isCod ? generateMerchantTradeNo('CD') : orderNo,
-              provider: isCod ? 'COD' : 'ECPAY',
+              // 貨到付款與匯款都不經綠界，但 merchantTradeNo 是唯一鍵，還是給一組好對帳
+              merchantTradeNo: isCod
+                ? generateMerchantTradeNo('CD')
+                : isBank
+                  ? generateMerchantTradeNo('BK')
+                  : orderNo,
+              provider: isCod ? 'COD' : isBank ? 'BANK' : 'ECPAY',
               choosePayment: input.choosePayment,
               amount: pricing.grandTotal,
-              status: isCod ? 'AWAITING_COLLECTION' : 'PENDING',
+              // 匯款沒有取號這一步，帳號當下就給了，直接是「等客人轉帳」
+              status: isCod ? 'AWAITING_COLLECTION' : isBank ? 'AWAITING_TRANSFER' : 'PENDING',
+              // 期限與庫存預扣同一個時間點，畫面才不會說「還能匯」卻已被排程取消
+              expireDate: isBank ? formatTransferDeadline(expiresAt) : null,
             },
           },
 
@@ -281,6 +299,11 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
       return created
     })
 
+    // 匯款：帳號與期限都要主動寄一封信，客人關掉訂單頁就找不到帳號了
+    if (isBank) {
+      await enqueue('send-email', { template: 'bank-transfer-info', orderId: order.id })
+    }
+
     // 貨到付款直接進備貨：建物流單（帶代收）與通知信都在這裡發車
     if (isCod) {
       await enqueue('create-shipment', { orderId: order.id })
@@ -296,6 +319,7 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
       orderNo: order.orderNo,
       grandTotal: order.grandTotal,
       isCod,
+      needsGateway: !isCod && !isBank,
     }
   } catch (error) {
     if (error instanceof OutOfStockError) {

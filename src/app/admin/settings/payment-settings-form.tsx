@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Input, Textarea } from '@/components/ui/input'
 import type { PaymentSettings } from '@/lib/shop-settings'
 import { saveSettingsAction, type SettingsState } from './actions'
 
@@ -90,6 +90,69 @@ export function PaymentSettingsForm({ settings }: { settings: PaymentSettings })
             min={1}
             max={100000}
           />
+        </div>
+      </Section>
+
+      <Section
+        title="匯款到公司帳戶"
+        note="客人自己去 ATM／網銀轉帳到公司帳戶。錢不經綠界，所以沒有任何自動入帳通知 —— 要有人去看帳戶，再到訂單頁按「標記匯款已入帳」，訂單才會進備貨。後台訂單列表的「匯款待入帳」就是每天要對的那疊。"
+      >
+        <Check
+          name="bankTransferEnabled"
+          label="開放匯款付款"
+          defaultChecked={settings.bankTransferEnabled}
+        />
+        <p className="mt-2 text-xs leading-relaxed text-taupe-600">
+          帳戶資訊會顯示在訂單頁與通知信上。改帳號會立刻影響「還在等匯款」的訂單 ——
+          那些客人看到的會是新帳號，舊帳號請確認還收得到款。
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <TextField
+            name="bankName"
+            label="銀行（含分行）"
+            defaultValue={settings.bankName}
+            placeholder="玉山銀行 內湖分行"
+          />
+          <TextField
+            name="bankCode"
+            label="銀行代號"
+            defaultValue={settings.bankCode}
+            placeholder="808"
+            inputMode="numeric"
+          />
+          <TextField
+            name="bankAccountNo"
+            label="帳號"
+            defaultValue={settings.bankAccountNo}
+            placeholder="0123456789012"
+            inputMode="numeric"
+          />
+          <TextField
+            name="bankAccountName"
+            label="戶名"
+            defaultValue={settings.bankAccountName}
+            placeholder="莎岡選品有限公司"
+          />
+          <NumberField
+            name="bankExpireDays"
+            label="匯款期限（天）"
+            defaultValue={settings.bankExpireDays}
+            min={1}
+            max={30}
+          />
+        </div>
+        <div className="mt-4">
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-medium tracking-wide text-ink-700">
+              補充說明（選填）
+            </span>
+            <Textarea
+              name="bankTransferNote"
+              rows={2}
+              defaultValue={settings.bankTransferNote}
+              placeholder="請在轉帳備註填訂單編號，我們才對得到您的款項。"
+            />
+          </label>
         </div>
       </Section>
 
@@ -190,6 +253,27 @@ function NumberField({
         min={min}
         max={max}
       />
+    </label>
+  )
+}
+
+function TextField({
+  name,
+  label,
+  defaultValue,
+  placeholder,
+  inputMode,
+}: {
+  name: string
+  label: string
+  defaultValue: string
+  placeholder?: string
+  inputMode?: 'numeric'
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-xs font-medium tracking-wide text-ink-700">{label}</span>
+      <Input name={name} defaultValue={defaultValue} placeholder={placeholder} inputMode={inputMode} />
     </label>
   )
 }

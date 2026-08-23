@@ -102,6 +102,15 @@ export async function OrderSummaryCard({
             {order.invoice.invoiceNumber}
           </p>
         )}
+        {/* 匯款：帳號在訂單明細頁（那裡才讀得到設定），這裡只提醒還沒匯與期限 */}
+        {awaitingTransfer && payment?.provider === 'BANK' && (
+          <p className="text-sale">
+            {tResult('awaitingBankTransfer', {
+              amount: formatTWD(payment.amount),
+              expireDate: payment.expireDate ?? '—',
+            })}
+          </p>
+        )}
         {awaitingTransfer && payment?.vAccount && (
           <p className="text-sale">
             {tResult('awaitingTransfer', {

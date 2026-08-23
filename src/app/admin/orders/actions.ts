@@ -10,7 +10,7 @@ import { createShipmentForOrder } from '@/lib/orders/logistics'
 import { callTcatPickup } from '@/lib/orders/tcat-pickup'
 import { issueReceiptForOrder, voidReceiptForOrder } from '@/lib/orders/receipt'
 import { releaseOrderReservations } from '@/lib/orders/stock'
-import { syncPaymentWithEcpay } from '@/lib/orders/payment'
+import { markBankTransferPaid, syncPaymentWithEcpay } from '@/lib/orders/payment'
 import { markCodCollected } from '@/lib/orders/payment-method'
 import { enqueue } from '@/lib/queue'
 
@@ -339,7 +339,7 @@ export async function adminSyncPayment(orderId: string): Promise<AdminActionResu
     })
     if (!payment) throw new Error('這張訂單沒有付款紀錄')
     if (payment.provider !== 'ECPAY') {
-      throw new Error('貨到付款不在綠界金流，請用「標記已收款」')
+      throw new Error('這張訂單不是綠界金流（貨到付款／匯款），請用「標記已收款」')
     }
 
     const result = await syncPaymentWithEcpay(payment.id)
@@ -392,5 +392,64 @@ export async function adminMarkCodCollected(orderId: string): Promise<AdminActio
     revalidatePath(`/admin/orders/${orderId}`)
     revalidatePath('/admin/orders')
     return '已標記為收款完成'
+  })
+}
+
+/**
+ * 匯款到公司帳戶：確認錢進來了。
+ *
+ * 這個付款方式沒有任何自動入帳通知（錢直接進公司帳戶，不經綠界），
+ * 所以這顆按鈕是這種訂單**唯一**的付款成立路徑 —— 按下去之後庫存實扣、
+ * 建物流單、開收據、寄確認信，與綠界付款成功走的是同一段流程。
+ *
+ * 對帳備註（末五碼、入帳日）會一起存進付款紀錄，日後有爭議才查得回來。
+ */
+const bankPaidSchema = z.object({
+  orderId: z.string().min(1),
+  note: z.string().trim().max(200, '對帳備註最多 200 字').optional(),
+})
+
+export async function adminMarkBankTransferPaid(
+  orderId: string,
+  note?: string,
+): Promise<AdminActionResult> {
+  const admin = await requireAdmin()
+
+  const parsed = bankPaidSchema.safeParse({ orderId, note })
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? '參數錯誤' }
+  }
+
+  return run('標記匯款已入帳', async () => {
+    const order = await db.order.findUniqueOrThrow({
+      where: { id: orderId },
+      select: { status: true },
+    })
+    // 已取消的訂單也讓它過 —— 錢真的進來了就得留紀錄，
+    // markBankTransferPaid 會自動開一張退款單（逾期入帳）。
+    if (!['PENDING_PAYMENT', 'CANCELLED'].includes(order.status)) {
+      throw new Error('這張訂單已經不在等待匯款，請先確認付款紀錄')
+    }
+
+    const who = admin.email ?? admin.id
+    const marked = await markBankTransferPaid({
+      orderId,
+      note: [parsed.data.note, `由 ${who} 於後台確認入帳`].filter(Boolean).join('／'),
+    })
+    if (!marked) throw new Error('這張訂單沒有等待匯款的付款紀錄')
+
+    await audit({
+      userId: admin.id,
+      action: 'payment.bank.paid',
+      entity: 'Order',
+      entityId: orderId,
+      after: { note: parsed.data.note ?? '' },
+    })
+
+    revalidatePath(`/admin/orders/${orderId}`)
+    revalidatePath('/admin/orders')
+    return order.status === 'CANCELLED'
+      ? '已登錄入帳。這張訂單先前已因逾期取消，系統已開立退款單'
+      : '已確認入帳，訂單進入備貨流程'
   })
 }

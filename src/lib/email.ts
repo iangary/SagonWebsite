@@ -5,6 +5,8 @@ import { db } from '@/lib/db'
 import { formatTWD } from '@/lib/utils'
 import { LOGISTICS_SUBTYPE_LABEL } from '@/lib/ecpay/logistics'
 import { currentPaymentOf } from '@/lib/orders/payment'
+import { bankAccountOf } from '@/lib/orders/bank-transfer'
+import { getPaymentSettings } from '@/lib/shop-settings'
 
 let transporter: nodemailer.Transporter | null = null
 
@@ -31,6 +33,7 @@ function getTransporter(): nodemailer.Transporter {
 export type EmailTemplate =
   | 'order-confirmed'
   | 'payment-info'
+  | 'bank-transfer-info'
   | 'shipped'
   | 'order-cancelled'
   | 'cod-confirmed'
@@ -208,6 +211,34 @@ export async function sendOrderEmail(
           繳費期限：${escapeHtml(p?.expireDate ?? '—')}
         </div>
         <p style="font-size:13px;color:#857263;">逾期未付款的訂單將自動取消並釋放庫存。</p>
+        ${orderLink(order.orderNo)}`
+      break
+    }
+
+    /**
+     * 匯款到公司帳戶的帳號與期限。
+     *
+     * 這封信比其他通知信重要 —— 客人關掉訂單頁就找不到帳號了。
+     * 帳戶從設定即時讀出（只有一組公司帳戶），worker 重試時寄到的一定是現行帳號。
+     */
+    case 'bank-transfer-info': {
+      const bank = bankAccountOf(await getPaymentSettings())
+      subject = `【${env.SHOP_NAME}】訂單 ${order.orderNo} 匯款資訊`
+      body = `
+        <p>${escapeHtml(order.recipientName)} 您好，您的訂單已成立，請於期限內完成匯款。</p>
+        <div style="margin:18px 0;padding:16px;background:#faf8f5;border:1px solid #e9e2d8;font-size:13px;">
+          銀行：${escapeHtml(bank.bankName)}<br>
+          銀行代號：<strong>${escapeHtml(bank.bankCode)}</strong><br>
+          帳號：<strong>${escapeHtml(bank.accountNo)}</strong><br>
+          戶名：${escapeHtml(bank.accountName)}<br>
+          金額：<strong>${formatTWD(order.grandTotal)}</strong><br>
+          匯款期限：${escapeHtml(payment?.expireDate ?? '—')}
+        </div>
+        ${bank.note ? `<p style="font-size:13px;">${escapeHtml(bank.note)}</p>` : ''}
+        <p style="font-size:13px;color:#857263;">
+          匯款需人工核對，我們確認入帳後會再寄一封付款成功的通知信給您（通常一個工作日內）。
+          逾期未匯款的訂單將自動取消並釋放庫存。
+        </p>
         ${orderLink(order.orderNo)}`
       break
     }

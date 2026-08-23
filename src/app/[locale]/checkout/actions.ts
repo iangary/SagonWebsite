@@ -33,8 +33,9 @@ const schema = z
     addressDistrict: z.string().trim().optional().default(''),
     addressLine: z.string().trim().optional().default(''),
 
-    // COD = 貨到付款（由物流代收，不經綠界金流）。開關在後台，createOrderFromCart 會再驗一次。
-    choosePayment: z.enum(['Credit', 'ATM', 'CVS', 'BARCODE', 'COD']),
+    // BANK = 匯款到公司帳戶、COD = 貨到付款，兩者都不經綠界金流。
+    // 開關在後台，createOrderFromCart 會再驗一次。
+    choosePayment: z.enum(['Credit', 'ATM', 'CVS', 'BARCODE', 'BANK', 'COD']),
     couponCode: z.string().trim().optional().default(''),
     note: z.string().trim().max(500).optional().default(''),
 
@@ -142,9 +143,9 @@ export async function submitCheckout(
 
   return {
     ok: true,
-    // 貨到付款沒有收銀台可以去，直接看訂單結果頁
-    redirectTo: result.isCod
-      ? `/checkout/result?orderNo=${result.orderNo}`
-      : `/api/ecpay/payment/checkout/${result.orderNo}`,
+    // 貨到付款與匯款沒有收銀台可以去，直接看訂單結果頁（匯款帳號就印在那裡）
+    redirectTo: result.needsGateway
+      ? `/api/ecpay/payment/checkout/${result.orderNo}`
+      : `/checkout/result?orderNo=${result.orderNo}`,
   }
 }

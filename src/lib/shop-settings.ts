@@ -51,6 +51,26 @@ export const paymentSettingsSchema = z.object({
   codMaxAmount: z.number().int().min(1).max(100_000).default(CVS_COLLECTION_MAX),
 
   /**
+   * 匯款到公司帳戶。錢直接進公司的銀行帳戶，不經綠界 ——
+   * 代表**沒有任何自動入帳通知**，一定要有人去看帳戶再到後台按「標記匯款已入帳」
+   * （見 lib/orders/payment.ts 的 markBankTransferPaid）。
+   *
+   * 帳戶資訊存在這裡而不是環境變數：換帳號不必重新部署。
+   */
+  bankTransferEnabled: z.boolean().default(false),
+  /** 銀行（含分行），例如「玉山銀行 內湖分行」 */
+  bankName: z.string().trim().max(60).default(''),
+  /** 銀行代號，轉帳一定要，3 碼（郵局是 700） */
+  bankCode: z.string().trim().max(10).default(''),
+  bankAccountNo: z.string().trim().max(30).default(''),
+  /** 戶名。客人要核對收款人是誰才敢轉。 */
+  bankAccountName: z.string().trim().max(60).default(''),
+  /** 匯款期限（天）。與超商／ATM 一樣，期限就是庫存要保留的時間。 */
+  bankExpireDays: z.number().int().min(1).max(30).default(3),
+  /** 給客人的補充說明，例如「請在轉帳備註填訂單編號」。空的就不顯示。 */
+  bankTransferNote: z.string().trim().max(300).default(''),
+
+  /**
    * 超商代碼／條碼的繳費期限（天）。綠界上限 30 天。
    * 期限拉長代表庫存也要跟著保留同樣長的時間（否則會出現「繳了費卻沒貨」）。
    */
@@ -109,7 +129,11 @@ export async function savePaymentSettings(
   })
 }
 
-/** 前台能選的付款方式（COD 只有在設定允許、且這個配送方式支援時才出現）。 */
+/**
+ * 前台能選的付款方式。
+ * 銀行匯款要帳戶填齊、COD 還要看配送方式與金額上限，兩者都與 prepayEnabled 無關 ——
+ * 那個開關管的是綠界那四種。
+ */
 export function availablePaymentChoices(
   settings: PaymentSettings,
   shippingMethod: 'CVS' | 'HOME',
@@ -123,9 +147,28 @@ export function availablePaymentChoices(
     }
   }
 
+  if (isBankTransferAvailable(settings)) choices.push('BANK')
+
   if (isCodAvailable(settings, shippingMethod, grandTotal)) choices.push('COD')
 
   return choices
+}
+
+/**
+ * 匯款到公司帳戶能不能用。
+ *
+ * 開關打開但帳戶還沒填完就當作沒開 —— 少了代號或帳號，客人根本轉不了帳，
+ * 顯示一個殘缺的選項比不顯示更糟。後台儲存時會擋（見 admin/settings/actions.ts），
+ * 這裡是給「舊資料只有開關沒有帳戶」的情況兜底。
+ */
+export function isBankTransferAvailable(settings: PaymentSettings): boolean {
+  return (
+    settings.bankTransferEnabled &&
+    Boolean(settings.bankName) &&
+    Boolean(settings.bankCode) &&
+    Boolean(settings.bankAccountNo) &&
+    Boolean(settings.bankAccountName)
+  )
 }
 
 export function isCodAvailable(
@@ -140,10 +183,10 @@ export function isCodAvailable(
   return grandTotal > 0 && grandTotal <= max
 }
 
-/** 應用層的付款方式：綠界的 ChoosePayment 再加上不經綠界的貨到付款。 */
-export type PaymentChoice = 'Credit' | 'ATM' | 'CVS' | 'BARCODE' | 'COD'
+/** 應用層的付款方式：綠界的 ChoosePayment 再加上不經綠界的銀行匯款與貨到付款。 */
+export type PaymentChoice = 'Credit' | 'ATM' | 'CVS' | 'BARCODE' | 'BANK' | 'COD'
 
-export const PAYMENT_CHOICES = ['Credit', 'ATM', 'CVS', 'BARCODE', 'COD'] as const
+export const PAYMENT_CHOICES = ['Credit', 'ATM', 'CVS', 'BARCODE', 'BANK', 'COD'] as const
 
 export function isPaymentChoice(value: string): value is PaymentChoice {
   return (PAYMENT_CHOICES as readonly string[]).includes(value)
@@ -163,6 +206,8 @@ export function holdMinutesFor(choice: PaymentChoice, settings: PaymentSettings)
     case 'CVS':
     case 'BARCODE':
       return settings.cvsExpireDays * 24 * 60
+    case 'BANK':
+      return settings.bankExpireDays * 24 * 60
     case 'COD':
       // 貨到付款不等付款，成立就進備貨，預扣馬上轉實扣
       return 0

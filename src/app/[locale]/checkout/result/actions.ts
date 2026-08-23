@@ -22,6 +22,8 @@ export type OrderActionState = {
   redirectTo?: string
   /** 訪客要補 Email／手機驗證身分 */
   needsContact?: boolean
+  /** 這一頁的內容變了（例如改成匯款要顯示帳號），前端要重新取一次 */
+  refresh?: boolean
 }
 
 const changeSchema = z.object({
@@ -47,9 +49,15 @@ export async function changePaymentAction(
     const result = await changePaymentMethod({ orderId: access.orderId, choice })
     if (!result.ok) return { ok: false, error: result.error }
 
-    return result.kind === 'ecpay'
-      ? { ok: true, redirectTo: result.redirectTo }
-      : { ok: true, message: '已改為貨到付款，我們會開始為您備貨。' }
+    switch (result.kind) {
+      case 'ecpay':
+        return { ok: true, redirectTo: result.redirectTo }
+      case 'cod':
+        return { ok: true, message: '已改為貨到付款，我們會開始為您備貨。' }
+      case 'bank':
+        // 帳號就在這一頁上，重新整理才看得到 —— 由 PaymentSwitcher 觸發
+        return { ok: true, refresh: true, message: '已改為匯款付款，請依下方的匯款資訊完成轉帳。' }
+    }
   } catch (error) {
     if (error instanceof PaymentMethodConflict) return { ok: false, error: error.message }
     console.error('[order] 改付款方式失敗', error)

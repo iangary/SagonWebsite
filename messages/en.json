@@ -184,7 +184,11 @@
     "noPaymentMethod": "No payment method is available right now. Please contact us or choose another delivery method.",
     "codSecurityNote": "We start preparing your order right away; you pay when the parcel arrives.",
     "codReserveNote": "No prepayment needed. Your items are reserved.",
-    "reserveNoteDays": "Items are reserved for {days} days. Unpaid orders are cancelled automatically."
+    "reserveNoteDays": "Items are reserved for {days} days. Unpaid orders are cancelled automatically.",
+    "bankTransfer": "Bank transfer",
+    "bankTransferNote": "Transfer to our company account",
+    "bankTransferExpireNote": "Account details shown after ordering, transfer within {days} days",
+    "bankSecurityNote": "Our account details are shown once the order is placed. We start preparing it after we've matched your transfer."
   },
   "result": {
     "successTitle": "Order confirmed",
@@ -251,7 +255,14 @@
     "refundInProgressTitle": "Refund in progress",
     "refundRequestedHint": "We have this refund on file and will follow up with you on LINE.",
     "refundApprovedHint": "Your refund has been approved and is being processed. We will notify you once it is done.",
-    "awaitingCollection": "Cash on delivery: {amount} due on collection"
+    "awaitingCollection": "Cash on delivery: {amount} due on collection",
+    "bankTransferTitle": "Transfer details",
+    "bankName": "Bank",
+    "bankAccountNo": "Account number",
+    "bankAccountName": "Account name",
+    "bankDeadline": "Transfer before",
+    "bankTransferHint": "Please transfer before the deadline and keep your receipt. Transfers are matched by hand; we'll email you once the payment clears (usually within one business day). Unpaid orders are cancelled automatically and the stock released.",
+    "awaitingBankTransfer": "Awaiting transfer of {amount} (due {expireDate})"
   },
   "account": {
     "title": "My Account",

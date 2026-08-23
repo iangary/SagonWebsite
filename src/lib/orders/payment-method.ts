@@ -6,10 +6,12 @@ import { generateMerchantTradeNo } from '@/lib/ecpay/aio'
 import {
   getPaymentSettings,
   holdMinutesFor,
+  isBankTransferAvailable,
   isCodAvailable,
   type PaymentChoice,
   type PaymentSettings,
 } from '@/lib/shop-settings'
+import { formatTransferDeadline } from './bank-transfer'
 import { commitOrderReservations } from './stock'
 
 /**
@@ -26,6 +28,8 @@ import { commitOrderReservations } from './stock'
 export type ChangePaymentResult =
   | { ok: true; kind: 'ecpay'; redirectTo: string }
   | { ok: true; kind: 'cod' }
+  /** 匯款：沒有地方可以導，帳號就印在訂單頁上，重新整理就看到了 */
+  | { ok: true; kind: 'bank' }
   | { ok: false; error: string }
 
 export async function changePaymentMethod(input: {
@@ -62,7 +66,12 @@ export async function changePaymentMethod(input: {
     return { ok: true, kind: 'cod' }
   }
 
-  if (!settings.prepayEnabled || !settings.methods[input.choice]) {
+  const isBank = input.choice === 'BANK'
+  if (input.choice === 'BANK') {
+    if (!isBankTransferAvailable(settings)) {
+      return { ok: false, error: '匯款付款目前沒有開放' }
+    }
+  } else if (!settings.prepayEnabled || !settings.methods[input.choice]) {
     return { ok: false, error: '這個付款方式目前沒有開放' }
   }
 
@@ -93,11 +102,13 @@ export async function changePaymentMethod(input: {
     await tx.payment.create({
       data: {
         orderId: order.id,
-        provider: 'ECPAY',
-        merchantTradeNo: generateMerchantTradeNo(),
+        provider: isBank ? 'BANK' : 'ECPAY',
+        merchantTradeNo: generateMerchantTradeNo(isBank ? 'BK' : 'SG'),
         choosePayment: input.choice,
         amount: order.grandTotal,
-        status: 'PENDING',
+        // 匯款沒有取號這一步（帳號是固定的那組），直接是「等客人轉帳」
+        status: isBank ? 'AWAITING_TRANSFER' : 'PENDING',
+        expireDate: isBank ? formatTransferDeadline(expiresAt) : null,
       },
     })
 
@@ -111,6 +122,12 @@ export async function changePaymentMethod(input: {
       data: { isCollection: false },
     })
   })
+
+  if (isBank) {
+    // 帳號與期限主動寄一封信，客人關掉訂單頁就找不到帳號了
+    await enqueue('send-email', { template: 'bank-transfer-info', orderId: order.id })
+    return { ok: true, kind: 'bank' }
+  }
 
   return {
     ok: true,
@@ -218,5 +235,6 @@ export function canOfferChoice(
   grandTotal: number,
 ): boolean {
   if (choice === 'COD') return isCodAvailable(settings, shippingMethod, grandTotal)
+  if (choice === 'BANK') return isBankTransferAvailable(settings)
   return settings.prepayEnabled && settings.methods[choice]
 }

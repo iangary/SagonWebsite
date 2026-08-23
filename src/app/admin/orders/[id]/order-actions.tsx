@@ -9,7 +9,7 @@ import type {
   ReceiptStatus,
   ShippingMethod,
 } from '@prisma/client'
-import { Truck, Printer, Receipt, Ban, XCircle, FileText, RefreshCw, Banknote } from 'lucide-react'
+import { Truck, Printer, Receipt, Ban, XCircle, FileText, RefreshCw, Banknote, Landmark } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast'
 import {
@@ -22,6 +22,7 @@ import {
   adminCancelOrder,
   adminSyncPayment,
   adminMarkCodCollected,
+  adminMarkBankTransferPaid,
   type AdminActionResult,
 } from '../actions'
 
@@ -56,7 +57,7 @@ export function OrderActions({
   printForm: { action: string; params: Record<string, string> } | null
   /** 建單曾轉人工處理的說明；存在時重按建單需要先確認（避免重複開單） */
   manualNote: string | null
-  /** ECPAY / COD。決定「確認付款」要走綠界查詢還是手動標記收款。 */
+  /** ECPAY / COD / BANK。決定「確認付款」要走綠界查詢還是手動標記收款。 */
   paymentProvider: string | null
   paymentStatus: PaymentStatus | null
 }) {
@@ -104,10 +105,26 @@ export function OrderActions({
   const isCvs = shippingMethod === 'CVS'
   const isCod = paymentProvider === 'COD'
   const codPending = isCod && paymentStatus === 'AWAITING_COLLECTION'
+  const isBank = paymentProvider === 'BANK'
+  const bankPending = isBank && paymentStatus !== 'PAID'
 
   function markCollected() {
     if (!window.confirm('確認已經收到這筆貨到付款的貨款？')) return
     void perform('cod-collected', () => adminMarkCodCollected(orderId))
+  }
+
+  /**
+   * 匯款入帳。這是匯款訂單唯一的付款成立路徑（沒有金流商會通知我們），
+   * 按下去就會實扣庫存、建物流單並寄出確認信，所以要先確認過帳戶。
+   */
+  function markBankPaid() {
+    const note = window.prompt(
+      '請先在銀行帳戶確認這筆款項已入帳。\n\n可填對帳備註（末五碼、入帳日，選填），確認後訂單會進入備貨流程：',
+      '',
+    )
+    // 按取消是 null；留空字串代表「確認入帳但不寫備註」
+    if (note === null) return
+    void perform('bank-paid', () => adminMarkBankTransferPaid(orderId, note.trim() || undefined))
   }
 
   function createShipment() {
@@ -125,11 +142,22 @@ export function OrderActions({
     <div className="flex flex-wrap items-center gap-2 border border-cream-200 bg-white p-4">
       {/* 「客戶到底付款了沒」。
           綠界金流：直接問綠界（QueryTradeInfo），可補回漏掉的 ReturnURL 通知。
-          貨到付款：物流回報已取貨時會自動標記，這顆是例外情況的手動確認。 */}
+          貨到付款：物流回報已取貨時會自動標記，這顆是例外情況的手動確認。
+          匯款：沒有任何自動通知，這顆是唯一的入帳路徑。 */}
       {isCod ? (
         <Button size="sm" variant="outline" disabled={!codPending || pending !== null} onClick={markCollected}>
           <Banknote size={14} />
           {codPending ? '標記已收款' : '貨款已收'}
+        </Button>
+      ) : isBank ? (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!bankPending || pending !== null}
+          onClick={markBankPaid}
+        >
+          <Landmark size={14} />
+          {bankPending ? '標記匯款已入帳' : '匯款已入帳'}
         </Button>
       ) : (
         <Button

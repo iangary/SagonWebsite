@@ -184,7 +184,11 @@
     "noPaymentMethod": "目前沒有可用的付款方式，請聯繫客服或改選其他配送方式。",
     "codSecurityNote": "訂單成立後我們會直接為您備貨，取貨時再付款。",
     "codReserveNote": "貨到付款無需先付款，庫存已為您保留。",
-    "reserveNoteDays": "庫存會為您保留 {days} 天，逾期未付款訂單將自動取消。"
+    "reserveNoteDays": "庫存會為您保留 {days} 天，逾期未付款訂單將自動取消。",
+    "bankTransfer": "匯款／ATM 轉帳",
+    "bankTransferNote": "轉帳到公司帳戶",
+    "bankTransferExpireNote": "下單後顯示公司帳戶，{days} 天內完成轉帳",
+    "bankSecurityNote": "訂單成立後會顯示公司帳戶與匯款期限，我們核對入帳後開始備貨。"
   },
   "result": {
     "successTitle": "訂單已成立",
@@ -251,7 +255,14 @@
     "refundInProgressTitle": "退款處理中",
     "refundRequestedHint": "客服已收到這筆退款，確認後會在 LINE 上與您聯繫。",
     "refundApprovedHint": "退款已核准，正在處理退款作業，完成後會另行通知您。",
-    "awaitingCollection": "貨到付款：取貨時應付 {amount}"
+    "awaitingCollection": "貨到付款：取貨時應付 {amount}",
+    "bankTransferTitle": "匯款資訊",
+    "bankName": "銀行",
+    "bankAccountNo": "帳號",
+    "bankAccountName": "戶名",
+    "bankDeadline": "匯款期限",
+    "bankTransferHint": "請於期限內轉帳，並保留交易明細。匯款需人工核對，確認入帳後會寄一封付款成功的通知信給您（通常一個工作日內）。逾期未匯款的訂單會自動取消並釋放庫存。",
+    "awaitingBankTransfer": "待匯款 {amount}（期限 {expireDate}）"
   },
   "account": {
     "title": "會員中心",

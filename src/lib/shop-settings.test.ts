@@ -3,6 +3,7 @@ import type { z } from 'zod'
 import {
   availablePaymentChoices,
   holdMinutesFor,
+  isBankTransferAvailable,
   isCodAvailable,
   isPaymentChoice,
   paymentSettingsSchema,
@@ -14,6 +15,14 @@ import {
 const settings = (
   overrides: z.input<typeof paymentSettingsSchema> = {},
 ): PaymentSettings => paymentSettingsSchema.parse(overrides)
+
+const BANK_ACCOUNT = {
+  bankTransferEnabled: true,
+  bankName: '玉山銀行',
+  bankCode: '808',
+  bankAccountNo: '0123456789012',
+  bankAccountName: '莎岡選品有限公司',
+} as const
 
 describe('paymentSettingsSchema', () => {
   it('空物件會補出一套可用的預設值', () => {
@@ -47,6 +56,10 @@ describe('holdMinutesFor — 庫存要保留多久', () => {
     expect(holdMinutesFor('CVS', s)).toBe(2 * 24 * 60)
     expect(holdMinutesFor('BARCODE', s)).toBe(2 * 24 * 60)
     expect(holdMinutesFor('ATM', s)).toBe(3 * 24 * 60)
+  })
+
+  it('匯款跟著匯款期限的天數走', () => {
+    expect(holdMinutesFor('BANK', settings({ bankExpireDays: 3 }))).toBe(3 * 24 * 60)
   })
 
   it('貨到付款不等付款，不需要保留期限', () => {
@@ -84,6 +97,24 @@ describe('isCodAvailable', () => {
   })
 })
 
+describe('isBankTransferAvailable', () => {
+  it('帳戶填齊才算開放', () => {
+    expect(isBankTransferAvailable(settings(BANK_ACCOUNT))).toBe(true)
+  })
+
+  it('沒開就是不能用', () => {
+    expect(isBankTransferAvailable(settings({ ...BANK_ACCOUNT, bankTransferEnabled: false }))).toBe(
+      false,
+    )
+  })
+
+  it('開關開著但帳戶少一格時當作沒開（顯示殘缺的帳號客人根本轉不了）', () => {
+    for (const missing of ['bankName', 'bankCode', 'bankAccountNo', 'bankAccountName'] as const) {
+      expect(isBankTransferAvailable(settings({ ...BANK_ACCOUNT, [missing]: '' }))).toBe(false)
+    }
+  })
+})
+
 describe('availablePaymentChoices', () => {
   it('關掉線上付款後只剩貨到付款', () => {
     const s = settings({ prepayEnabled: false, codEnabled: true })
@@ -95,6 +126,11 @@ describe('availablePaymentChoices', () => {
     expect(availablePaymentChoices(s, 'CVS', 1000)).toEqual(['Credit', 'CVS'])
   })
 
+  it('匯款不受 prepayEnabled 影響（它不是綠界的方式）', () => {
+    const s = settings({ prepayEnabled: false, ...BANK_ACCOUNT })
+    expect(availablePaymentChoices(s, 'HOME', 1000)).toEqual(['BANK'])
+  })
+
   it('全關掉時回空陣列（結帳頁要據此顯示錯誤而不是給出無效選項）', () => {
     const s = settings({ prepayEnabled: false, codEnabled: false })
     expect(availablePaymentChoices(s, 'HOME', 1000)).toEqual([])
@@ -102,8 +138,9 @@ describe('availablePaymentChoices', () => {
 })
 
 describe('isPaymentChoice', () => {
-  it('只認識我們支援的五種', () => {
+  it('只認識我們支援的六種', () => {
     expect(isPaymentChoice('COD')).toBe(true)
+    expect(isPaymentChoice('BANK')).toBe(true)
     expect(isPaymentChoice('Credit')).toBe(true)
     // ALL 是綠界的「顯示所有付款方式」，我們不讓消費者選它
     expect(isPaymentChoice('ALL')).toBe(false)

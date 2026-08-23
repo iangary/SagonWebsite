@@ -54,7 +54,19 @@ const PAYMENT_FILTERS: { value: string; label: string; where: Prisma.OrderWhereI
   {
     value: 'awaiting',
     label: '已取號待繳費',
-    where: { payments: { some: { supersededAt: null, status: 'AWAITING_TRANSFER' } } },
+    where: {
+      payments: {
+        some: { supersededAt: null, provider: 'ECPAY', status: 'AWAITING_TRANSFER' },
+      },
+    },
+  },
+  {
+    // 匯款沒有任何自動入帳通知，這份清單就是每天要拿去對帳戶的那疊
+    value: 'bank',
+    label: '匯款待入帳',
+    where: {
+      payments: { some: { supersededAt: null, provider: 'BANK', status: 'AWAITING_TRANSFER' } },
+    },
   },
   {
     value: 'cod',

@@ -7,7 +7,7 @@ import { getCart } from '@/lib/cart'
 import { localizedName } from '@/lib/i18n/localized'
 import { shopConfig } from '@/lib/shop-config'
 import { isCallbackReachable } from '@/lib/ecpay/config'
-import { getPaymentSettings } from '@/lib/shop-settings'
+import { getPaymentSettings, isBankTransferAvailable } from '@/lib/shop-settings'
 import { CHECKOUT_LOGIN_REDIRECT } from '@/lib/auth/checkout-gate'
 import { CheckoutForm } from './checkout-form'
 
@@ -96,6 +96,9 @@ export default async function CheckoutPage({ params }: { params: Promise<{ local
           codMaxAmount: paymentSettings.codMaxAmount,
           cvsExpireDays: paymentSettings.cvsExpireDays,
           atmExpireDays: paymentSettings.atmExpireDays,
+          // 帳號不必傳進結帳頁 —— 下單後才在訂單頁與通知信上顯示
+          bankTransferEnabled: isBankTransferAvailable(paymentSettings),
+          bankExpireDays: paymentSettings.bankExpireDays,
         }}
       />
     </div>

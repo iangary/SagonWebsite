@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useActionState } from 'react'
 import { useTranslations } from 'next-intl'
 import Image from 'next/image'
-import { Store, Truck, Check, CreditCard, Building, Barcode, ScanBarcode, Banknote } from 'lucide-react'
+import { Store, Truck, Check, CreditCard, Building, Barcode, ScanBarcode, Banknote, Landmark } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea, Select, Field } from '@/components/ui/input'
 import { calculatePricing } from '@/lib/orders/pricing'
@@ -36,6 +36,7 @@ const PAYMENT_OPTIONS = [
   { value: 'ATM', labelKey: 'atm', noteKey: 'atmNote', icon: Building },
   { value: 'CVS', labelKey: 'cvsPayment', noteKey: 'cvsPaymentNote', icon: Barcode },
   { value: 'BARCODE', labelKey: 'barcode', noteKey: 'barcodeNote', icon: ScanBarcode },
+  { value: 'BANK', labelKey: 'bankTransfer', noteKey: 'bankTransferNote', icon: Landmark },
   { value: 'COD', labelKey: 'cod', noteKey: 'codNote', icon: Banknote },
 ] as const
 
@@ -51,6 +52,9 @@ export type CheckoutPaymentSettings = {
   codMaxAmount: number
   cvsExpireDays: number
   atmExpireDays: number
+  /** 匯款到公司帳戶。頁面上不顯示帳號 —— 下單後才在訂單頁與通知信給。 */
+  bankTransferEnabled: boolean
+  bankExpireDays: number
 }
 
 /** 綠界超商取貨付款的代收上限，超過建不了單（10500040） */
@@ -193,9 +197,12 @@ export function CheckoutForm({
     payment.codShippingMethods.includes(shippingMethod) &&
     basePricing.grandTotal <= codLimit
 
-  const availablePayments = PAYMENT_OPTIONS.filter((option) =>
-    option.value === 'COD' ? codAvailable : payment.prepayEnabled && payment.methods[option.value],
-  )
+  const availablePayments = PAYMENT_OPTIONS.filter((option) => {
+    if (option.value === 'COD') return codAvailable
+    // 匯款與貨到付款都不是綠界的方式，prepayEnabled 管不到它們
+    if (option.value === 'BANK') return payment.bankTransferEnabled
+    return payment.prepayEnabled && payment.methods[option.value]
+  })
 
   /**
    * 換了配送方式可能讓選好的付款方式消失（例如宅配沒開貨到付款）。
@@ -233,6 +240,8 @@ export function CheckoutForm({
         return t('cvsExpireNote', { days: payment.cvsExpireDays })
       case 'BARCODE':
         return t('barcodeExpireNote', { days: payment.cvsExpireDays })
+      case 'BANK':
+        return t('bankTransferExpireNote', { days: payment.bankExpireDays })
       default:
         return t('creditNote')
     }
@@ -242,7 +251,12 @@ export function CheckoutForm({
   function reserveNote(): string {
     if (choice === 'COD') return t('codReserveNote')
     if (choice === 'Credit') return t('reserveNote')
-    const days = choice === 'ATM' ? payment.atmExpireDays : payment.cvsExpireDays
+    const days =
+      choice === 'ATM'
+        ? payment.atmExpireDays
+        : choice === 'BANK'
+          ? payment.bankExpireDays
+          : payment.cvsExpireDays
     return t('reserveNoteDays', { days })
   }
 
@@ -635,7 +649,11 @@ export function CheckoutForm({
           </Button>
 
           <p className="mt-3 text-center text-[11px] leading-relaxed text-taupe-500">
-            {choice === 'COD' ? t('codSecurityNote') : t('securityNote')}
+            {choice === 'COD'
+              ? t('codSecurityNote')
+              : choice === 'BANK'
+                ? t('bankSecurityNote')
+                : t('securityNote')}
             <br />
             {reserveNote()}
           </p>
