@@ -103,7 +103,15 @@ const ADMIN_ACTIONS: AdminActionCase[] = [
   { name: 'orders.adminCancelOrder', run: () => ordersActions.adminCancelOrder('order-x') },
   {
     name: 'orders.adminCallTcatPickup',
-    run: () => ordersActions.adminCallTcatPickup(1, '偷叫的車'),
+    run: () => ordersActions.adminCallTcatPickup({ shipmentIds: [], extraParcels: 1, memo: '偷叫的車' }),
+  },
+  {
+    name: 'orders.adminRedownloadTcatLabel',
+    run: () => ordersActions.adminRedownloadTcatLabel('order-x'),
+  },
+  {
+    name: 'orders.adminRefreshTcatStatus',
+    run: () => ordersActions.adminRefreshTcatStatus('order-x'),
   },
   // 「客戶付款了沒」的兩支：一支去問綠界，一支手動標記貨到付款已收款。
   // 兩支都會動到訂單狀態與庫存，非管理者呼叫必須擋在最前面。

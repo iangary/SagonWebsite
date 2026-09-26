@@ -341,3 +341,15 @@ const STATUS_MAP: Record<string, ShipmentStatus> = {
 export function mapTcatStatus(statusId: string): ShipmentStatus | null {
   return STATUS_MAP[statusId] ?? null
 }
+
+// ---------------------------------------------------------------------------
+// 官網貨態查詢
+// ---------------------------------------------------------------------------
+
+/**
+ * 黑貓官網的單筆貨態頁（docs/黑貓宅急便_…/01 貨態查詢方式說明/01.單筆即時查詢_黑貓官網貨態查詢方式說明）。
+ * 不吃 API 配額、不受 2 小時限制，後台想看最即時的狀態就開這個。
+ */
+export function tcatTrackingUrl(obtNumber: string): string {
+  return `https://www.t-cat.com.tw/Inquire/TraceDetail.aspx?BillID=${encodeURIComponent(obtNumber)}`
+}

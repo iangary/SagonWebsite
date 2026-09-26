@@ -7,7 +7,9 @@ import { db } from '@/lib/db'
 import { requireAdmin } from '@/lib/auth'
 import { audit } from '@/lib/audit'
 import { createShipmentForOrder } from '@/lib/orders/logistics'
-import { callTcatPickup } from '@/lib/orders/tcat-pickup'
+import { callTcatPickup, PICKUP_MAX_SHIPMENTS } from '@/lib/orders/tcat-pickup'
+import { redownloadTcatLabel } from '@/lib/orders/tcat-label'
+import { refreshTcatShipmentStatus } from '@/lib/orders/tcat-status'
 import { issueReceiptForOrder, voidReceiptForOrder } from '@/lib/orders/receipt'
 import { releaseOrderReservations } from '@/lib/orders/stock'
 import { markBankTransferPaid, syncPaymentWithEcpay } from '@/lib/orders/payment'
@@ -115,26 +117,35 @@ export async function adminRecordTcatShipment(
  * 這不是針對單一訂單，而是「今天倉庫有貨要交寄」的一次性通知：
  * 黑貓每個收貨點一天只受理一次，也不能指定時段，司機依當日路線過來。
  * 所以按下去之前包裹要先打包好貼好託運單。每日一次的鎖在 callTcatPickup 裡。
+ *
+ * 件數 = 勾選的訂單數 + 不在網站上的包裹數（例如直接在黑貓系統開的單）。
  */
-const pickupSchema = z.object({
-  quantity: z.number().int().min(1, '出貨件數至少 1 件').max(999, '一次最多 999 件'),
-  memo: z.string().trim().max(100, '備註最多 100 字').optional(),
-})
+const pickupSchema = z
+  .object({
+    shipmentIds: z
+      .array(z.string().min(1))
+      .max(PICKUP_MAX_SHIPMENTS, `一次最多指定 ${PICKUP_MAX_SHIPMENTS} 張訂單`),
+    extraParcels: z.number().int().min(0, '其他包裹件數不能是負數').max(999, '其他包裹最多 999 件'),
+    memo: z.string().trim().max(100, '備註最多 100 字').optional(),
+  })
+  .refine((v) => v.shipmentIds.length + v.extraParcels > 0, '請至少選一張訂單，或填入其他包裹件數')
 
-export async function adminCallTcatPickup(
-  quantity: number,
-  memo?: string,
-): Promise<AdminActionResult> {
+export async function adminCallTcatPickup(input: {
+  shipmentIds: string[]
+  extraParcels: number
+  memo?: string
+}): Promise<AdminActionResult> {
   const admin = await requireAdmin()
 
-  const parsed = pickupSchema.safeParse({ quantity, memo })
+  const parsed = pickupSchema.safeParse(input)
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? '參數錯誤' }
   }
 
   return run('呼叫黑貓收貨', async () => {
     const call = await callTcatPickup({
-      quantity: parsed.data.quantity,
+      shipmentIds: parsed.data.shipmentIds,
+      extraParcels: parsed.data.extraParcels,
       memo: parsed.data.memo,
       requestedById: admin.id,
     })
@@ -144,12 +155,48 @@ export async function adminCallTcatPickup(
       action: 'shipment.tcat.pickup',
       entity: 'TcatPickupCall',
       entityId: call.id,
-      after: { quantity: call.quantity, srvTranId: call.srvTranId },
+      after: {
+        quantity: call.quantity,
+        srvTranId: call.srvTranId,
+        shipmentIds: parsed.data.shipmentIds,
+        extraParcels: parsed.data.extraParcels,
+      },
     })
 
     revalidatePath('/admin/orders')
+    revalidatePath('/admin/orders/pickup')
     // 黑貓的回覆會寫「司機將於 X 點後前往取件」，原樣顯示比我們自己編有用
     return call.message ?? '集貨通知已送出'
+  })
+}
+
+/**
+ * 重新向黑貓下載託運單 PDF。只在 PrintOBT 後 24 小時內有效（FileNo 的期限），
+ * 過期或人工在黑貓系統建的單只能從黑貓系統列印。
+ */
+export async function adminRedownloadTcatLabel(orderId: string): Promise<AdminActionResult> {
+  const admin = await requireAdmin()
+  if (!orderId) return { ok: false, error: '參數錯誤' }
+
+  return run('重新下載黑貓託運單', async () => {
+    await redownloadTcatLabel(orderId)
+    await audit({ userId: admin.id, action: 'shipment.tcat.label', entity: 'Order', entityId: orderId })
+    revalidatePath(`/admin/orders/${orderId}`)
+    return '已重新下載託運單，可以列印了'
+  })
+}
+
+/** 立即向黑貓查這張單的貨態（同一張單每 2 小時最多一次）。 */
+export async function adminRefreshTcatStatus(orderId: string): Promise<AdminActionResult> {
+  await requireAdmin()
+  if (!orderId) return { ok: false, error: '參數錯誤' }
+
+  return run('查詢黑貓貨態', async () => {
+    const result = await refreshTcatShipmentStatus(orderId)
+    revalidatePath(`/admin/orders/${orderId}`)
+    revalidatePath('/admin/orders')
+    if (result.logsCreated === 0) return '已查詢，黑貓目前沒有新的貨態'
+    return `已查詢，新增 ${result.logsCreated} 筆貨態`
   })
 }
 

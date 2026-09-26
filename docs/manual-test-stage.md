@@ -55,7 +55,7 @@
 ⚠️ M-6 會建立**真實託運單**（黑貓測試站也可能實際派收）。執行前：
 
 1. `ECPAY_SENDER_ADDRESS` / `ECPAY_SENDER_ZIPCODE` 填真的出貨地址。
-2. 跑 `npx tsx --env-file-if-exists=.env scripts/tcat-parse-address.ts "你的寄件地址"`，把回傳郵碼的後六碼填進 `TCAT_SENDER_ZIP`。這一步同時驗證了契客代號與授權碼有效。
+2. 跑 `npx tsx --env-file-if-exists=.env scripts/tcat-parse-address.ts "你的寄件地址"`，把回傳郵碼的後六碼填進 `TCAT_SENDER_ZIP`。注意查得到郵碼**不代表**授權碼是對的（實際遇過 ParsingAddress 成功、PrintOBT 卻回 E009），授權碼要到建單那一步才驗得出來。
 
 ---
 

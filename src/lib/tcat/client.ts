@@ -20,6 +20,13 @@ export interface TcatEnvelope<T> {
 }
 
 export class TcatApiError extends Error {
+  /**
+   * 黑貓有回完整電文且 IsOK='N'：這筆請求被明確退件，**什麼都沒有成立**。
+   * 逾時、斷線、HTTP 5xx 則不是 —— 請求可能已經被處理，只是回應沒回來。
+   * 建單要不要重送就看這一格。
+   */
+  readonly rejected: boolean
+
   constructor(
     readonly service: TcatService,
     message: string,
@@ -27,6 +34,7 @@ export class TcatApiError extends Error {
   ) {
     super(`黑貓 ${service}：${message}`)
     this.name = 'TcatApiError'
+    this.rejected = srvTranId !== undefined
   }
 }
 
@@ -278,6 +286,11 @@ export interface TcatObtStatus {
   StatusList: TcatStatusEntry[]
 }
 
+/** 規格 2.11.4 情境 2：「執行失敗 -> 貨態查詢，失敗。 原因：無貨態明細資訊!」 */
+export function isNoStatusMessage(message: string): boolean {
+  return message.includes('無貨態明細')
+}
+
 /**
  * 查貨態。沒有 webhook，只能主動問。
  *
@@ -287,7 +300,10 @@ export interface TcatObtStatus {
  *   - **同一託運單號每 2 小時只能查一次**
  *
  * 完全沒有貨態時 API 回 IsOK='N'（Message 是「無貨態明細資訊」），這是正常情況
- * 不是錯誤 —— 剛建單還沒集貨就會這樣，所以回空陣列而不是 throw。
+ * 不是錯誤 —— 剛建單還沒集貨就會這樣，所以回空陣列。
+ *
+ * 其他的 IsOK='N'（E009 憑證錯誤、超過查詢限制…）一定要 throw。
+ * 以前一律回空陣列，憑證壞掉時訂單就安靜地停在「運送中」，沒有人會發現。
  */
 export async function queryObtStatus(obtNumbers: string[]): Promise<TcatObtStatus[]> {
   if (obtNumbers.length === 0) return []
@@ -299,7 +315,10 @@ export async function queryObtStatus(obtNumbers: string[]): Promise<TcatObtStatu
     OBTNumbers: obtNumbers,
   })
 
-  if (res.IsOK !== 'Y' || !res.Data) return []
+  if (res.IsOK !== 'Y') {
+    if (isNoStatusMessage(res.Message)) return []
+    throw new TcatApiError('OBTStatus', res.Message, res.SrvTranId)
+  }
 
-  return res.Data.OBTs ?? []
+  return res.Data?.OBTs ?? []
 }

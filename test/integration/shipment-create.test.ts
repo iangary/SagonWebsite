@@ -13,7 +13,14 @@ vi.mock('@/lib/ecpay/logistics', async (importOriginal) => {
 
 // 黑貓整個 client 都是 HTTP，全部 mock（鏡射真實的具名匯出）
 vi.mock('@/lib/tcat/client', () => ({
-  TcatApiError: class TcatApiError extends Error {},
+  // 跟真的一樣：有 SrvTranId 代表黑貓回了完整電文、明確退件
+  TcatApiError: class TcatApiError extends Error {
+    readonly rejected: boolean
+    constructor(_service: string, message: string, srvTranId?: string) {
+      super(message)
+      this.rejected = srvTranId !== undefined
+    }
+  },
   parsingAddress: vi.fn(),
   printObt: vi.fn(),
   downloadObt: vi.fn(),
@@ -27,7 +34,7 @@ vi.mock('@/lib/tcat/labels', () => ({
 }))
 
 import { createShipment } from '@/lib/ecpay/logistics'
-import { downloadObt, parsingAddress, printObt } from '@/lib/tcat/client'
+import { downloadObt, parsingAddress, printObt, TcatApiError } from '@/lib/tcat/client'
 import { saveLabel } from '@/lib/tcat/labels'
 import {
   advanceOrderForShipmentStatus,
@@ -206,6 +213,9 @@ describe('createShipmentForOrder — 黑貓宅配', () => {
     expect(fresh.shipment?.labelPath).toBe(`${order.orderNo}.pdf`)
     expect(fresh.shipment?.labelDownloadedAt).not.toBeNull()
     expect(fresh.shipment?.failReason).toBeNull()
+    // 下載編號也存下來，PDF 檔案不見時 24 小時內還能補抓
+    expect(fresh.shipment?.labelFileNo).toBe('FILE0001')
+    expect(fresh.shipment?.labelFileNoIssuedAt).not.toBeNull()
     expect(fresh.status).toBe('PROCESSING')
   })
 
@@ -265,6 +275,34 @@ describe('createShipmentForOrder — 黑貓宅配', () => {
     expect(fresh.shipment?.statusMsg).toContain('黑貓建單未回覆成功')
     expect(fresh.shipment?.statusMsg).toContain('確認')
     expect(fresh.shipment?.shipmentNo).toBeNull()
+  })
+
+  it('printObt 被黑貓明確退件（E009 契客資料不正確）：轉人工，但提示單沒成立、可直接重送', async () => {
+    const { order } = await createTestOrder({ shippingMethod: 'HOME', status: 'PAID' })
+    parsingAddressMock.mockResolvedValue(new Map([[HOME_ADDRESS, '71-802-24-B']]))
+    printObtMock.mockRejectedValue(
+      new TcatApiError('PrintOBT', '執行失敗 -> E009-契客資料不正確', 'TN20260926000001'),
+    )
+
+    await expect(createShipmentForOrder(order.id)).resolves.toBeUndefined()
+
+    expect(printObtMock).toHaveBeenCalledTimes(1)
+    const fresh = await reloadOrder(order.id)
+    expect(fresh.shipment?.status).toBe('PENDING')
+    expect(fresh.shipment?.statusMsg).toContain('E009')
+    expect(fresh.shipment?.statusMsg).toContain('託運單沒有成立')
+    expect(fresh.shipment?.statusMsg).not.toContain('第二張託運單')
+  })
+
+  it('printObt 回 HTTP 錯誤（沒有完整電文）：仍當作「不確定有沒有建」', async () => {
+    const { order } = await createTestOrder({ shippingMethod: 'HOME', status: 'PAID' })
+    parsingAddressMock.mockResolvedValue(new Map([[HOME_ADDRESS, '71-802-24-B']]))
+    printObtMock.mockRejectedValue(new TcatApiError('PrintOBT', 'HTTP 502'))
+
+    await createShipmentForOrder(order.id)
+
+    const fresh = await reloadOrder(order.id)
+    expect(fresh.shipment?.statusMsg).toContain('黑貓建單未回覆成功')
   })
 
   it('printObt 成功但回應裡沒有本單的託運單號：轉人工', async () => {

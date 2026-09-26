@@ -5,7 +5,7 @@ import { senderConfig } from '@/lib/ecpay/config'
 import { callPickup } from '@/lib/tcat/client'
 import { tcatPickupConfig } from '@/lib/tcat/config'
 import { formatTcatDate } from '@/lib/tcat/fields'
-import { buildPickupCall } from '@/lib/tcat/pickup'
+import { buildPickupCall, composePickupMemo } from '@/lib/tcat/pickup'
 
 /**
  * 呼叫黑貓來收貨（規格 2.6）。
@@ -15,17 +15,47 @@ import { buildPickupCall } from '@/lib/tcat/pickup'
  *   - 只由後台按鈕觸發（包好了沒只有現場的人知道，排程猜不準）
  *   - 不進 BullMQ（會自動重試的東西碰這支 API 就是叫兩台車）
  *   - 用 TcatPickupCall 當每日一次的鎖
+ *
+ * 「這趟收哪幾張」：黑貓的 Call API 只收件數，沒有單號欄位。所以由後台勾選訂單，
+ * 件數照勾選數算、單號寫進備註，成功後把這些 shipment 掛到該筆 TcatPickupCall 上。
  */
 
-/** 待交寄的包裹數：託運單已成立、但貨態還沒進到集貨的黑貓單。 */
+/**
+ * 待交寄：託運單已成立、貨態還沒進到集貨、也還沒排進任何一趟收貨的黑貓單。
+ * CREATED = 已配號還在我們手上；一旦進 IN_TRANSIT 就代表司機收走了。
+ */
+const PENDING_PARCEL_WHERE = {
+  logisticsSubType: 'TCAT',
+  shipmentNo: { not: null },
+  status: 'CREATED',
+  pickupCallId: null,
+} satisfies Prisma.ShipmentWhereInput
+
 export async function pendingTcatParcelCount(): Promise<number> {
-  return db.shipment.count({
-    where: {
-      logisticsSubType: 'TCAT',
-      shipmentNo: { not: null },
-      // CREATED = 已配號還在我們手上；一旦進 IN_TRANSIT 就代表司機收走了
-      status: 'CREATED',
-    },
+  return db.shipment.count({ where: PENDING_PARCEL_WHERE })
+}
+
+export const PENDING_PARCEL_SELECT = {
+  id: true,
+  shipmentNo: true,
+  receiverName: true,
+  receiverAddress: true,
+  labelPath: true,
+  createdAt: true,
+  order: { select: { id: true, orderNo: true } },
+} satisfies Prisma.ShipmentSelect
+
+export type PendingParcel = Prisma.ShipmentGetPayload<{ select: typeof PENDING_PARCEL_SELECT }>
+
+/** 一次叫車最多勾幾張。沒有規格限制，純粹防呆（一般一天不會超過這個量）。 */
+export const PICKUP_MAX_SHIPMENTS = 200
+
+export async function listPendingTcatParcels(): Promise<PendingParcel[]> {
+  return db.shipment.findMany({
+    where: PENDING_PARCEL_WHERE,
+    select: PENDING_PARCEL_SELECT,
+    orderBy: { createdAt: 'asc' },
+    take: PICKUP_MAX_SHIPMENTS,
   })
 }
 
@@ -40,15 +70,51 @@ export async function todayPickupCall(now: Date = new Date()): Promise<TcatPicku
 }
 
 export interface CallPickupInput {
-  /** 要收幾件。呼叫端沒給就用 pendingTcatParcelCount() */
-  quantity?: number
+  /** 這一趟要收的黑貓單（Shipment.id），必須都還在待交寄清單裡 */
+  shipmentIds: string[]
+  /**
+   * 不在網站上的包裹件數 —— 例如直接在黑貓系統開的單。
+   * 司機收幾件由總件數決定，這些件數沒有單號可以綁。
+   */
+  extraParcels?: number
   memo?: string
   requestedById?: string
 }
 
-export async function callTcatPickup(input: CallPickupInput = {}): Promise<TcatPickupCall> {
+export async function callTcatPickup(input: CallPickupInput): Promise<TcatPickupCall> {
   const callDate = pickupDateToday()
-  const quantity = input.quantity ?? (await pendingTcatParcelCount())
+  const shipmentIds = [...new Set(input.shipmentIds)]
+  const extraParcels = input.extraParcels ?? 0
+
+  if (shipmentIds.length > PICKUP_MAX_SHIPMENTS) {
+    throw new Error(`一次最多指定 ${PICKUP_MAX_SHIPMENTS} 張訂單`)
+  }
+  if (!Number.isInteger(extraParcels) || extraParcels < 0) {
+    throw new Error('其他包裹件數必須是 0 以上的整數')
+  }
+
+  const shipments =
+    shipmentIds.length > 0
+      ? await db.shipment.findMany({
+          where: { id: { in: shipmentIds }, ...PENDING_PARCEL_WHERE },
+          select: { id: true, shipmentNo: true },
+          orderBy: { createdAt: 'asc' },
+        })
+      : []
+
+  // 畫面開著的期間，單可能已經被收走或排進別趟 —— 不要默默少叫幾件
+  if (shipments.length !== shipmentIds.length) {
+    throw new Error(
+      `選取的訂單中有 ${shipmentIds.length - shipments.length} 張已經不在待交寄清單（可能已被收走或排入收貨），請重新整理後再選`,
+    )
+  }
+
+  const quantity = shipments.length + extraParcels
+  const memo = composePickupMemo(
+    input.memo,
+    shipments.map((s) => s.shipmentNo!),
+    extraParcels,
+  )
 
   // 電文先組起來，資料不合規就不要去佔今天的名額
   const request = buildPickupCall({
@@ -61,7 +127,7 @@ export async function callTcatPickup(input: CallPickupInput = {}): Promise<TcatP
     quantity,
     isContact: tcatPickupConfig.isContact,
     isTrolley: tcatPickupConfig.isTrolley,
-    memo: input.memo,
+    memo,
   })
 
   // 先佔位再打 API：唯一鍵擋掉「兩個管理員同時按」與「今天已經叫過了」。
@@ -72,7 +138,7 @@ export async function callTcatPickup(input: CallPickupInput = {}): Promise<TcatP
         callDate,
         succeededDate: callDate,
         quantity,
-        memo: input.memo?.slice(0, 100) || null,
+        memo: request.Memo || null,
         requestedById: input.requestedById ?? null,
       },
     })
@@ -85,10 +151,18 @@ export async function callTcatPickup(input: CallPickupInput = {}): Promise<TcatP
 
   try {
     const result = await callPickup(request)
-    return db.tcatPickupCall.update({
-      where: { id: record.id },
-      data: { srvTranId: result.srvTranId, message: result.message.slice(0, 500) },
-    })
+    const [call] = await db.$transaction([
+      db.tcatPickupCall.update({
+        where: { id: record.id },
+        data: { srvTranId: result.srvTranId, message: result.message.slice(0, 500) },
+      }),
+      // pickupCallId: null 再擋一次：兩個分頁同時勾了同一張時，單只會掛在一趟上
+      db.shipment.updateMany({
+        where: { id: { in: shipments.map((s) => s.id) }, pickupCallId: null },
+        data: { pickupCallId: record.id },
+      }),
+    ])
+    return call
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
 
@@ -102,4 +176,37 @@ export async function callTcatPickup(input: CallPickupInput = {}): Promise<TcatP
 
     throw new Error(`呼叫黑貓失敗：${reason}。若是連線逾時，集貨通知有可能已經送出，重按前請先確認。`)
   }
+}
+
+export const PICKUP_HISTORY_SELECT = {
+  id: true,
+  callDate: true,
+  succeededDate: true,
+  quantity: true,
+  memo: true,
+  message: true,
+  createdAt: true,
+  requestedBy: { select: { name: true, email: true } },
+  shipments: {
+    select: {
+      id: true,
+      shipmentNo: true,
+      status: true,
+      order: { select: { id: true, orderNo: true } },
+    },
+    orderBy: { createdAt: 'asc' },
+  },
+} satisfies Prisma.TcatPickupCallSelect
+
+export type PickupHistoryEntry = Prisma.TcatPickupCallGetPayload<{
+  select: typeof PICKUP_HISTORY_SELECT
+}>
+
+/** 最近幾次叫車（含失敗的嘗試），後台用來對「哪天收了哪幾張」。 */
+export async function listRecentPickupCalls(limit = 14): Promise<PickupHistoryEntry[]> {
+  return db.tcatPickupCall.findMany({
+    select: PICKUP_HISTORY_SELECT,
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  })
 }
