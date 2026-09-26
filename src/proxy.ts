@@ -190,6 +190,8 @@ export default async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  // 排除 API、Next 靜態資源、以及任何有副檔名的檔案（圖片、favicon…）
-  matcher: ['/((?!api|_next/static|_next/image|uploads|.*\\..*).*)'],
+  // 排除 API、Next 靜態資源、以及任何有副檔名的檔案（圖片、favicon…）。
+  // app/icon.tsx 與 app/apple-icon.tsx 產生的網址是 /icon、/apple-icon，沒有副檔名，
+  // 不排除的話會被 next-intl 改寫成 /zh-TW/icon，分頁圖示就變成 404。
+  matcher: ['/((?!api|_next/static|_next/image|uploads|icon|apple-icon|.*\\..*).*)'],
 }
