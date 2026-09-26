@@ -17,6 +17,7 @@ import {
   type ProductFormState,
 } from '../actions'
 import { formatTWD, cn } from '@/lib/utils'
+import { DescriptionEditor } from '../description-editor'
 
 type Variant = {
   id: string
@@ -133,7 +134,11 @@ export function ProductEditor({
           </div>
 
           <div className="sm:col-span-2">
-            <Field label="摘要" htmlFor="summary" hint="顯示在列表與 OG 描述">
+            <Field
+              label="摘要"
+              htmlFor="summary"
+              hint="前台頁面上不會顯示。用於站內搜尋、Google 購物，以及 SEO 描述留白時的備用說明"
+            >
               <Textarea id="summary" name="summary" defaultValue={product.summary} maxLength={500} />
             </Field>
           </div>
@@ -142,15 +147,9 @@ export function ProductEditor({
             <Field
               label="商品描述"
               htmlFor="descriptionHtml"
-              hint="顯示在商品頁。支援 HTML，段落、粗體、清單都可以用。"
+              hint="顯示在商品頁下方。右邊是前台實際的樣子，來源站的字型與顏色設定不會生效。"
             >
-              <Textarea
-                id="descriptionHtml"
-                name="descriptionHtml"
-                defaultValue={product.descriptionHtml}
-                className="min-h-40 font-mono text-xs"
-                placeholder="<p>材質：100% 純棉</p>"
-              />
+              <DescriptionEditor defaultValue={product.descriptionHtml} productId={product.id} />
             </Field>
           </div>
 

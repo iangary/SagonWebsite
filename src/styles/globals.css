@@ -1,8 +1,9 @@
 @import 'tailwindcss';
 
 /*
-  莎岡選品店的視覺基調：溫暖的米白底、深炭灰字、灰褐色點綴。
-  參考站是韓系睡衣選品，走柔和、留白多、襯線標題的路線。
+  莎岡選品店的視覺基調：溫暖的米白底、深炭灰字、灰褐色點綴，加一個梅子酒紅當唯一的重點色。
+  主要客群是台灣科技業的上班族女性，方向是「冷靜的精品感」而不是甜美感：
+  留白多、襯線標題、字級反差拉大、英文用細緻的襯線展示字，重點色用得很少。
 */
 @theme {
   --color-cream-50: #faf8f5;
@@ -10,22 +11,70 @@
   --color-cream-200: #e9e2d8;
   --color-cream-300: #d9cec0;
 
-  --color-taupe-400: #b8a695;
-  --color-taupe-500: #a08d7d;
-  --color-taupe-600: #857263;
+  /*
+    灰褐色系加深到能讀的程度。原本 500 / 600 對米白底只有約 3.0 / 4.3 : 1，
+    都沒達到 WCAG AA 對小字要求的 4.5 : 1，而這兩個色號大量用在品牌名、麵包屑、說明文字。
+    現在 500 對 cream-100 約 4.8 : 1、600 對 cream-50 約 6.6 : 1。
+    300 以前沒定義，會掉到 Tailwind 內建的 taupe-300（偏冷灰），這裡補上同色系的一格。
+  */
+  --color-taupe-300: #cfc3b6;
+  --color-taupe-400: #b3a292;
+  --color-taupe-500: #786759;
+  --color-taupe-600: #66574b;
 
   --color-ink-700: #4a423c;
   --color-ink-800: #342e29;
   --color-ink-900: #2b2724;
 
+  /*
+    梅子酒紅：唯一的深色重點色，只用在少數關鍵處（主按鈕 hover、導覽列底線、Hero 的引線），
+    用得越少越有精品感。不要拿來當大面積底色或內文色。
+  */
+  --color-plum-600: #7a3b47;
+  --color-plum-700: #5e2b36;
+
   --color-rose-accent: #c98b7f;
   --color-sale: #b4524a;
 
-  /* 第一順位是 next/font 自架的變數；沒吃到（極端情況）才退回系統字體 */
+  /*
+    第一順位是 next/font 自架的變數；沒吃到（極端情況）才退回系統字體。
+    內文把 Inter 排在 Noto Sans TC 前面：Inter 只含拉丁字，英文與數字（價格）走 Inter，
+    中文字 Inter 沒有，瀏覽器自動落到 Noto Sans TC。
+  */
   --font-serif-display: var(--font-noto-serif-tc, 'Noto Serif TC'), 'Songti TC', 'Georgia', serif;
-  --font-sans-body: var(--font-noto-sans-tc, 'Noto Sans TC'), 'PingFang TC', 'Microsoft JhengHei', system-ui, sans-serif;
+  --font-sans-body: var(--font-inter, 'Inter'), var(--font-noto-sans-tc, 'Noto Sans TC'), 'PingFang TC',
+    'Microsoft JhengHei', system-ui, sans-serif;
+
+  /*
+    英文展示字（font-display utility）：品牌名、Hero 眉標、跑馬燈這類「當裝飾用的英文」。
+    刻意不放進 h1–h3 的字體堆疊 —— Cormorant 的 x-height 小，混在中文商品名裡會顯得英文縮了一號。
+  */
+  --font-display: var(--font-cormorant, 'Cormorant Garamond'), var(--font-noto-serif-tc, 'Noto Serif TC'),
+    'Georgia', serif;
 
   --radius-card: 0.25rem;
+}
+
+/*
+  日文、韓文改排在系統字體前面。
+
+  Noto TC 的漢字是台灣字形，日文頁面用它會出現「看得懂但一看就是中文字」的字形差異；
+  韓文字（Hangul）則根本不在 TC 字體裡。刻意不再用 next/font 自架 JP／KR ——
+  每套 CJK 字體會多出上百條 @font-face 的 CSS，而且是所有訪客都要下載的阻塞 CSS，
+  只為了少數切到日韓文的訪客不划算。這幾套系統字體在 macOS／iOS／Windows／Android 都有內建。
+*/
+:root:lang(ja) {
+  --font-serif-display: 'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', 'Noto Serif CJK JP',
+    var(--font-noto-serif-tc, 'Noto Serif TC'), serif;
+  --font-sans-body: var(--font-inter, 'Inter'), 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', 'Noto Sans JP',
+    'Noto Sans CJK JP', var(--font-noto-sans-tc, 'Noto Sans TC'), system-ui, sans-serif;
+}
+
+:root:lang(ko) {
+  --font-serif-display: 'AppleMyungjo', 'Noto Serif KR', 'Noto Serif CJK KR', 'Batang',
+    var(--font-noto-serif-tc, 'Noto Serif TC'), serif;
+  --font-sans-body: var(--font-inter, 'Inter'), 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', 'Noto Sans CJK KR',
+    var(--font-noto-sans-tc, 'Noto Sans TC'), system-ui, sans-serif;
 }
 
 @layer base {

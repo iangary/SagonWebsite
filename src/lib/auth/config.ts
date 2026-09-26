@@ -43,7 +43,7 @@ export const authConfig = {
         const patch = session as {
           name?: string
           phone?: string | null
-          locale?: 'zh-TW' | 'en' | null
+          locale?: 'zh-TW' | 'en' | 'ja' | 'ko' | 'fr' | null
           needsPassword?: boolean
           user?: { needsPassword?: boolean }
         }
@@ -63,7 +63,7 @@ export const authConfig = {
         session.user.id = token.id as string
         session.user.role = (token.role as 'CUSTOMER' | 'ADMIN') ?? 'CUSTOMER'
         session.user.phone = (token.phone as string | null) ?? null
-        session.user.locale = (token.locale as 'zh-TW' | 'en' | null) ?? null
+        session.user.locale = (token.locale as 'zh-TW' | 'en' | 'ja' | 'ko' | 'fr' | null) ?? null
         session.user.needsPassword = token.needsPassword === true
       }
       return session

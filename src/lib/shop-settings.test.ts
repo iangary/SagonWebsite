@@ -34,7 +34,7 @@ describe('paymentSettingsSchema', () => {
     // 付款期限預設 2 天 —— 超商代碼 30 分鐘到期對消費者太短
     expect(parsed.cvsExpireDays).toBe(2)
     expect(parsed.atmExpireDays).toBe(2)
-    expect(parsed.methods).toEqual({ Credit: true, ATM: true, CVS: true, BARCODE: true })
+    expect(parsed.methods).toEqual({ Credit: true, ATM: false, CVS: true, BARCODE: true })
   })
 
   it('舊資料只有一部分欄位時，其餘補預設值而不是整份丟掉', () => {

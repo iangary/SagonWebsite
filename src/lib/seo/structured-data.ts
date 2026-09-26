@@ -1,5 +1,6 @@
 import 'server-only'
 import { env } from '@/lib/env'
+import { defaultLocale, toLocale } from '@/i18n/config'
 import { shopConfig, shopName } from '@/lib/shop-config'
 import type { ShippingSettings } from '@/lib/shop-settings'
 
@@ -211,7 +212,7 @@ export function siteJsonLd(locale: string) {
         url: base,
         name,
         publisher: { '@id': `${base}/#organization` },
-        inLanguage: locale === 'en' ? 'en' : 'zh-TW',
+        inLanguage: toLocale(locale) ?? defaultLocale,
         potentialAction: {
           '@type': 'SearchAction',
           target: {

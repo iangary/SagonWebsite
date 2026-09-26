@@ -10,6 +10,7 @@ import { Input, Textarea, Select, Field } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
 import { createProduct, type ProductFormState } from '../actions'
 import { formatTWD } from '@/lib/utils'
+import { DescriptionEditor } from '../description-editor'
 
 const INITIAL: ProductFormState = { ok: false }
 
@@ -101,7 +102,7 @@ export function NewProductForm({
           </Field>
 
           <div className="sm:col-span-2">
-            <Field label="摘要" htmlFor="summary" hint="顯示在列表與分享預覽，建議 100 字內">
+            <Field label="摘要" htmlFor="summary" hint="前台頁面上不會顯示。用於站內搜尋、Google 購物與分享預覽，建議 100 字內">
               <Textarea id="summary" name="summary" maxLength={500} />
             </Field>
           </div>
@@ -110,14 +111,9 @@ export function NewProductForm({
             <Field
               label="商品描述"
               htmlFor="descriptionHtml"
-              hint="支援 HTML。段落、粗體、清單都可以用。"
+              hint="右邊是前台實際的樣子。描述裡的圖片要等商品建立後，在編輯頁插入。"
             >
-              <Textarea
-                id="descriptionHtml"
-                name="descriptionHtml"
-                className="min-h-40 font-mono text-xs"
-                placeholder="<p>材質：100% 純棉</p>"
-              />
+              <DescriptionEditor />
             </Field>
           </div>
         </div>

@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { Menu, X, Globe } from 'lucide-react'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import { Menu, X, Globe, ChevronUp, Check } from 'lucide-react'
 import { Link, locales } from '@/i18n/routing'
 import { cn } from '@/lib/utils'
 import { LOCALE_LABELS, useLocaleSwitch } from './use-locale-switch'
@@ -56,33 +57,59 @@ export function MobileNav({
             手機唯一的語言入口 —— header 的地球圖示是 sm 以上才出現的（見 locale-switcher.tsx），
             這裡沒有的話 640px 以下就完全切不了語言。
           */}
+          {/*
+            下拉而不是一排按鈕：語系多了之後按鈕擠在 85vw 的抽屜裡會把字切成直排。
+
+            刻意不用原生 <select> —— 它的展開方向由系統決定，程式碼控制不了。
+            這個選單貼在抽屜最底下，必須往上展開，所以改用跟桌機地球選單同一套的
+            Radix DropdownMenu（side="top"），焦點與鍵盤操作由它處理。
+          */}
           <div className="border-t border-cream-200 px-5 py-4">
             <p className="flex items-center gap-2 pb-2 text-xs tracking-wide text-taupe-500">
               <Globe size={14} strokeWidth={1.5} />
               {labels.switchLanguage}
             </p>
-            <div className="flex gap-2">
-              {locales.map((l) => (
-                <button
-                  key={l}
-                  type="button"
-                  disabled={pending}
-                  aria-current={l === locale ? 'true' : undefined}
-                  onClick={() => {
-                    setOpen(false)
-                    switchTo(l)
-                  }}
-                  className={cn(
-                    'flex-1 border px-3 py-2 text-sm transition-colors disabled:opacity-50',
-                    l === locale
-                      ? 'border-ink-900 text-ink-900'
-                      : 'border-cream-300 text-taupe-500 hover:border-taupe-400',
-                  )}
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger
+                aria-label={labels.switchLanguage}
+                disabled={pending}
+                className="group flex w-full items-center justify-between border border-cream-300 py-2.5 pr-3 pl-3 text-sm text-ink-900 transition-colors hover:border-taupe-400 focus:border-ink-900 focus:outline-none disabled:opacity-50 data-[state=open]:border-ink-900"
+              >
+                {LOCALE_LABELS[locale]}
+                <ChevronUp
+                  size={16}
+                  strokeWidth={1.5}
+                  aria-hidden
+                  className="text-taupe-500 transition-transform group-data-[state=open]:rotate-180"
+                />
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                {/* z-90：抽屜本身是 z-80，選單要疊在它上面 */}
+                <DropdownMenu.Content
+                  side="top"
+                  align="start"
+                  sideOffset={4}
+                  className="z-90 w-(--radix-dropdown-menu-trigger-width) border border-cream-200 bg-white py-1 text-sm shadow-lg"
                 >
-                  {LOCALE_LABELS[l]}
-                </button>
-              ))}
-            </div>
+                  {locales.map((l) => (
+                    <DropdownMenu.Item
+                      key={l}
+                      onSelect={() => {
+                        setOpen(false)
+                        switchTo(l)
+                      }}
+                      className={cn(
+                        'flex cursor-pointer items-center justify-between px-3 py-2.5 outline-none data-highlighted:bg-cream-100',
+                        l === locale ? 'text-ink-900' : 'text-taupe-500',
+                      )}
+                    >
+                      {LOCALE_LABELS[l]}
+                      {l === locale && <Check size={14} strokeWidth={1.5} aria-hidden />}
+                    </DropdownMenu.Item>
+                  ))}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

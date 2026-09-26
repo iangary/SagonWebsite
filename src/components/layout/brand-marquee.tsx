@@ -17,7 +17,7 @@ export function BrandMarquee({ items }: { items: string[] }) {
       {base.map((name, i) => (
         <span
           key={`${key}-${i}`}
-          className="px-8 font-serif-display text-[13px] tracking-[0.3em] whitespace-nowrap text-taupe-600"
+          className="px-8 font-display text-base tracking-[0.3em] whitespace-nowrap text-taupe-600"
         >
           {name}
           <span aria-hidden className="ml-16 text-cream-300">

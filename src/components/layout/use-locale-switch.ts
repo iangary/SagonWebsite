@@ -6,10 +6,18 @@ import { useTransition } from 'react'
 import { usePathname, useRouter, type Locale } from '@/i18n/routing'
 import { saveLocalePreference } from './locale-actions'
 
-/** 下拉與抽屜共用同一組顯示名稱，免得兩邊漂移。 */
+/**
+ * 下拉與抽屜共用同一組顯示名稱，免得兩邊漂移。
+ *
+ * 每個語系都用它自己的文字寫，不跟著目前語系翻譯 —— 看不懂目前語言的人
+ * 才是最需要切換的人，他得認得出自己的語言。
+ */
 export const LOCALE_LABELS: Record<Locale, string> = {
   'zh-TW': '繁體中文',
   en: 'English',
+  ja: '日本語',
+  ko: '한국어',
+  fr: 'Français',
 }
 
 /**

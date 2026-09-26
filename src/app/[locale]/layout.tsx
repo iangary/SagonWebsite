@@ -1,11 +1,12 @@
 import type { Metadata } from 'next'
-import { Noto_Sans_TC, Noto_Serif_TC } from 'next/font/google'
+import { Cormorant_Garamond, Inter, Noto_Sans_TC, Noto_Serif_TC } from 'next/font/google'
 import { notFound } from 'next/navigation'
 import { NextIntlClientProvider, hasLocale } from 'next-intl'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { SessionProvider } from 'next-auth/react'
 
 import { routing } from '@/i18n/routing'
+import { OG_LOCALES, defaultLocale, toLocale } from '@/i18n/config'
 import { shopName } from '@/lib/shop-config'
 import { serializeJsonLd, siteJsonLd, siteUrl } from '@/lib/seo/structured-data'
 import { SiteHeader } from '@/components/layout/site-header'
@@ -32,6 +33,24 @@ const sansBody = Noto_Sans_TC({
   variable: '--font-noto-sans-tc',
   display: 'swap',
   preload: false,
+})
+
+/*
+ * 拉丁字體只有 latin 子集，檔案小，照常 preload。
+ * Inter 排在內文字體堆疊最前面（英文與價格數字），Cormorant 只給 font-display 這個 utility 用
+ * （品牌名、Hero 眉標、跑馬燈）。見 globals.css 的 @theme。
+ */
+const latinSans = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+})
+const latinDisplay = Cormorant_Garamond({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  style: ['normal', 'italic'],
+  variable: '--font-cormorant',
+  display: 'swap',
 })
 
 /**
@@ -72,10 +91,10 @@ export async function generateMetadata({
       siteName: title,
       title,
       description: t('heroSubtitle'),
-      locale: locale === 'en' ? 'en_US' : 'zh_TW',
+      locale: OG_LOCALES[toLocale(locale) ?? defaultLocale],
     },
-    // 不列 languages：localePrefix 是 never，兩個語系共用同一組網址，
-    // 沒有「英文版的網址」可以指（見 i18n/routing.ts）
+    // 不列 languages：localePrefix 是 never，所有語系共用同一組網址，
+    // 沒有「某語系版的網址」可以指（見 i18n/routing.ts）
     alternates: { canonical: '/' },
   }
 }
@@ -97,7 +116,7 @@ export default async function LocaleLayout({
     <html
       lang={locale}
       suppressHydrationWarning
-      className={`${serifDisplay.variable} ${sansBody.variable}`}
+      className={`${serifDisplay.variable} ${sansBody.variable} ${latinSans.variable} ${latinDisplay.variable}`}
     >
       <body className="flex min-h-screen flex-col">
         {/*

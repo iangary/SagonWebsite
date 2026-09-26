@@ -44,8 +44,11 @@ export default async function OpenGraphImage({
    * 中文字體載入失敗時退回英文店名，而不是讓中文變成一排方框。
    * 只有需要中文字形時才連外（英文語系的字全在預設字體裡）。
    */
-  const needsCjk = /[㐀-鿿]/.test(name + tagline)
-  const fontData = needsCjk ? await loadNotoSansTcSubset(name + tagline + wordmark) : null
+  // 漢字、假名、韓文字母都不在預設字體裡（法文的重音字母在）
+  const needsCjk = /[぀-ヿ㐀-鿿가-힯]/.test(name + tagline)
+  const fontData = needsCjk
+    ? await loadNotoSansTcSubset(name + tagline + wordmark, 600, locale)
+    : null
 
   const useCjk = !needsCjk || fontData !== null
   const displayName = useCjk ? name : shopConfig.nameEn

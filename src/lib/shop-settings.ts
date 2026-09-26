@@ -63,10 +63,13 @@ export const PAYMENT_SETTINGS_KEY = 'payment'
 /** 綠界超商取貨付款的代收金額上限（GoodsAmount 1~20,000，超過建單會被退 10500040） */
 export const CVS_COLLECTION_MAX = 20_000
 
-/** 線上付款方式的預設值：全部開放。 */
+/**
+ * 線上付款方式的預設值。ATM 虛擬帳號預設關閉 —— 已經有「匯款／ATM 轉帳」可以用，
+ * 兩個都叫 ATM 放在一起客人分不清；要用再到後台打開。
+ */
 const ONLINE_METHOD_DEFAULTS = {
   Credit: true,
-  ATM: true,
+  ATM: false,
   CVS: true,
   BARCODE: true,
 } as const

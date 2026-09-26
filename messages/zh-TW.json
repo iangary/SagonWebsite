@@ -23,7 +23,9 @@
     "mainCategories": "主要分類",
     "breadcrumb": "麵包屑",
     "switchLanguage": "切換語言",
-    "memberFallback": "會員"
+    "memberFallback": "會員",
+    "categories": "選物分類",
+    "viewAllProducts": "瀏覽全部商品"
   },
   "announcement": {
     "freeShipping": "全站消費滿 {amount} 免運費"
@@ -39,7 +41,9 @@
     "brandProductCount": "{count} 件商品",
     "aboutTitle": "經典、優雅、質感",
     "aboutBody": "{shop}創立於 2023 年春天，專注引進韓國高品質睡衣、寢具與家居飾品。我們嚴選韓國品牌，並與品牌總部正式授權合作，希望每一件送到您手中的商品，都能陪伴日常裡那些最放鬆的時刻。",
-    "aboutCta": "認識{shop}"
+    "aboutCta": "認識{shop}",
+    "brandPrev": "上一組品牌",
+    "brandNext": "下一組品牌"
   },
   "product": {
     "addToCart": "加入購物車",

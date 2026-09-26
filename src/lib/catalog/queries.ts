@@ -201,6 +201,35 @@ export async function listBrands() {
   })
 }
 
+/**
+ * 首頁品牌櫥窗：品牌名、上架商品數與一張封面圖。
+ *
+ * 封面優先用後台上傳的 Brand.imageUrl；還沒上傳的品牌退回「最新上架商品的第一張圖」，
+ * 櫥窗才不會出現空白格。巢狀 select 由 Prisma 批次成一次查詢，不是逐品牌 N+1。
+ */
+export async function listBrandShowcase() {
+  const brands = await db.brand.findMany({
+    orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    select: {
+      slug: true,
+      name: true,
+      imageUrl: true,
+      _count: { select: { products: { where: { status: 'ACTIVE' } } } },
+      products: {
+        where: { status: 'ACTIVE', images: { some: {} } },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { images: { orderBy: { sortOrder: 'asc' }, take: 1, select: { url: true } } },
+      },
+    },
+  })
+
+  return brands.map(({ products, imageUrl, ...brand }) => ({
+    ...brand,
+    coverUrl: imageUrl ?? products[0]?.images[0]?.url ?? null,
+  }))
+}
+
 export async function listCategories() {
   return db.category.findMany({
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],

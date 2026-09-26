@@ -5,7 +5,7 @@
  * next/navigation。純伺服器端的模組（shop-config、lib/i18n/localized）只需要
  * 知道「預設語系是哪個」，不該為了一個字串把整包 client navigation 拖進來。
  */
-export const locales = ['zh-TW', 'en'] as const
+export const locales = ['zh-TW', 'en', 'ja', 'ko', 'fr'] as const
 export type Locale = (typeof locales)[number]
 
 export const defaultLocale: Locale = 'zh-TW'
@@ -18,4 +18,13 @@ export const defaultLocale: Locale = 'zh-TW'
  */
 export function toLocale(value: string | null | undefined): Locale | null {
   return locales.includes(value as Locale) ? (value as Locale) : null
+}
+
+/** Open Graph 的 og:locale 要的是底線格式（language_TERRITORY），跟 BCP 47 不同。 */
+export const OG_LOCALES: Record<Locale, string> = {
+  'zh-TW': 'zh_TW',
+  en: 'en_US',
+  ja: 'ja_JP',
+  ko: 'ko_KR',
+  fr: 'fr_FR',
 }

@@ -616,6 +616,65 @@ export async function uploadProductImages(
   }
 }
 
+/**
+ * 商品描述內文用的圖片。
+ *
+ * 和商品圖片走同一條處理（轉 WebP、縮到 1600px、存進 products/<id>/），
+ * 但**不建立 ProductImage 紀錄** —— 那張表是圖庫，會出現在商品頁頂端的相簿、
+ * 列表縮圖與 Merchant feed。描述圖只該出現在描述裡，由前端把回傳的網址插進 HTML。
+ *
+ * 從描述裡刪掉 <img> 不會刪檔；檔案跟著商品資料夾，刪商品時一起清掉。
+ */
+export async function uploadDescriptionImages(formData: FormData): Promise<{
+  ok: boolean
+  error?: string
+  images?: { url: string; width: number; height: number }[]
+  failures?: { filename: string; reason: string }[]
+}> {
+  const admin = await requireAdmin()
+
+  const productId = String(formData.get('productId') ?? '')
+  if (!productId) return { ok: false, error: '缺少商品識別碼' }
+
+  const files = formData.getAll('images').filter((f): f is File => f instanceof File)
+  if (files.length === 0 || files.every((f) => f.size === 0)) {
+    return { ok: false, error: '請選擇要上傳的圖片' }
+  }
+  if (files.length > MAX_FILES_PER_UPLOAD) {
+    return { ok: false, error: `一次最多上傳 ${MAX_FILES_PER_UPLOAD} 張` }
+  }
+
+  try {
+    const product = await db.product.findUnique({ where: { id: productId }, select: { id: true } })
+    if (!product) return { ok: false, error: '找不到這個商品' }
+
+    const { saved, failed } = await saveProductImages(productId, files)
+
+    if (saved.length > 0) {
+      await audit({
+        userId: admin.id,
+        action: 'product.description.images.upload',
+        entity: 'Product',
+        entityId: productId,
+        after: { count: saved.length, urls: saved.map((s) => s.url) },
+      })
+    }
+
+    if (saved.length === 0) {
+      return { ok: false, error: '沒有任何圖片上傳成功', failures: failed }
+    }
+
+    return {
+      ok: true,
+      images: saved.map(({ url, width, height }) => ({ url, width, height })),
+      failures: failed.length > 0 ? failed : undefined,
+    }
+  } catch (error) {
+    console.error('[admin] 上傳描述圖片失敗', error)
+    return { ok: false, error: (error as Error).message }
+  }
+}
+
 export async function deleteProductImage(
   imageId: string,
 ): Promise<{ ok: boolean; error?: string }> {

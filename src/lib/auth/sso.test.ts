@@ -27,7 +27,7 @@ describe('signInErrorKey', () => {
     expect(signInErrorKey('')).toBe('loginFailed')
   })
 
-  it('回得出來的每個 key 在兩種語系的 auth 命名空間裡都有翻譯', () => {
+  it('回得出來的每個 key 在每個語系的 auth 命名空間裡都有翻譯', () => {
     const codes = [
       'OAuthAccountNotLinked',
       'AccountNotLinked',
@@ -36,7 +36,7 @@ describe('signInErrorKey', () => {
       undefined,
     ]
 
-    for (const locale of ['zh-TW', 'en']) {
+    for (const locale of ['zh-TW', 'en', 'ja', 'ko', 'fr']) {
       const messages = JSON.parse(readFileSync(`messages/${locale}.json`, 'utf8')) as {
         auth: Record<string, string>
       }

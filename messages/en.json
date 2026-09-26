@@ -23,7 +23,9 @@
     "mainCategories": "Main categories",
     "breadcrumb": "Breadcrumb",
     "switchLanguage": "Switch language",
-    "memberFallback": "Member"
+    "memberFallback": "Member",
+    "categories": "Categories",
+    "viewAllProducts": "Browse all products"
   },
   "announcement": {
     "freeShipping": "Free shipping on orders over {amount}"
@@ -39,7 +41,9 @@
     "brandProductCount": "{count} products",
     "aboutTitle": "Classic, elegant, considered",
     "aboutBody": "{shop} was founded in the spring of 2023 to bring high-quality Korean sleepwear, bedding and home goods to Taiwan. We curate Korean labels and work under official authorisation from each brand, so that everything we send you belongs to the most relaxed moments of your day.",
-    "aboutCta": "About {shop}"
+    "aboutCta": "About {shop}",
+    "brandPrev": "Previous brands",
+    "brandNext": "Next brands"
   },
   "product": {
     "addToCart": "Add to cart",

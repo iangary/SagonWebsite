@@ -7,6 +7,7 @@ import { shopName } from '@/lib/shop-config'
 import { getShippingSettings } from '@/lib/shop-settings'
 import { HeaderActions } from './header-actions'
 import { MobileNav } from './mobile-nav'
+import { DesktopNav } from './desktop-nav'
 
 /**
  * 導覽列要顯示的分類（只取頂層，依 sortOrder）。
@@ -40,15 +41,15 @@ export async function SiteHeader() {
     getShippingSettings(),
   ])
 
-  const navLinks = [
-    { href: '/', label: t('home') },
-    { href: '/product/all', label: t('allProducts') },
-    { href: '/about', label: t('about') },
-    ...categories.map((c) => ({
-      href: `/category/${c.slug}`,
-      label: localizedName(locale, c),
-    })),
-  ]
+  const categoryLinks = categories.map((c) => ({
+    href: `/category/${c.slug}`,
+    label: localizedName(locale, c),
+  }))
+  const allProducts = { href: '/product/all', label: t('allProducts') }
+  const about = { href: '/about', label: t('about') }
+
+  // 手機抽屜是一條直的清單，分類直接攤開；桌機把分類收進 DesktopNav 的展開面板
+  const navLinks = [{ href: '/', label: t('home') }, allProducts, about, ...categoryLinks]
 
   return (
     <header className="sticky top-0 z-50 border-b border-cream-200 bg-cream-50/95 backdrop-blur">
@@ -57,56 +58,58 @@ export async function SiteHeader() {
         {tAnnouncement('freeShipping', { amount: formatTWD(shipping.freeShippingThreshold) })}
       </div>
 
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
-        <MobileNav
-          links={navLinks}
+      {/*
+        桌機是三欄：logo 靠左、導覽置中、圖示靠右。左右兩欄都 flex-1，導覽才會真的落在正中間。
+        分類不再另開第二列（分類一多就被切掉），改收進 DesktopNav 的展開面板。
+      */}
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:h-[4.5rem]">
+        <div className="flex flex-1 items-center gap-4">
+          <MobileNav
+            links={navLinks}
+            labels={{
+              menu: t('menu'),
+              open: t('openMenu'),
+              close: t('closeMenu'),
+              switchLanguage: t('switchLanguage'),
+            }}
+          />
+
+          <Link href="/" className="shrink-0">
+            <span className="font-serif-display text-xl tracking-[0.2em] text-ink-900 sm:text-2xl">
+              {shopName(locale)}
+            </span>
+          </Link>
+        </div>
+
+        <DesktopNav
+          leading={[allProducts]}
+          trailing={[about]}
+          categories={categoryLinks}
           labels={{
-            menu: t('menu'),
-            open: t('openMenu'),
-            close: t('closeMenu'),
-            switchLanguage: t('switchLanguage'),
+            nav: t('mainCategories'),
+            categories: t('categories'),
+            viewAll: t('viewAllProducts'),
+            viewAllHref: allProducts.href,
           }}
         />
 
-        <Link href="/" className="shrink-0">
-          <span className="font-serif-display text-xl tracking-[0.2em] text-ink-900 sm:text-2xl">
-            {shopName(locale)}
-          </span>
-        </Link>
-
-        <div className="flex-1" />
-
-        <HeaderActions
-          labels={{
-            search: t('search'),
-            cart: t('cart'),
-            account: t('account'),
-            login: t('login'),
-            logout: t('logout'),
-            orderQuery: t('orderQuery'),
-            admin: t('admin'),
-            closeSearch: t('closeSearch'),
-            memberFallback: t('memberFallback'),
-            switchLanguage: t('switchLanguage'),
-          }}
-        />
+        <div className="flex flex-1 justify-end">
+          <HeaderActions
+            labels={{
+              search: t('search'),
+              cart: t('cart'),
+              account: t('account'),
+              login: t('login'),
+              logout: t('logout'),
+              orderQuery: t('orderQuery'),
+              admin: t('admin'),
+              closeSearch: t('closeSearch'),
+              memberFallback: t('memberFallback'),
+              switchLanguage: t('switchLanguage'),
+            }}
+          />
+        </div>
       </div>
-
-      {/* 桌機的分類列 */}
-      <nav aria-label={t('mainCategories')} className="hidden border-t border-cream-200 lg:block">
-        <ul className="no-scrollbar mx-auto flex max-w-7xl items-center gap-7 overflow-x-auto px-6 py-3 text-[13px] tracking-wide">
-          {navLinks.map((link) => (
-            <li key={link.href}>
-              <Link
-                href={link.href}
-                className="whitespace-nowrap text-ink-700 transition-colors hover:text-taupe-600"
-              >
-                {link.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </nav>
     </header>
   )
 }

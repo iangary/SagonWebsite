@@ -19,13 +19,26 @@ import 'server-only'
 const LEGACY_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/534.30 (KHTML, like Gecko) Version/5.1 Safari/534.30'
 
+/**
+ * 依語系挑字族。
+ *
+ * Noto Sans TC 有假名，但**沒有韓文字母**（Hangul）—— 韓文的圖用它會整排方框。
+ * 日文雖然 TC 也能顯示，但漢字是台灣字形，日本讀者一眼看得出來，所以一併換掉。
+ */
+const OG_FONT_FAMILY: Record<string, string> = {
+  ja: 'Noto+Sans+JP',
+  ko: 'Noto+Sans+KR',
+}
+
 export async function loadNotoSansTcSubset(
   text: string,
   weight: 400 | 600 = 600,
+  locale?: string,
 ): Promise<ArrayBuffer | null> {
+  const family = (locale && OG_FONT_FAMILY[locale]) || 'Noto+Sans+TC'
   try {
     const cssUrl =
-      `https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@${weight}` +
+      `https://fonts.googleapis.com/css2?family=${family}:wght@${weight}` +
       `&text=${encodeURIComponent(text)}`
 
     const css = await fetch(cssUrl, {

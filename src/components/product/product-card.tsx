@@ -30,7 +30,7 @@ export function ProductCard({
               src={primary.url}
               alt={primary.alt ?? name}
               fill
-              sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+              sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 100vw"
               priority={priority}
               className="object-cover transition-[opacity,transform] duration-500 ease-out group-hover:scale-105 group-hover:opacity-0"
             />
@@ -40,7 +40,7 @@ export function ProductCard({
                 src={secondary.url}
                 alt=""
                 fill
-                sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+                sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 100vw"
                 aria-hidden
                 className="object-cover opacity-0 transition-[opacity,transform] duration-500 ease-out group-hover:scale-105 group-hover:opacity-100"
               />
@@ -90,7 +90,7 @@ export function ProductGrid({
   priorityCount?: number
 }) {
   return (
-    <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
       {products.map((product, i) => (
         // 延遲用 i % 4：同一排的卡片做出時間差，跨排進場時不會等前面整串跑完
         <Reveal key={product.id} delay={(i % 4) * 60}>

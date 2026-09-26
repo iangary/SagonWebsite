@@ -10,8 +10,8 @@ import { cn } from '@/lib/utils'
  * 要超過這個高度再加一段緩衝才值得出現按鈕 —— 只差幾十像素就收摺，
  * 按鈕點下去畫面幾乎沒變化，反而像壞掉。
  */
-const COLLAPSED_MAX_PX = 544
-const WORTH_COLLAPSING_PX = COLLAPSED_MAX_PX + 80
+export const COLLAPSED_MAX_PX = 544
+export const WORTH_COLLAPSING_PX = COLLAPSED_MAX_PX + 80
 
 export function ProductDescription({
   html,
