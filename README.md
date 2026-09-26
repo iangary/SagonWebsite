@@ -126,8 +126,8 @@ npx tsx --env-file-if-exists=.env --conditions=react-server scripts/simulate-ecp
 官方文件只寫「單價可為 0」，沒有明說可為負。
 
 **黑貓宅配**：已改為直接串接統一速達印單 API（規格書在 `docs/黑貓宅急便_…_v2.1.2/`）。
-`ParsingAddress` 已對測試站實測通過，確認契客代號與授權碼有效、測試站也對我們開通
-（`scripts/tcat-parse-address.ts` 可重跑）。寄件人資料已對齊契客專區的「印單資料設定」：
+`ParsingAddress` 已對測試站實測通過（`scripts/tcat-parse-address.ts` 可重跑）。
+注意它**不會**驗授權碼：實際遇過 ParsingAddress 成功、同一組憑證 PrintOBT 卻回 E009「契客資料不正確」。寄件人資料已對齊契客專區的「印單資料設定」：
 新北市中和區宜安路 171 號 → 黑貓郵碼 `40-693-52-C`，`TCAT_SENDER_ZIP=69352C`。
 
 尚未實測的是 `PrintOBT` 建單 —— 它會產生一張**真實的託運單**，留給有人在旁邊確認時再跑。

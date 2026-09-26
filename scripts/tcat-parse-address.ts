@@ -4,8 +4,11 @@
  * 兩個用途：
  *   1. 取得 TCAT_SENDER_ZIP —— 寄件地址的黑貓郵碼「後六碼」。
  *      這不是中華郵政的郵遞區號，非查不可，填錯建單會被 E057 退件。
- *   2. 當成最便宜的憑證檢查 —— 這支 API 是唯讀的、沒有副作用，
- *      能查到郵碼就代表 TCAT_CUSTOMER_ID / TCAT_CUSTOMER_TOKEN 是對的。
+ *   2. 確認黑貓送得到某個地址（回 X 或空白就是送不到）。
+ *
+ * ⚠️ 查得到郵碼**不代表**憑證是對的。2026-09 實際遇過：同一組 CustomerId／Token
+ *    ParsingAddress 成功，接著 PrintOBT 回 E009「契客資料不正確」。
+ *    要驗證授權碼得看建單或查貨態（OBTStatus）有沒有回 E009。
  *
  * 用法：
  *   npx tsx --env-file-if-exists=.env --conditions=react-server \

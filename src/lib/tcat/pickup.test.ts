@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildPickupCall, TcatPickupInvalid, type TcatPickupInput } from './pickup'
+import { buildPickupCall, composePickupMemo, TcatPickupInvalid, type TcatPickupInput } from './pickup'
 import { splitTel } from './fields'
 
 const BASE: TcatPickupInput = {
@@ -91,5 +91,38 @@ describe('buildPickupCall', () => {
     const call = buildPickupCall({ ...BASE, memo: '長'.repeat(150) })
 
     expect([...call.Memo]).toHaveLength(100)
+  })
+})
+
+describe('composePickupMemo', () => {
+  const OBT = (n: number) => `9047811204${String(n).padStart(2, '0')}` // 12 碼，跟真實單號一樣長
+
+  it('給司機的話在前、託運單號在後', () => {
+    expect(composePickupMemo('請走側門', [OBT(1), OBT(2)])).toBe(`請走側門 單號:${OBT(1)},${OBT(2)}`)
+  })
+
+  it('沒有備註、沒有單號時各自省略', () => {
+    expect(composePickupMemo(undefined, [OBT(1)])).toBe(`單號:${OBT(1)}`)
+    expect(composePickupMemo('  請走  側門 ', [])).toBe('請走 側門')
+    expect(composePickupMemo('', [], 2)).toBe('另2件非網站建單')
+  })
+
+  it('放不下全部單號時列前面幾張，後面寫總件數，且不超過 100 字（規格 2.6.1 第 16 項）', () => {
+    const numbers = Array.from({ length: 12 }, (_, i) => OBT(i + 1))
+    const memo = composePickupMemo('請走側門', numbers)
+
+    expect([...memo].length).toBeLessThanOrEqual(100)
+    expect(memo.startsWith(`請走側門 單號:${OBT(1)},`)).toBe(true)
+    expect(memo.endsWith('等共12件')).toBe(true)
+  })
+
+  it('給司機的話太長時：單號縮成件數，再不行才截字', () => {
+    const long = '請'.repeat(95)
+    const memo = composePickupMemo(long, [OBT(1), OBT(2)])
+    expect([...memo].length).toBeLessThanOrEqual(100)
+    expect(memo.startsWith(long)).toBe(true)
+
+    const tooLong = '請'.repeat(120)
+    expect([...composePickupMemo(tooLong, [OBT(1)])].length).toBe(100)
   })
 })

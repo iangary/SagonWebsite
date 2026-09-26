@@ -6,6 +6,7 @@ import {
   CHOOSE_PAYMENT_LABEL,
   ORDER_STATUS_LABEL,
   PAYMENT_STATUS_LABEL,
+  SHIPMENT_STATUS_LABEL,
 } from '@/lib/orders/labels'
 import {
   PageHeader,
@@ -122,7 +123,7 @@ export default async function AdminOrdersPage({
           take: 1,
           select: { status: true, choosePayment: true, expireDate: true },
         },
-        shipment: { select: { status: true } },
+        shipment: { select: { status: true, shipmentNo: true, logisticsSubType: true } },
         _count: { select: { items: true } },
       },
     }),
@@ -181,7 +182,7 @@ export default async function AdminOrdersPage({
       </div>
 
       <DataTable
-        headers={['訂單編號', '收件人', '品項', '金額', '收款', '訂單狀態', '成立時間']}
+        headers={['訂單編號', '收件人', '品項', '金額', '收款', '訂單狀態', '物流', '成立時間']}
         empty={orders.length === 0}
       >
         {orders.map((order) => (
@@ -227,6 +228,23 @@ export default async function AdminOrdersPage({
               <Badge tone={ORDER_STATUS_TONE[order.status]}>
                 {ORDER_STATUS_LABEL[order.status]}
               </Badge>
+            </Td>
+            <Td>
+              {order.shipment ? (
+                <>
+                  <div className="text-xs text-ink-900">
+                    {SHIPMENT_STATUS_LABEL[order.shipment.status]}
+                  </div>
+                  {order.shipment.shipmentNo && (
+                    <div className="mt-0.5 font-mono text-xs text-taupe-500">
+                      {order.shipment.logisticsSubType === 'TCAT' ? '黑貓 ' : ''}
+                      {order.shipment.shipmentNo}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <span className="text-xs text-taupe-500">—</span>
+              )}
             </Td>
             <Td className="whitespace-nowrap text-xs text-taupe-500">
               {order.createdAt.toLocaleString('zh-TW', { hour12: false })}

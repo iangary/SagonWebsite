@@ -7,15 +7,22 @@ import { enqueueMock } from './mocks'
 vi.mock('@/lib/queue', async () => (await import('./mocks')).queueMockModule())
 
 vi.mock('@/lib/tcat/client', () => ({
-  TcatApiError: class TcatApiError extends Error {},
+  // 跟真的一樣：有 SrvTranId 代表黑貓回了完整電文、明確退件
+  TcatApiError: class TcatApiError extends Error {
+    readonly rejected: boolean
+    constructor(_service: string, message: string, srvTranId?: string) {
+      super(message)
+      this.rejected = srvTranId !== undefined
+    }
+  },
   parsingAddress: vi.fn(),
   printObt: vi.fn(),
   downloadObt: vi.fn(),
   queryObtStatus: vi.fn(),
 }))
 
-import { queryObtStatus, type TcatObtStatus } from '@/lib/tcat/client'
-import { pollTcatShipmentStatuses } from '@/lib/orders/tcat-status'
+import { queryObtStatus, TcatApiError, type TcatObtStatus } from '@/lib/tcat/client'
+import { pollTcatShipmentStatuses, refreshTcatShipmentStatus } from '@/lib/orders/tcat-status'
 
 const queryObtStatusMock = vi.mocked(queryObtStatus)
 
@@ -258,5 +265,63 @@ describe('pollTcatShipmentStatuses', () => {
     expect(logs.map((l) => l.statusCode)).toEqual(['151', '301'])
     // 營業所名稱一起寫進訊息（客服要用）
     expect(logs[1]!.message).toBe('配完（台北營業所）')
+  })
+})
+
+describe('貨態查詢被黑貓拒絕', () => {
+  it('E009 等錯誤：把原因寫在單上、不動 statusPolledAt、並往外丟讓 worker 記失敗', async () => {
+    const order = await makeTcatShipment({ statusPolledAt: null })
+    queryObtStatusMock.mockRejectedValue(
+      new TcatApiError('OBTStatus', '黑貓 OBTStatus：執行失敗 -> E009-契客資料不正確', 'TN1'),
+    )
+
+    await expect(pollTcatShipmentStatuses()).rejects.toThrow(/E009/)
+
+    const fresh = await reloadOrder(order.id)
+    expect(fresh.shipment?.statusPollError).toContain('E009')
+    // 這次根本沒查到，下一輪要再查
+    expect(fresh.shipment?.statusPolledAt).toBeNull()
+  })
+
+  it('下一次查詢成功就把錯誤清掉', async () => {
+    const order = await makeTcatShipment({ statusPolledAt: null })
+    await db.shipment.update({
+      where: { orderId: order.id },
+      data: { statusPollError: '黑貓 OBTStatus：E009' },
+    })
+    queryObtStatusMock.mockResolvedValue([])
+
+    await pollTcatShipmentStatuses()
+
+    const fresh = await reloadOrder(order.id)
+    expect(fresh.shipment?.statusPollError).toBeNull()
+    expect(fresh.shipment?.statusPolledAt).not.toBeNull()
+  })
+})
+
+describe('refreshTcatShipmentStatus（後台立即查詢）', () => {
+  it('只查這一張，並照常寫入貨態', async () => {
+    const order = await makeTcatShipment({ shipmentNo: 'OBT-NOW', statusPolledAt: null })
+    await makeTcatShipment({ statusPolledAt: null }) // 別張不該被一起查
+    queryObtStatusMock.mockResolvedValue([obtStatus('OBT-NOW')])
+
+    const result = await refreshTcatShipmentStatus(order.id)
+
+    expect(queryObtStatusMock).toHaveBeenCalledWith(['OBT-NOW'])
+    expect(result.logsCreated).toBe(1)
+    const fresh = await reloadOrder(order.id)
+    expect(fresh.shipment?.status).toBe('IN_TRANSIT')
+  })
+
+  it('2 小時內查過：擋下來並告訴後台幾點以後可以再查，不打黑貓', async () => {
+    const order = await makeTcatShipment({ statusPolledAt: new Date(Date.now() - 30 * 60 * 1000) })
+
+    await expect(refreshTcatShipmentStatus(order.id)).rejects.toThrow(/每 2 小時只能查一次/)
+    expect(queryObtStatusMock).not.toHaveBeenCalled()
+  })
+
+  it('還沒有託運單號：擋下來', async () => {
+    const order = await makeTcatShipment({ shipmentNo: null })
+    await expect(refreshTcatShipmentStatus(order.id)).rejects.toThrow(/還沒有黑貓託運單號/)
   })
 })

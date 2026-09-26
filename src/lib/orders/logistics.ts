@@ -17,7 +17,7 @@ import {
   GOODS_AMOUNT_MIN,
 } from '@/lib/ecpay/logistics'
 import { senderConfig } from '@/lib/ecpay/config'
-import { downloadObt, parsingAddress, printObt } from '@/lib/tcat/client'
+import { downloadObt, parsingAddress, printObt, TcatApiError } from '@/lib/tcat/client'
 import { tcatConfig } from '@/lib/tcat/config'
 import { isDeliverable } from '@/lib/tcat/fields'
 import { saveLabel } from '@/lib/tcat/labels'
@@ -42,6 +42,8 @@ export type ShipmentCreation =
       cvsValidationNo?: string
       /** 黑貓才有：已下載的託運單 PDF */
       label?: { path: string; downloadedAt: Date }
+      /** 黑貓才有：託運單下載編號，24 小時內可補抓 PDF */
+      labelFileNo?: { fileNo: string; issuedAt: Date }
       /** 建單成功但有需要人工留意的事（例如 PDF 沒抓到） */
       labelWarning?: string
       raw: unknown
@@ -124,7 +126,8 @@ export const ecpayCvsProvider: ShippingProvider = {
  * **第 2 步之後這支函式不再往外 throw**，因為 throw 會進 BullMQ 重試迴圈，
  * 而 PrintOBT 沒有冪等鍵 —— 重跑一次就是第二張真實託運單、第二筆運費。
  * 所以：
- *   - 第 2 步失敗 → 轉 manual，請人去黑貓後台確認到底建了沒（見 adminRecordTcatShipment）
+ *   - 第 2 步失敗 → 轉 manual。黑貓明確退件（IsOK='N'）時單沒成立，修正後可直接重送；
+ *     逾時或斷線則要請人去黑貓後台確認到底建了沒（見 adminRecordTcatShipment）
  *   - 第 3 步失敗 → 狀態仍是 CREATED（單確實成立了），只把警告寫進 failReason
  */
 export const tcatProvider: ShippingProvider = {
@@ -197,11 +200,23 @@ export const tcatProvider: ShippingProvider = {
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error)
       console.error('[tcat] 建單失敗', order.orderNo, error)
+
+      // 黑貓回了完整電文說不行（E009 憑證錯誤、欄位不合規…）：單一定沒成立。
+      // 照樣不自動重試（重試幾次都是同一個答案），但提示要講清楚「可以放心重送」，
+      // 否則客服會以為單可能建了，跑去黑貓系統手動再開一張。
+      if (error instanceof TcatApiError && error.rejected) {
+        return {
+          status: 'manual',
+          note: `黑貓退回建單：${reason}。託運單沒有成立，修正問題後可直接重新建單。`,
+        }
+      }
       return {
         status: 'manual',
         note: `黑貓建單未回覆成功：${reason}。請先到黑貓系統確認訂單 ${tcatOrder.OrderId} 是否已成立，再決定是否重送 —— 直接重送可能會建出第二張託運單。`,
       }
     }
+
+    const labelFileNo = { fileNo: result.fileNo, issuedAt: new Date() }
 
     const obtNumber = result.obtNumbers.get(tcatOrder.OrderId)
 
@@ -226,9 +241,10 @@ export const tcatProvider: ShippingProvider = {
       status: 'created',
       shipmentNo: obtNumber,
       label,
+      labelFileNo,
       labelWarning: label
         ? undefined
-        : `託運單 ${obtNumber} 已成立，但 PDF 下載失敗。FileNo 只有 24 小時有效，請儘快於後台重試補印。`,
+        : `託運單 ${obtNumber} 已成立，但 PDF 下載失敗。請在 24 小時內到訂單頁按「重新下載託運單」。`,
       raw: { obtNumber, fileNo: result.fileNo, printDateTime: result.printDateTime },
     }
   },
@@ -287,6 +303,8 @@ export async function createShipmentForOrder(orderId: string): Promise<void> {
         failReason: result.labelWarning ?? null,
         labelPath: result.label?.path ?? null,
         labelDownloadedAt: result.label?.downloadedAt ?? null,
+        labelFileNo: result.labelFileNo?.fileNo ?? null,
+        labelFileNoIssuedAt: result.labelFileNo?.issuedAt ?? null,
         rawResponse: result.raw as Prisma.InputJsonValue,
       },
     }),

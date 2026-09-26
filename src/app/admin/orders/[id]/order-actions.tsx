@@ -9,7 +9,19 @@ import type {
   ReceiptStatus,
   ShippingMethod,
 } from '@prisma/client'
-import { Truck, Printer, Receipt, Ban, XCircle, FileText, RefreshCw, Banknote, Landmark } from 'lucide-react'
+import {
+  Truck,
+  Printer,
+  Receipt,
+  Ban,
+  XCircle,
+  FileText,
+  RefreshCw,
+  Banknote,
+  Landmark,
+  Download,
+  MapPin,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast'
 import {
@@ -18,6 +30,8 @@ import {
   adminVoidReceipt,
   adminRecordInvoice,
   adminRecordTcatShipment,
+  adminRedownloadTcatLabel,
+  adminRefreshTcatStatus,
   adminUpdateOrderStatus,
   adminCancelOrder,
   adminSyncPayment,
@@ -39,6 +53,8 @@ export function OrderActions({
   shippingMethod,
   hasShipment,
   hasLabel,
+  canRedownloadLabel,
+  canRefreshTcatStatus,
   invoiceStatus,
   receiptStatus,
   printForm,
@@ -52,6 +68,10 @@ export function OrderActions({
   hasShipment: boolean
   /** 黑貓託運單 PDF 是否已下載存檔 */
   hasLabel: boolean
+  /** PDF 沒存到、但黑貓的 24 小時下載編號還有效 */
+  canRedownloadLabel: boolean
+  /** 黑貓單且已有託運單號，可以立即查貨態 */
+  canRefreshTcatStatus: boolean
   invoiceStatus: InvoiceStatus | null
   receiptStatus: ReceiptStatus | null
   printForm: { action: string; params: Record<string, string> } | null
@@ -202,6 +222,31 @@ export function OrderActions({
             <Printer size={14} />
             列印託運單
           </a>
+        </Button>
+      )}
+
+      {canRedownloadLabel && (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={pending !== null}
+          onClick={() => perform('label', () => adminRedownloadTcatLabel(orderId))}
+        >
+          <Download size={14} />
+          重新下載託運單
+        </Button>
+      )}
+
+      {/* 貨態每 30 分鐘自動查一次；這顆是等不及的時候用，一樣受黑貓 2 小時限制 */}
+      {canRefreshTcatStatus && (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={pending !== null}
+          onClick={() => perform('tcat-status', () => adminRefreshTcatStatus(orderId))}
+        >
+          <MapPin size={14} />
+          立即查詢貨態
         </Button>
       )}
 

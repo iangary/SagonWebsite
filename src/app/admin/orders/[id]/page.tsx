@@ -16,6 +16,8 @@ import {
 } from '@/lib/orders/labels'
 import { currentPaymentOf } from '@/lib/orders/payment'
 import { refundEligibility } from '@/lib/orders/refund'
+import { labelAvailability, LABEL_FILENO_TTL_MS } from '@/lib/orders/tcat-label'
+import { tcatTrackingUrl } from '@/lib/tcat/fields'
 import { getPaymentSettings } from '@/lib/shop-settings'
 import { Badge, ORDER_STATUS_TONE } from '@/components/ui/badge'
 import { DataTable, Td } from '@/components/admin/ui'
@@ -54,7 +56,12 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
         receipt: true,
         coupon: true,
         user: { select: { id: true, name: true, email: true } },
-        shipment: { include: { logs: { orderBy: { occurredAt: 'desc' } } } },
+        shipment: {
+          include: {
+            logs: { orderBy: { occurredAt: 'desc' } },
+            pickupCall: { select: { createdAt: true, succeededDate: true, message: true } },
+          },
+        },
       },
     }),
   ])
@@ -88,6 +95,12 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
         )
       : null
 
+  const isTcat = order.shipment?.logisticsSubType === 'TCAT'
+  const labelState = order.shipment && isTcat ? labelAvailability(order.shipment) : 'none'
+  const labelDeadline =
+    order.shipment?.labelFileNoIssuedAt &&
+    new Date(order.shipment.labelFileNoIssuedAt.getTime() + LABEL_FILENO_TTL_MS)
+
   return (
     <>
       <Link
@@ -116,6 +129,9 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
         // 黑貓建單成功不會回 allPayLogisticsId，只看它會讓按鈕一直可按、重複建單
         hasShipment={Boolean(order.shipment?.shipmentNo || order.shipment?.allPayLogisticsId)}
         hasLabel={Boolean(order.shipment?.labelPath)}
+        // 黑貓單：PDF 沒抓到但下載編號還沒過期，可以按鈕補抓
+        canRedownloadLabel={labelState === 'downloadable'}
+        canRefreshTcatStatus={isTcat && Boolean(order.shipment?.shipmentNo)}
         // 建單曾轉人工處理（例如黑貓逾時，單可能已成立）：再按建單前必須先確認，
         // 否則會產生第二張真實託運單
         manualNote={
@@ -352,11 +368,67 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
                 {order.shipment.allPayLogisticsId && (
                   <Row label="綠界物流編號" value={order.shipment.allPayLogisticsId} />
                 )}
-                {order.shipment.shipmentNo && (
-                  <Row label="貨態單號" value={order.shipment.shipmentNo} />
+                {order.shipment.shipmentNo &&
+                  (isTcat ? (
+                    <Row
+                      label="黑貓託運單號"
+                      value={
+                        <a
+                          href={tcatTrackingUrl(order.shipment.shipmentNo)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-mono underline underline-offset-4"
+                        >
+                          {order.shipment.shipmentNo}
+                        </a>
+                      }
+                    />
+                  ) : (
+                    <Row label="貨態單號" value={order.shipment.shipmentNo} />
+                  ))}
+                {isTcat && labelState !== 'none' && (
+                  <Row
+                    label="託運單 PDF"
+                    value={
+                      labelState === 'ready'
+                        ? '已存檔，可直接列印'
+                        : labelState === 'downloadable'
+                          ? `未存檔，${labelDeadline?.toLocaleString('zh-TW', { hour12: false })} 前可重新下載`
+                          : labelState === 'expired'
+                            ? '已超過黑貓 24 小時下載期限，請從黑貓系統列印'
+                            : '此單不是由網站建立，請從黑貓系統列印'
+                    }
+                    tone={labelState === 'ready' ? undefined : 'sale'}
+                  />
+                )}
+                {isTcat && order.shipment.shipmentNo && (
+                  <Row
+                    label="黑貓收貨"
+                    value={
+                      order.shipment.pickupCall?.succeededDate
+                        ? `已於 ${order.shipment.pickupCall.createdAt.toLocaleString('zh-TW', { hour12: false })} 通知黑貓來收`
+                        : order.shipment.status === 'CREATED'
+                          ? '尚未通知黑貓收貨'
+                          : '—'
+                    }
+                  />
+                )}
+                {isTcat && order.shipment.statusPolledAt && (
+                  <Row
+                    label="最後查詢貨態"
+                    value={order.shipment.statusPolledAt.toLocaleString('zh-TW', { hour12: false })}
+                  />
+                )}
+                {order.shipment.statusPollError && (
+                  <Row label="貨態查詢失敗" value={order.shipment.statusPollError} tone="sale" />
                 )}
                 {order.shipment.failReason && (
-                  <Row label="建單失敗" value={order.shipment.failReason} tone="sale" />
+                  // 已經有單號時 failReason 放的是「PDF 沒抓到」這類提醒，不是建單失敗
+                  <Row
+                    label={order.shipment.shipmentNo ? '注意' : '建單失敗'}
+                    value={order.shipment.failReason}
+                    tone="sale"
+                  />
                 )}
                 {order.shipment.statusMsg && (
                   // manual fallback 的人工處理指示也寫在 statusMsg，一定要讓客服看得到
@@ -441,7 +513,7 @@ function Row({
   tone,
 }: {
   label: string
-  value: string
+  value: React.ReactNode
   tone?: 'sale'
 }) {
   return (

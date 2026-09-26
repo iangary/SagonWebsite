@@ -369,7 +369,7 @@
 
 <tr data-pri="P0" data-money="0"><td class="chk"><input type="checkbox" data-id="T-01"></td><td class="id">T-01</td><td class="body"><b>換成正式授權碼並重查郵碼</b>
 <span class="note">把 <code>TCAT_ENV</code> 改成 <code>production</code>、<code>TCAT_CUSTOMER_TOKEN</code> 換成正式站那組。契客代號通常兩邊共用，授權碼不是。
-接著<b>一定要重跑一次地址解析</b>取 <code>TCAT_SENDER_ZIP</code>，正式站算出來的郵碼不保證和測試站一樣。這支腳本同時驗證了契客代號與授權碼有效。</span>
+接著<b>一定要重跑一次地址解析</b>取 <code>TCAT_SENDER_ZIP</code>，正式站算出來的郵碼不保證和測試站一樣。注意這支腳本<b>驗不出</b>授權碼錯誤（實際遇過它成功、建單卻回 E009「契客資料不正確」）。</span>
 <span class="verdict"><b>判定：</b>地址解析回傳成功，郵碼後六碼已填進設定。回傳失敗就是憑證不對，別往下走。</span></td><td><span class="tag lv">黑貓</span></td><td><span class="tag P0">P0</span></td></tr>
 
 <tr data-pri="P0" data-money="1"><td class="chk"><input type="checkbox" data-id="T-02"></td><td class="id">T-02</td><td class="body"><b>宅配建單 <span class="tag money">真實金流</span></b>

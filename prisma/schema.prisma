@@ -449,15 +449,15 @@ model Order {
   addressCity    String?
   addressLine    String?
 
-  paidAt      DateTime?
-  cancelledAt DateTime?
+  paidAt             DateTime?
+  cancelledAt        DateTime?
   /// 轉為 COMPLETED 的時點。不能用 updatedAt 代替 —— 那個欄位任何一次
   /// 更新都會動，算不出「完成後過了幾天」，而評論邀請信正是靠這個排程。
-  completedAt DateTime?
+  completedAt        DateTime?
   /// 評論邀請信寄出的時點。用來擋重複寄信（每張訂單只邀一次）。
   reviewInviteSentAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   user         User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
   coupon       Coupon?            @relation(fields: [couponId], references: [id], onDelete: SetNull)
@@ -739,8 +739,21 @@ model Shipment {
   labelPath         String?
   labelDownloadedAt DateTime?
 
+  /// 黑貓 PrintOBT 回傳的託運單下載編號與取得時間。
+  /// FileNo 自建單成功起算只有 24 小時有效 —— 建單當下的 PDF 下載失敗時，
+  /// 後台要靠這兩欄在期限內補抓；過期或人工在黑貓系統建的單則沒有這兩欄。
+  labelFileNo         String?
+  labelFileNoIssuedAt DateTime?
+
   /// 貨態最後查詢時間。黑貓限制同一託運單號每 2 小時只能查一次，靠這欄節流。
-  statusPolledAt DateTime?
+  statusPolledAt  DateTime?
+  /// 最近一次貨態查詢被黑貓拒絕的原因（例如 E009 憑證錯誤）。查詢成功就清掉。
+  /// 沒有這欄的話，憑證壞掉時訂單只會安靜地停在「運送中」，後台看不出來。
+  statusPollError String?
+
+  /// 被哪一次「呼叫黑貓」排入收貨。黑貓的 Call API 只收件數、不收單號，
+  /// 哪幾張單交給了哪一趟車是我們自己記的。
+  pickupCallId String?
 
   /// 是否為代收貨款
   isCollection Boolean @default(false)
@@ -752,10 +765,12 @@ model Shipment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  order Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  logs  LogisticsStatusLog[]
+  order      Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  logs       LogisticsStatusLog[]
+  pickupCall TcatPickupCall?      @relation(fields: [pickupCallId], references: [id], onDelete: SetNull)
 
   @@index([status])
+  @@index([pickupCallId])
   /// 貨態輪詢每半小時掃一次「還在路上且超過 2 小時沒查」的黑貓單
   @@index([logisticsSubType, status, statusPolledAt])
   @@map("shipments")
@@ -802,7 +817,9 @@ model TcatPickupCall {
   requestedById String?
   createdAt     DateTime @default(now())
 
-  requestedBy User? @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+  requestedBy User?      @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+  /// 這一趟指定要收的訂單。只有成功的那筆會掛上 —— 失敗時不綁，讓這些單可以重新排入。
+  shipments   Shipment[]
 
   @@index([callDate])
   @@map("tcat_pickup_calls")
