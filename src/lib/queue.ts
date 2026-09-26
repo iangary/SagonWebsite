@@ -32,6 +32,8 @@ export type JobPayload = {
    * 這支排程就是那種情況的唯一救援。
    */
   'reconcile-payments': Record<string, never>
+  /** 出貨完成滿 N 天的訂單，寄一封評論邀請信（見 lib/orders/review-invite.ts） */
+  'send-review-invites': Record<string, never>
 }
 
 export type JobName = keyof JobPayload
@@ -130,6 +132,24 @@ export async function registerRepeatableJobs(): Promise<void> {
       repeat: { pattern: '*/30 * * * *' },
       jobId: 'cron:poll-tcat-status',
       // 查貨態失敗就等下一輪，不需要重試堆積
+      attempts: 1,
+      removeOnComplete: { count: 20 },
+    },
+  )
+
+  await getQueue().add(
+    'send-review-invites',
+    {},
+    {
+      /*
+       * 每天早上 10 點寄一批。
+       *
+       * 刻意不在半夜寄 —— 收件匣裡凌晨三點的行銷信被標垃圾的機率高得多，
+       * 而且這封信本來就沒有時效性。時區跟著容器的 TZ 走。
+       */
+      repeat: { pattern: '0 10 * * *' },
+      jobId: 'cron:send-review-invites',
+      // 寄失敗的個別訂單會自己解除標記等下一輪，不需要整批重試
       attempts: 1,
       removeOnComplete: { count: 20 },
     },

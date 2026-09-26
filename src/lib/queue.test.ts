@@ -104,12 +104,12 @@ describe('enqueue', () => {
 })
 
 describe('registerRepeatableJobs', () => {
-  it('註冊三個 cron job，jobId 穩定以便 BullMQ 去重', async () => {
+  it('註冊四個 cron job，jobId 穩定以便 BullMQ 去重', async () => {
     addMock.mockResolvedValue(undefined)
 
     await registerRepeatableJobs()
 
-    expect(addMock).toHaveBeenCalledTimes(3)
+    expect(addMock).toHaveBeenCalledTimes(4)
     expect(addMock).toHaveBeenCalledWith(
       'release-expired-reservations',
       {},
@@ -133,6 +133,16 @@ describe('registerRepeatableJobs', () => {
       expect.objectContaining({
         jobId: 'cron:poll-tcat-status',
         repeat: { pattern: '*/30 * * * *' },
+        attempts: 1,
+      }),
+    )
+    expect(addMock).toHaveBeenCalledWith(
+      'send-review-invites',
+      {},
+      expect.objectContaining({
+        jobId: 'cron:send-review-invites',
+        // 每天早上 10 點 —— 凌晨寄行銷信被標垃圾的機率高得多
+        repeat: { pattern: '0 10 * * *' },
         attempts: 1,
       }),
     )

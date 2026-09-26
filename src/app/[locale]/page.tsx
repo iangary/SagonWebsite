@@ -56,7 +56,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         <div className="relative mx-auto w-full max-w-7xl px-6">
           <div className="max-w-lg">
             <p className="fade-up text-xs tracking-[0.35em] text-taupe-600 uppercase [animation-delay:150ms]">
-              Sagan Select
+              Sagan Boutique
             </p>
             <h1 className="fade-up mt-5 text-3xl leading-[1.4] text-ink-900 [animation-delay:300ms] sm:text-4xl sm:leading-[1.4]">
               {heroTitle}

@@ -137,7 +137,7 @@ function AddressForm({
   const errors = state.fieldErrors ?? {}
 
   return (
-    <form action={formAction} className="border border-cream-200 bg-white p-6">
+    <form action={formAction} className="border border-cream-200 bg-white p-5 sm:p-6">
       <input type="hidden" name="id" value={address?.id ?? ''} />
       <h2 className="mb-5 text-sm tracking-[0.1em]">
         {address ? t('editAddress') : t('addAddress')}

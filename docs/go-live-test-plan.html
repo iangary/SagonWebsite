@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>莎岡選品店 — 綠界正式 × 黑貓 上線測試走查</title>
+<style>
+  :root {
+    --bg: #fbfaf8;
+    --surface: #ffffff;
+    --surface-2: #f4f2ee;
+    --border: #e2ddd4;
+    --text: #1f1b16;
+    --text-dim: #6b6459;
+    --accent: #8a5a2b;
+    --accent-soft: #f0e6d8;
+    --p0: #b3261e;
+    --p0-bg: #fdeceb;
+    --p1: #9a6700;
+    --p1-bg: #fdf6e3;
+    --p2: #57606a;
+    --p2-bg: #f0f2f4;
+    --done: #1a7f4b;
+    --done-bg: #e8f5ed;
+    --todo: #b3261e;
+    --todo-bg: #fdeceb;
+    --money: #b3261e;
+    --money-bg: #fdeceb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #16140f; --surface: #1e1b16; --surface-2: #262219; --border: #3a342a;
+      --text: #ece7de; --text-dim: #a09a8e; --accent: #d9a86c; --accent-soft: #2f2820;
+      --p0: #ff8a80; --p0-bg: #3a1f1c; --p1: #e5c07b; --p1-bg: #332b18;
+      --p2: #a8b1bb; --p2-bg: #2a2d31; --done: #6ee7a8; --done-bg: #17311f;
+      --todo: #ff8a80; --todo-bg: #3a1f1c; --money: #ff8a80; --money-bg: #3a1f1c;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #16140f; --surface: #1e1b16; --surface-2: #262219; --border: #3a342a;
+    --text: #ece7de; --text-dim: #a09a8e; --accent: #d9a86c; --accent-soft: #2f2820;
+    --p0: #ff8a80; --p0-bg: #3a1f1c; --p1: #e5c07b; --p1-bg: #332b18;
+    --p2: #a8b1bb; --p2-bg: #2a2d31; --done: #6ee7a8; --done-bg: #17311f;
+    --todo: #ff8a80; --todo-bg: #3a1f1c; --money: #ff8a80; --money-bg: #3a1f1c;
+  }
+  :root[data-theme="light"] {
+    --bg: #fbfaf8; --surface: #ffffff; --surface-2: #f4f2ee; --border: #e2ddd4;
+    --text: #1f1b16; --text-dim: #6b6459; --accent: #8a5a2b; --accent-soft: #f0e6d8;
+    --p0: #b3261e; --p0-bg: #fdeceb; --p1: #9a6700; --p1-bg: #fdf6e3;
+    --p2: #57606a; --p2-bg: #f0f2f4; --done: #1a7f4b; --done-bg: #e8f5ed;
+    --todo: #b3261e; --todo-bg: #fdeceb; --money: #b3261e; --money-bg: #fdeceb;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    line-height: 1.65;
+    margin: 0;
+    padding: 0 1rem 6rem;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+
+  header.page { padding: 3rem 0 1.5rem; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+  h1 { font-size: clamp(1.5rem, 4vw, 2.1rem); margin: 0 0 .5rem; letter-spacing: -.01em; }
+  .sub { color: var(--text-dim); font-size: .95rem; margin: 0; }
+
+  h2 {
+    font-size: 1.25rem; margin: 3rem 0 .5rem; padding-top: 1.25rem;
+    border-top: 1px solid var(--border); scroll-margin-top: 5rem;
+  }
+  h2:first-of-type { border-top: none; }
+  h3 { font-size: 1.02rem; margin: 2rem 0 .4rem; color: var(--accent); scroll-margin-top: 5rem; }
+  p { margin: .5rem 0 1rem; }
+  code {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px;
+    padding: .08em .35em; font-size: .87em;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    overflow-wrap: anywhere;
+  }
+  a { color: var(--accent); }
+  pre {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: .8rem 1rem; overflow-x: auto; font-size: .82rem; line-height: 1.55;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: inherit; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .75rem; margin: 1.5rem 0 2rem; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: .85rem 1rem; }
+  .stat .n { font-size: 1.65rem; font-weight: 650; line-height: 1.15; display: block; }
+  .stat .l { font-size: .78rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: .06em; }
+
+  .toolbar {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: .7rem 1rem; margin: 0 -1rem 1.5rem;
+    display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
+  }
+  .toolbar .grp { display: flex; gap: .3rem; flex-wrap: wrap; }
+  button.f {
+    font: inherit; font-size: .82rem; background: var(--surface); color: var(--text-dim);
+    border: 1px solid var(--border); border-radius: 999px; padding: .22rem .7rem; cursor: pointer;
+  }
+  button.f[aria-pressed="true"] { background: var(--accent-soft); color: var(--text); border-color: var(--accent); font-weight: 600; }
+  .prog { flex: 0 0 100%; height: 5px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+  .prog > i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .25s; }
+  .prog-label { font-size: .78rem; color: var(--text-dim); flex: 0 0 100%; }
+
+  .tw { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); margin: .75rem 0 1.5rem; }
+  table { border-collapse: collapse; width: 100%; min-width: 680px; font-size: .89rem; }
+  thead th {
+    text-align: left; font-size: .74rem; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--text-dim); font-weight: 600; padding: .6rem .7rem;
+    border-bottom: 1px solid var(--border); background: var(--surface-2); white-space: nowrap;
+  }
+  tbody td { padding: .6rem .7rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr.hide { display: none; }
+  tbody tr.checked td.body { opacity: .5; }
+  td.id { font-family: ui-monospace, Consolas, monospace; font-size: .8rem; color: var(--text-dim); white-space: nowrap; }
+  td.chk { width: 1.6rem; }
+  td.chk input { width: 1.05rem; height: 1.05rem; accent-color: var(--accent); cursor: pointer; margin-top: .2rem; }
+  .note { display: block; color: var(--text-dim); font-size: .82rem; margin-top: .25rem; }
+  .verdict { display: block; font-size: .82rem; margin-top: .3rem; padding-left: .6rem; border-left: 2px solid var(--border); }
+  .verdict b { color: var(--text); }
+
+  table.plain { min-width: 480px; }
+  table.plain td:first-child { white-space: nowrap; font-weight: 600; }
+
+  .tag { display: inline-block; font-size: .72rem; font-weight: 600; padding: .1rem .45rem; border-radius: 5px; white-space: nowrap; letter-spacing: .02em; }
+  .P0 { color: var(--p0); background: var(--p0-bg); }
+  .P1 { color: var(--p1); background: var(--p1-bg); }
+  .P2 { color: var(--p2); background: var(--p2-bg); }
+  .money { color: var(--money); background: var(--money-bg); }
+  .lv { color: var(--text-dim); background: var(--surface-2); }
+
+  .callout { border-left: 3px solid var(--accent); background: var(--surface); padding: .8rem 1rem; border-radius: 0 8px 8px 0; margin: 1rem 0 1.5rem; }
+  .callout.warn { border-left-color: var(--p0); }
+  .callout.ok { border-left-color: var(--done); }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout p:first-child { margin-top: 0; }
+  .callout h4 { margin: 0 0 .4rem; font-size: .95rem; }
+
+  nav.toc { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 2rem; }
+  nav.toc ol { margin: 0; padding-left: 1.2rem; columns: 2; column-gap: 2rem; font-size: .9rem; }
+  @media (max-width: 620px) { nav.toc ol { columns: 1; } }
+
+  ol.q { padding-left: 1.3rem; }
+  ol.q > li { margin-bottom: .9rem; }
+
+  footer.page { margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid var(--border); color: var(--text-dim); font-size: .82rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="page">
+  <h1>綠界正式 × 黑貓 上線測試走查</h1>
+  <p class="sub">莎岡選品店 — 一次走完的清單。整理日期 2026-09-26，依據 <code>docs/sagon-deploy/.env.production</code> 當下的實際設定。</p>
+</header>
+
+<div class="callout warn">
+  <h4>這份清單和 <code>docs/manual-test-stage.md</code> 不一樣</h4>
+  <p>那一份是「全部走測試站」的腳本，可以隨便重跑。這一份的前提是<b>綠界已經切到正式環境</b>，每一筆交易都是真的錢、每一張物流單都是真的單。凡是標示 <span class="tag money">真實金流</span> 的項目，按下去就會發生，沒有復原鍵。</p>
+</div>
+
+<h2 id="state">一、目前的環境狀態</h2>
+
+<p>這是本機正本 <code>docs/sagon-deploy/.env.production</code> 現在的內容。綠界三項服務都已經換成正式的，黑貓還停在測試站。</p>
+
+<div class="tw">
+<table class="plain">
+<thead><tr><th>服務</th><th>環境</th><th>憑證</th><th>實際意義</th></tr></thead>
+<tbody>
+<tr><td>綠界金流 AIO</td><td><code>production</code></td><td>正式 3466995</td><td>刷卡真的扣錢，導向 <code>payment.ecpay.com.tw</code></td></tr>
+<tr><td>綠界物流 C2C</td><td><code>production</code></td><td>正式 3466995</td><td>建出來是真的超商物流單</td></tr>
+<tr><td>綠界電子收據</td><td><code>production</code></td><td>正式 3466995</td><td>開出來是真的收據，要作廢才能取消</td></tr>
+<tr><td>黑貓宅配</td><td><code>stage</code></td><td>測試站授權碼</td><td><b>建出來是測試託運單，包裹不會被收走</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>三組商店代號填成同一個會員編號是正確的。正式環境只有一個七位數的會員編號，金流與物流共用，這點和測試環境分成三個共用帳號的做法不同。</p>
+
+<h2 id="blockers">二、開賣前必須先解決的兩件事</h2>
+
+<div class="callout warn">
+  <h4>BLK-1　黑貓指向測試站，而宅配沒辦法從後台關掉</h4>
+  <p>正式站現在只要有客人選「宅配」並付款，worker 就會拿測試授權碼去 <code>egs.suda.com.tw:8443</code> 建單，拿回一個測試單號寫進訂單。結果是包裹永遠不會被收走，前台貨態永遠不動，而客人的錢已經收了。</p>
+  <p>後台的運送設定只有運費欄位，沒有啟用開關，所以沒辦法「先只開超商取貨」。可以走的路只有兩條：</p>
+  <ol class="q">
+    <li><b>申請黑貓正式授權碼，切 <code>TCAT_ENV=production</code>。</b>這是正解。測試站與正式站的授權碼是分開申請的兩組，目前手上只有測試站那組。</li>
+    <li><b>在正式金鑰到手之前不要對外開賣。</b>測試商品不掛分類、測完就封存，讓一般客人走不到結帳。</li>
+  </ol>
+  <p>把宅配運費調到很高來勸退不算解法，客人還是選得到。</p>
+</div>
+
+<div class="callout warn">
+  <h4>BLK-2　送檔只重建 web 會漏掉 worker</h4>
+  <p>專案文件寫的是 <code>--force-recreate web</code>，但 worker 也吃同一份 <code>env_file</code>，而建物流單、開收據都在 worker 裡跑。只重建 web 的話會變成金流走正式站、物流還留在測試站，這種半切狀態最難發現。兩個一起重建：</p>
+  <pre><code>ssh root@103.1.221.67 'cd /srv/sagon &amp;&amp; chmod 600 .env .env.production &amp;&amp; docker compose -f docker-compose.prod.yml up -d --force-recreate web worker'</code></pre>
+</div>
+
+<nav class="toc">
+  <b>走查順序</b>
+  <ol>
+    <li><a href="#stage-d">階段 D — 部署與前置</a></li>
+    <li><a href="#stage-e">階段 E — 綠界正式環境</a></li>
+    <li><a href="#stage-t">階段 T — 黑貓宅配</a></li>
+    <li><a href="#stage-c">階段 C — 收尾與清理</a></li>
+    <li><a href="#fail">失敗處理程序</a></li>
+    <li><a href="#record">記錄表</a></li>
+  </ol>
+</nav>
+
+<div class="stats">
+  <div class="stat"><span class="n" id="s-total">0</span><span class="l">總項目</span></div>
+  <div class="stat"><span class="n" id="s-money">0</span><span class="l">真實金流</span></div>
+  <div class="stat"><span class="n" id="s-p0">0</span><span class="l">P0 必過</span></div>
+  <div class="stat"><span class="n" id="s-done">0</span><span class="l">已完成</span></div>
+</div>
+
+<div class="toolbar">
+  <div class="grp">
+    <button class="f" data-filter="all" aria-pressed="true">全部</button>
+    <button class="f" data-filter="todo">未完成</button>
+    <button class="f" data-filter="money">真實金流</button>
+    <button class="f" data-filter="P0">P0</button>
+  </div>
+  <div class="grp" style="margin-left:auto">
+    <button class="f" id="reset">清除勾選</button>
+  </div>
+  <div class="prog"><i id="bar"></i></div>
+  <div class="prog-label" id="plabel">尚未開始</div>
+</div>
+
+<h2 id="stage-d">階段 D — 部署與前置</h2>
+
+<p>先讓主機真的吃到新的設定，再談測試。這一段不花錢。</p>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>編號</th><th>項目</th><th>類別</th><th>優先</th></tr></thead>
+<tbody>
+
+<tr data-pri="P0" data-money="0"><td class="chk"><input type="checkbox" data-id="D-01"></td><td class="id">D-01</td><td class="body"><b>確認本機正本已含主機補過的值</b>
+<span class="note">主機那份過去是手改的，可能有本機沒有的欄位。沒合併就上傳會把它們靜靜清掉，而且要等有人用到那個功能才會壞。流程見 <code>docs/sagon-deploy/README.md</code> 的「一次性收斂」。</span>
+<span class="verdict"><b>判定：</b>欄位差異比對的輸出是空的，或每一格差異都已逐格決定過。</span></td><td><span class="tag lv">部署</span></td><td><span class="tag P0">P0</span></td></tr>
+
+<tr data-pri="P0" data-money="0"><td class="chk"><input type="checkbox" data-id="D-02"></td><td class="id">D-02</td><td class="body"><b>備份主機現有的兩份 env</b>
+<span class="note"><code>scp</code> 覆蓋沒有 undo，主機上留下的 <code>.bak-MMDD-HHMM</code> 是唯一的回退點。</span>
+<span class="verdict"><b>判定：</b><code>/srv/sagon/</code> 底下看得到今天時間戳的 <code>.env.bak-*</code> 與 <code>.env.production.bak-*</code>。</span></td><td><span class="tag lv">部署</span></td><td><span class="tag P0">P0</span></td></tr>
+
+<tr data-pri="P0" data-money="0"><td class="chk"><input type="checkbox" data-id="D-03"></td><td class="id">D-03</td><td class="body"><b>送檔、改權限、重建 web 與 worker</b>
+<span class="note"><code>scp</code> 覆蓋後權限會回到 644，等於同機器上其他程序都讀得到金鑰，所以 <code>chmod 600</code> 不能省。重建一定要含 worker，理由見 BLK-2。</span>
+<span class="verdict"><b>判定：</b>兩個容器都是新的啟動時間，且 <code>docker compose ps</code> 全部 healthy。</span></td><td><span class="tag lv">部署</span></td><td><span class="tag P0">P0</span></td></tr>
+
+<tr data-pri="P0" data-money="0"><td class="chk"><input type="checkbox" data-id="D-04"></td><td class="id">D-04</td><td class="body"><b>容器裡的環境變數真的是正式的</b>
+<span class="note">重建之後直接進容器確認，不要只相信檔案內容。<code>docker compose exec web printenv ECPAY_ENV ECPAY_MERCHANT_ID</code>，worker 也要各查一次。</span>
+<span class="verdict"><b>判定：</b>web 與 worker 兩邊都回 <code>production</code> 與 <code>3466995</code>。任一邊還是 <code>stage</code> 就是 BLK-2 踩到了。</span></td><td><span class="tag lv">部署</span></td><td><span class="tag P0">P0</span></td></tr>
+
+<tr data-pri="P1" data-money="0"><td class="chk"><input type="checkbox" data-id="D-05"></td><td class="id">D-05</td><td class="body"><b>站台本身沒壞</b>
+<span class="note">跑 <code>scripts/check-drift.sh</code> 與 <code>scripts/smoke.sh</code>。注意這兩支只測路由狀態碼，金流那條鏈驗不到，不能拿它當通過標準。</span>
+<span class="verdict"><b>判定：</b>兩支都以 0 結束，沒有非預期狀態碼。</span></td><td><span class="tag lv">部署</span></td><td><span class="tag P1">P1</span></td></tr>
+
+<tr data-pri="P0" data-money="0"><td class="chk"><input type="checkbox" data-id="D-06"></td><td class="id">D-06</td><td class="body"><b>建一個測試商品</b>
+<span class="note">後台新增：名稱 <code>【測試】請勿購買</code>、售價壓到最低、庫存 3、<b>不掛任何分類</b>、先存成 DRAFT 確認前台看不到，再改 ACTIVE。
+⚠️ 這是正式站，ACTIVE 期間會被 sitemap 收錄、被搜尋引擎抓到。而且商品一旦被下單就刪不掉了，只會被封存，會永久留在資料庫與訂單快照裡。名字取得夠明顯。</span>
+<span class="verdict"><b>判定：</b>DRAFT 時前台列表、搜尋、直連都看不到；改 ACTIVE 後直連看得到。</span></td><td><span class="tag lv">前置</span></td><td><span class="tag P0">P0</span></td></tr>
+
+<tr data-pri="P0" data-money="0"><td class="chk"><input type="checkbox" data-id="D-07"></td><td class="id">D-07</td><td class="body"><b>正式廠商後台設定收據字軌</b>
+<span class="note">登入 <a href="https://vendor.ecpay.com.tw">vendor.ecpay.com.tw</a> 設定收據字軌。測試站設過的不會帶過來。沒設的話開立一律回「查無可使用字軌」，而佇列對這個工作設了五次重試加指數退避，log 會很吵。
+字軌<b>每期都要重新配號</b>，記進營運月曆。</span>
+<span class="verdict"><b>判定：</b>後台看得到當期可用字軌。</span></td><td><span class="tag lv">前置</span></td><td><span class="tag P0">P0</span></td></tr>
+
+<tr data-pri="P1" data-money="0"><td class="chk"><input type="checkbox" data-id="D-08"></td><td class="id">D-08</td><td class="body"><b>決定 <code>ECPAY_RECEIPT_AUTO_ISSUE</code></b>
+<span class="note">目前是 <code>true</code>，付款成功會自動排開立收據。關掉不會少功能，後台仍可一張一張人工開立與作廢。字軌還沒設就先關，免得每筆測試都拖一串失敗的工作。</span>
+<span class="verdict"><b>判定：</b>知道自己現在設的是哪個值，以及 E-07 該預期什麼。</span></td><td><span class="tag lv">前置</span></td><td><span class="tag P1">P1</span></td></tr>
+
+</tbody>
+</table>
+</div>
+
+<h2 id="stage-e">階段 E — 綠界正式環境</h2>
+
+<div class="callout warn">
+  <p>從這裡開始每一步都是真的。E-01 到 E-06 是<b>同一張訂單</b>依序走完，選「超商取貨 + 信用卡」。這個組合會讓一張訂單走過收銀台、回拋、轉 PAID、建物流單、列印標籤，正好把金流與物流串在一起驗證。</p>
+  <p>不要用宅配測，那會打到黑貓測試站。</p>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>編號</th><th>項目</th><th>類別</th><th>優先</th></tr></thead>
+<tbody>
+
+<tr data-pri="P0" data-money="0"><td class="chk"><input type="checkbox" data-id="E-01"></td><td class="id">E-01</td><td class="body"><b>電子地圖選店</b>
+<span class="note">結帳頁選「超商取貨」→ 點選店，在彈出的地圖裡選一間門市。</span>
+<span class="verdict"><b>判定：</b>地圖網址是 <code>logistics.ecpay.com.tw</code>，<b>沒有</b> <code>-stage</code>；選完門市代號、名稱、地址自動帶回結帳頁。
+地圖開不出來，或稍後建單回「找不到加密金鑰」，代表物流服務還沒開通，或開成了 B2C 而不是 C2C。後台到「物流管理 → 物流建單及查詢 → 物流廠商」確認。</span></td><td><span class="tag lv">物流</span></td><td><span class="tag P0">P0</span></td></tr>
+
+<tr data-pri="P0" data-money="1"><td class="chk"><input type="checkbox" data-id="E-02"></td><td class="id">E-02</td><td class="body"><b>真卡刷卡 <span class="tag money">真實金流</span></b>
+<span class="note">付款方式選信用卡送出，用自己的卡完成刷卡與 3D 驗證。這筆錢會真的被扣，E-10 再退。</span>
+<span class="verdict"><b>判定：</b>導向的網址是 <code>payment.ecpay.com.tw</code>，<b>沒有</b> <code>-stage</code>；刷卡成功後導回本站結果頁，顯示付款成功與訂單明細。
+如果收銀台直接報錯或拒絕，八成是金鑰與環境沒配對，例如金鑰換成正式但 <code>ECPAY_ENV</code> 還停在 stage。</span></td><td><span class="tag lv">金流</span></td><td><span class="tag P0">P0</span></td></tr>
+
+<tr data-pri="P0" data-money="0"><td class="chk"><input type="checkbox" data-id="E-03"></td><td class="id">E-03</td><td class="body"><b>回拋、訂單狀態、簽章</b>
+<span class="note">看後台訂單頁與 Webhook 頁。</span>
+<span class="verdict"><b>判定：</b>訂單 <code>PAID</code>（或已被 worker 推進 <code>PROCESSING</code>），綠界交易編號有值；Webhook 有一筆 ReturnURL 事件、已處理、<b>簽章有效</b>；庫存從預扣轉實扣。
+簽章過得了就代表 HashKey 與 HashIV 是對的，這是整份清單裡最關鍵的一格。</span></td><td><span class="tag lv">金流</span></td><td><span class="tag P0">P0</span></td></tr>
+
+<tr data-pri="P0" data-money="1"><td class="chk"><input type="checkbox" data-id="E-04"></td><td class="id">E-04</td><td class="body"><b>自動建立綠界物流單 <span class="tag money">真實金流</span></b>
+<span class="note">付款成功後 worker 會跑 <code>create-shipment</code>。這一步建出來是真的超商物流單。</span>
+<span class="verdict"><b>判定：</b>worker log 出現 <code>create-shipment</code> 且成功，訂單的 <code>AllPayLogisticsID</code> 有值，狀態轉 <code>PROCESSING</code>。
+<b>這一格過了才算金流與物流真的串起來。</b></span></td><td><span class="tag lv">物流</span></td><td><span class="tag P0">P0</span></td></tr>
+
+<tr data-pri="P0" data-money="0"><td class="chk"><input type="checkbox" data-id="E-05"></td><td class="id">E-05</td><td class="body"><b>列印一段標</b>
+<span class="note">後台訂單頁按「列印一段標」，會開新視窗 POST 到綠界。</span>
+<span class="verdict"><b>判定：</b>標籤版面正確，門市、收件人、單號齊全。</span></td><td><span class="tag lv">物流</span></td><td><span class="tag P0">P0</span></td></tr>
+
+<tr data-pri="P1" data-money="0"><td class="chk"><input type="checkbox" data-id="E-06"></td><td class="id">E-06</td><td class="body"><b>重入防護</b>
+<span class="note">對已有物流單的訂單再看建單按鈕，並手動重跑一次 <code>create-shipment</code>。</span>
+<span class="verdict"><b>判定：</b>按鈕顯示「已建立物流單」且不可用；重跑工作<b>不會</b>產生第二張物流單。</span></td><td><span class="tag lv">物流</span></td><td><span class="tag P1">P1</span></td></tr>
+
+<tr data-pri="P1" data-money="1"><td class="chk"><input type="checkbox" data-id="E-07"></td><td class="id">E-07</td><td class="body"><b>電子收據開立 <span class="tag money">真實金流</span></b>
+<span class="note">若 D-08 設成 <code>true</code>，付款成功後 worker 會自動開。開出來是真的收據，要作廢才能取消。
+順便驗負數品項：用一張<b>有折扣碼</b>的訂單開立，折扣在收據上是負數單價的品項。官方文件只寫單價可為 0，沒說可以是負的，這是程式裡未經驗證的假設。</span>
+<span class="verdict"><b>判定：</b><code>issue-receipt</code> 成功，收據號碼寫回訂單，綠界收據後台查得到；金額等式成立，各品項單價乘數量的總和等於訂單總額。
+被退件的話解法是把折扣按比例攤回各品項。</span></td><td><span class="tag lv">收據</span></td><td><span class="tag P1">P1</span></td></tr>
+
+<tr data-pri="P1" data-money="0"><td class="chk"><input type="checkbox" data-id="E-08"></td><td class="id">E-08</td><td class="body"><b>ATM 取號（只驗到取號）</b>
+<span class="note">另開一張訂單，付款選 ATM。<b>不需要真的去轉帳</b>，驗到取號這一段就夠，取號走的是 <code>PaymentInfoURL</code> 那條獨立的路。測完讓它自然逾期。</span>
+<span class="verdict"><b>判定：</b>結果頁顯示銀行代碼、虛擬帳號、繳費期限，且<b>沒有</b>「重新付款」按鈕；訂單維持 <code>PENDING_PAYMENT</code>；收到取號通知信；訂單的 <code>expiresAt</code> 是建單後<b>約一天</b>而不是 30 分鐘。</span></td><td><span class="tag lv">金流</span></td><td><span class="tag P1">P1</span></td></tr>
+
+<tr data-pri="P1" data-money="0"><td class="chk"><input type="checkbox" data-id="E-09"></td><td class="id">E-09</td><td class="body"><b>超商代碼取號（只驗到取號）</b>
+<span class="note">再開一張，付款選超商代碼。同樣不必真的去繳。</span>
+<span class="verdict"><b>判定：</b>結果頁顯示繳費代碼與期限，<b>看清楚期限是幾分鐘</b>。期限若被對齊成 30 分鐘的庫存預扣期，代表消費者只有 30 分鐘走到超商，這是上線前要處理的問題。</span></td><td><span class="tag lv">金流</span></td><td><span class="tag P1">P1</span></td></tr>
+
+<tr data-pri="P0" data-money="1"><td class="chk"><input type="checkbox" data-id="E-10"></td><td class="id">E-10</td><td class="body"><b>信用卡退款 <span class="tag money">真實金流</span></b>
+<span class="note">把 E-02 那筆錢退回來。後台觸發退款，程式打綠界的請退款端點。只有信用卡能這樣退，ATM 與超商付款不支援線上退款 API。</span>
+<span class="verdict"><b>判定：</b>退款回應成功，後台看得到退款紀錄，綠界廠商後台該筆交易狀態轉為已退款。</span></td><td><span class="tag lv">金流</span></td><td><span class="tag P0">P0</span></td></tr>
+
+<tr data-pri="P0" data-money="0"><td class="chk"><input type="checkbox" data-id="E-11"></td><td class="id">E-11</td><td class="body"><b>取消 E-04 建出來的物流單</b>
+<span class="note">那是一張真實的超商物流單，不取消的話超商端會有實際的取件流程。到綠界廠商後台把它取消掉。</span>
+<span class="verdict"><b>判定：</b>綠界後台該筆物流單狀態為已取消。</span></td><td><span class="tag lv">物流</span></td><td><span class="tag P0">P0</span></td></tr>
+
+<tr data-pri="P2" data-money="0"><td class="chk"><input type="checkbox" data-id="E-12"></td><td class="id">E-12</td><td class="body"><b>作廢 E-07 開出的收據</b>
+<span class="note">後台作廢，填作廢原因。原因欄位上限 200 字元，超過會被截斷。</span>
+<span class="verdict"><b>判定：</b>作廢成功，狀態正確。</span></td><td><span class="tag lv">收據</span></td><td><span class="tag P2">P2</span></td></tr>
+
+</tbody>
+</table>
+</div>
+
+<h2 id="stage-t">階段 T — 黑貓宅配</h2>
+
+<p>走哪一條路取決於正式授權碼到手了沒有。目前是路線二。</p>
+
+<h3>路線一：已取得黑貓正式授權碼</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>編號</th><th>項目</th><th>類別</th><th>優先</th></tr></thead>
+<tbody>
+
+<tr data-pri="P0" data-money="0"><td class="chk"><input type="checkbox" data-id="T-01"></td><td class="id">T-01</td><td class="body"><b>換成正式授權碼並重查郵碼</b>
+<span class="note">把 <code>TCAT_ENV</code> 改成 <code>production</code>、<code>TCAT_CUSTOMER_TOKEN</code> 換成正式站那組。契客代號通常兩邊共用，授權碼不是。
+接著<b>一定要重跑一次地址解析</b>取 <code>TCAT_SENDER_ZIP</code>，正式站算出來的郵碼不保證和測試站一樣。這支腳本同時驗證了契客代號與授權碼有效。</span>
+<span class="verdict"><b>判定：</b>地址解析回傳成功，郵碼後六碼已填進設定。回傳失敗就是憑證不對，別往下走。</span></td><td><span class="tag lv">黑貓</span></td><td><span class="tag P0">P0</span></td></tr>
+
+<tr data-pri="P0" data-money="1"><td class="chk"><input type="checkbox" data-id="T-02"></td><td class="id">T-02</td><td class="body"><b>宅配建單 <span class="tag money">真實金流</span></b>
+<span class="note">開一張宅配訂單並付款，等 worker 跑建單。
+⚠️ <b>黑貓沒有冪等鍵，建兩張就是兩筆真實運費。</b>建之前確認寄件地址是真的出貨地址。</span>
+<span class="verdict"><b>判定：</b>托運單號有值，訂單轉 <code>PROCESSING</code>，<code>storage/labels/</code> 出現該訂單的 PDF。</span></td><td><span class="tag lv">黑貓</span></td><td><span class="tag P0">P0</span></td></tr>
+
+<tr data-pri="P0" data-money="0"><td class="chk"><input type="checkbox" data-id="T-03"></td><td class="id">T-03</td><td class="body"><b>開啟託運單 PDF，立刻另存備份</b>
+<span class="note">後台訂單頁的「列印託運單」。
+⚠️ 黑貓的檔案編號<b>只有 24 小時</b>有效，過期無法向黑貓重新下載，而且目前<b>沒有補印機制</b>。<code>storage/labels/</code> 裡那份是唯一副本。</span>
+<span class="verdict"><b>判定：</b>PDF 開得起來，版面與黑貓的 A4 二模樣本一致，而且已經另存到別的地方。</span></td><td><span class="tag lv">黑貓</span></td><td><span class="tag P0">P0</span></td></tr>
+
+<tr data-pri="P0" data-money="0"><td class="chk"><input type="checkbox" data-id="T-04"></td><td class="id">T-04</td><td class="body"><b>重入防護</b>
+<span class="note">重跑建單工作，再看後台按鈕。</span>
+<span class="verdict"><b>判定：</b>按鈕已停用，<b>不會</b>再建第二張託運單。這條沒過就別上線，因為每建一張就是一筆真實運費。</span></td><td><span class="tag lv">黑貓</span></td><td><span class="tag P0">P0</span></td></tr>
+
+<tr data-pri="P1" data-money="0"><td class="chk"><input type="checkbox" data-id="T-05"></td><td class="id">T-05</td><td class="body"><b>貨態輪詢與前台顯示</b>
+<span class="note">手動觸發一次輪詢工作，平時 worker 每 30 分鐘自動跑。<b>連跑兩次</b>確認去重。</span>
+<span class="verdict"><b>判定：</b>貨態寫入資料庫，連跑兩次<b>不產生重複歷程</b>；後台與前台訂單查詢頁的貨態時間軸都看得到；出貨通知信寄出。</span></td><td><span class="tag lv">黑貓</span></td><td><span class="tag P1">P1</span></td></tr>
+
+<tr data-pri="P2" data-money="1"><td class="chk"><input type="checkbox" data-id="T-06"></td><td class="id">T-06</td><td class="body"><b>呼叫黑貓來收貨 <span class="tag money">真實金流</span></b>
+<span class="note">⚠️ <b>這支會叫真人開車過來</b>，而且黑貓每個收貨點<b>每日只受理一次</b>、無法指定時段。一天只有一次機會，排在 T-02 建完託運單之後再做。</span>
+<span class="verdict"><b>判定：</b>回覆是黑貓原文的集貨通知訊息；重新整理後按鈕換成今天已呼叫的狀態，沒有第二顆可按；件數填 0 或非數字會被前端擋下。</span></td><td><span class="tag lv">黑貓</span></td><td><span class="tag P2">P2</span></td></tr>
+
+</tbody>
+</table>
+</div>
+
+<h3>路線二：還沒拿到正式授權碼（目前狀態）</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>編號</th><th>項目</th><th>類別</th><th>優先</th></tr></thead>
+<tbody>
+
+<tr data-pri="P0" data-money="0"><td class="chk"><input type="checkbox" data-id="T-S1"></td><td class="id">T-S1</td><td class="body"><b>不要在正式站測宅配</b>
+<span class="note">正式站的黑貓還指向測試站，測出來的託運單號是假的，但訂單狀態會被推進 <code>PROCESSING</code>，看起來像成功。要驗宅配流程就在本機用測試環境跑，配 cloudflared tunnel 和綠界測試金鑰。</span>
+<span class="verdict"><b>判定：</b>走查過程中沒有任何一張正式站訂單選過宅配。</span></td><td><span class="tag lv">黑貓</span></td><td><span class="tag P0">P0</span></td></tr>
+
+<tr data-pri="P0" data-money="0"><td class="chk"><input type="checkbox" data-id="T-S2"></td><td class="id">T-S2</td><td class="body"><b>對外開賣前補完路線一</b>
+<span class="note">在黑貓切到正式站之前，站台不能對一般客人開放，因為宅配沒辦法從後台關掉。測試商品不掛分類、測完立刻封存，讓一般客人走不到結帳。</span>
+<span class="verdict"><b>判定：</b>黑貓正式授權碼已申請、T-01 到 T-05 已完成，才把商品正式上架。</span></td><td><span class="tag lv">黑貓</span></td><td><span class="tag P0">P0</span></td></tr>
+
+</tbody>
+</table>
+</div>
+
+<h2 id="stage-c">階段 C — 收尾與清理</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>編號</th><th>項目</th><th>類別</th><th>優先</th></tr></thead>
+<tbody>
+
+<tr data-pri="P0" data-money="0"><td class="chk"><input type="checkbox" data-id="C-01"></td><td class="id">C-01</td><td class="body"><b>封存測試商品</b>
+<span class="note">被下單過的商品刪不掉，只能封存。不封存的話它會留在前台、留在 sitemap。</span>
+<span class="verdict"><b>判定：</b>前台列表、搜尋、直連都看不到那件商品。</span></td><td><span class="tag lv">清理</span></td><td><span class="tag P0">P0</span></td></tr>
+
+<tr data-pri="P0" data-money="0"><td class="chk"><input type="checkbox" data-id="C-02"></td><td class="id">C-02</td><td class="body"><b>清點所有建出來的真實單據</b>
+<span class="note">逐一對照：刷過的卡都退了、建過的綠界物流單都取消了、開過的收據都作廢了、黑貓託運單（若有）都處理了。</span>
+<span class="verdict"><b>判定：</b>記錄表裡每一筆真實單據都有對應的收尾動作與時間。</span></td><td><span class="tag lv">清理</span></td><td><span class="tag P0">P0</span></td></tr>
+
+<tr data-pri="P1" data-money="0"><td class="chk"><input type="checkbox" data-id="C-03"></td><td class="id">C-03</td><td class="body"><b>把測試期間改過的設定調回正式值</b>
+<span class="note">尤其是 <code>ECPAY_RECEIPT_AUTO_ISSUE</code>。改了記得重建 web 與 worker，不是只有 web。</span>
+<span class="verdict"><b>判定：</b>容器裡查到的值就是你要的正式營運設定。</span></td><td><span class="tag lv">清理</span></td><td><span class="tag P1">P1</span></td></tr>
+
+<tr data-pri="P1" data-money="0"><td class="chk"><input type="checkbox" data-id="C-04"></td><td class="id">C-04</td><td class="body"><b>把本機正本的異動同步上去並留一份</b>
+<span class="note"><code>docs/sagon-deploy/</code> 在 <code>.gitignore</code> 裡，沒有備份在版控裡。換電腦或重灌前記得自己留一份。</span>
+<span class="verdict"><b>判定：</b>本機正本與主機內容一致，且正本已另外備份。</span></td><td><span class="tag lv">清理</span></td><td><span class="tag P1">P1</span></td></tr>
+
+</tbody>
+</table>
+</div>
+
+<h2 id="fail">失敗處理程序</h2>
+
+<div class="callout warn">
+<p>任何一步不符預期時，<b>先停下來，不要重試、不要重按按鈕</b>。重試會污染現場，黑貓重建單還會多花運費。</p>
+</div>
+
+<ol class="q">
+  <li><b>保留現場。</b>截圖當下畫面，記下訂單編號與時間。</li>
+  <li><b>蒐集證據。</b>worker log 含失敗工作的完整堆疊；後台 Webhook 該筆事件的原始內容與處理狀態；若是排程失敗，查稽核紀錄裡的排程失敗項目，之後可以手動補派。</li>
+  <li><b>寫成問題單。</b>格式是操作步驟、預期、實際、證據四段，再決定修復或繼續。</li>
+  <li><b>如果錢已經扣了而流程沒走完</b>，先把退款做掉再查問題。客人的錢不該等你除錯。</li>
+</ol>
+
+<h2 id="record">記錄表</h2>
+
+<p>每一條真實交易都要留下這些欄位，出事時這是唯一能回溯的東西。</p>
+
+<div class="tw">
+<table class="plain">
+<thead><tr><th>欄位</th><th>說明</th></tr></thead>
+<tbody>
+<tr><td>訂單編號</td><td>本站的訂單編號</td></tr>
+<tr><td>執行時間</td><td>到分鐘即可</td></tr>
+<tr><td>綠界交易編號</td><td>金流那一筆，退款時要用</td></tr>
+<tr><td>物流單號</td><td>綠界 C2C 的物流編號，或黑貓的托運單號</td></tr>
+<tr><td>收據號碼</td><td>若有開立</td></tr>
+<tr><td>Webhook 事件</td><td>後台 Webhook 頁那筆事件的識別碼</td></tr>
+<tr><td>截圖</td><td>結果頁、後台訂單頁、標籤或 PDF</td></tr>
+<tr><td>收尾動作</td><td>退款、取消物流單、作廢收據各自的完成時間</td></tr>
+</tbody>
+</table>
+</div>
+
+<footer class="page">
+  <p>勾選狀態存在這台瀏覽器裡，換裝置或清除網站資料會消失。和 <code>docs/manual-test-stage.md</code>、<code>docs/test-checklist.html</code> 搭配看：那兩份是測試站的完整腳本，這一份是正式環境的一次性走查。</p>
+</footer>
+
+</div>
+
+<script>
+(function () {
+  var KEY = 'sagon-go-live-test-plan';
+  var rows = Array.prototype.slice.call(document.querySelectorAll('tbody tr[data-pri]'));
+  var boxes = rows.map(function (r) { return r.querySelector('input[type=checkbox]'); });
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) { return {}; }
+  }
+  function save(state) {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* 無痕視窗或封鎖儲存，忽略 */ }
+  }
+
+  var state = load();
+
+  function paint() {
+    var done = 0;
+    rows.forEach(function (row, i) {
+      var box = boxes[i];
+      if (box.checked) { done++; row.classList.add('checked'); }
+      else { row.classList.remove('checked'); }
+    });
+    var total = rows.length;
+    var pct = total ? Math.round((done / total) * 100) : 0;
+    var bar = document.getElementById('bar');
+    if (bar) bar.style.width = pct + '%';
+    var label = document.getElementById('plabel');
+    if (label) label.textContent = done ? (done + ' / ' + total + ' 已完成（' + pct + '%）') : '尚未開始';
+    var sd = document.getElementById('s-done');
+    if (sd) sd.textContent = String(done);
+  }
+
+  rows.forEach(function (row, i) {
+    var box = boxes[i];
+    var id = box.getAttribute('data-id');
+    box.checked = !!state[id];
+    box.addEventListener('change', function () {
+      state[id] = box.checked;
+      save(state);
+      paint();
+      applyFilter();
+    });
+  });
+
+  var filter = 'all';
+  function applyFilter() {
+    rows.forEach(function (row, i) {
+      var box = boxes[i];
+      var show = true;
+      if (filter === 'todo') show = !box.checked;
+      else if (filter === 'money') show = row.getAttribute('data-money') === '1';
+      else if (filter === 'P0') show = row.getAttribute('data-pri') === 'P0';
+      row.classList.toggle('hide', !show);
+    });
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('button.f[data-filter]'), function (btn) {
+    btn.addEventListener('click', function () {
+      filter = btn.getAttribute('data-filter');
+      Array.prototype.forEach.call(document.querySelectorAll('button.f[data-filter]'), function (b) {
+        b.setAttribute('aria-pressed', String(b === btn));
+      });
+      applyFilter();
+    });
+  });
+
+  var reset = document.getElementById('reset');
+  if (reset) reset.addEventListener('click', function () {
+    if (!window.confirm('清除所有勾選？')) return;
+    state = {};
+    save(state);
+    boxes.forEach(function (b) { b.checked = false; });
+    paint();
+    applyFilter();
+  });
+
+  var total = rows.length;
+  var money = rows.filter(function (r) { return r.getAttribute('data-money') === '1'; }).length;
+  var p0 = rows.filter(function (r) { return r.getAttribute('data-pri') === 'P0'; }).length;
+  var st = document.getElementById('s-total'); if (st) st.textContent = String(total);
+  var sm = document.getElementById('s-money'); if (sm) sm.textContent = String(money);
+  var sp = document.getElementById('s-p0'); if (sp) sp.textContent = String(p0);
+
+  paint();
+})();
+</script>
+
+</body>
+</html>

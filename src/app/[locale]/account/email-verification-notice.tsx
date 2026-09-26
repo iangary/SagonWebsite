@@ -31,16 +31,16 @@ export function EmailVerificationNotice({
   return (
     <div
       role="status"
-      className="mb-6 flex flex-wrap items-center justify-between gap-3 border border-cream-200 bg-cream-50 px-4 py-3.5"
+      className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 border border-cream-200 bg-cream-50 px-4 py-3.5"
     >
-      <div className="flex items-start gap-3">
+      <div className="flex min-w-0 items-start gap-3">
         <MailWarning size={16} strokeWidth={1.5} className="mt-0.5 shrink-0 text-taupe-500" />
-        <div>
+        <div className="min-w-0">
           <p className="text-sm text-ink-900">{labels.title}</p>
-          <p className="mt-0.5 text-xs text-taupe-500">{labels.hint}</p>
+          <p className="mt-0.5 break-words text-xs text-taupe-500">{labels.hint}</p>
         </div>
       </div>
-      <Button size="sm" variant="outline" onClick={resend} disabled={pending}>
+      <Button size="sm" variant="outline" className="ml-auto shrink-0" onClick={resend} disabled={pending}>
         {pending ? labels.sending : labels.resend}
       </Button>
     </div>

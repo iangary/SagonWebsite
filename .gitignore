@@ -38,3 +38,7 @@ playwright-report/
 Thumbs.db
 *.tsbuildinfo
 next-env.d.ts
+
+# 本機私用：test.env 是含真實金鑰的 .env 副本、根目錄 deploy.md 是個人的送檔筆記
+test.env
+/deploy.md

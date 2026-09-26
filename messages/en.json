@@ -308,7 +308,7 @@
     "changePhone": "Change mobile number",
     "bindPhone": "Link mobile number",
     "changePhoneHint": "Currently linked to {phone}. You'll sign in with the new number after the change.",
-    "bindPhoneHint": "Once linked, you can sign in with your mobile number and a verification code — no password needed.",
+    "bindPhoneHint": "Once linked, you can sign in with your mobile number and password, and reset it by SMS code if you forget it.",
     "phone": "Mobile number",
     "otpCode": "Verification code",
     "sendOtp": "Send code",
@@ -490,8 +490,7 @@
     "serviceHours": "Support hours",
     "serviceHoursValue": "Mon–Fri 10:00–18:00 (GMT+8)",
     "description": "Founded in spring 2023, bringing high-quality Korean sleepwear, bedding and home goods to Taiwan. Curated around three things in equal measure — classic, elegant, considered — under official authorisation from each brand.",
-    "copyright": "© {year} {shop}. All rights reserved.",
-    "disclaimer": "A Next.js + ECPay integration demo project"
+    "copyright": "© {year} {shop}. All rights reserved."
   },
   "about": {
     "title": "About {shop}",
@@ -645,7 +644,8 @@
     "anonymous": "Anonymous",
     "ratingLabel": "{rating} out of 5 stars",
     "count": "({count} reviews)",
-    "cta": "Once an order is completed you can review its items under My Account → Orders."
+    "cta": "Once an order is completed you can review its items under My Account → Orders.",
+    "showingLatest": "Showing the {shown} most recent of {total} reviews."
   },
   "notFound": {
     "title": "Page not found",
@@ -696,5 +696,9 @@
     "lineCta": "Contact us on LINE",
     "lineId": "LINE ID: {id}",
     "refundInProgressTitle": "Refund in progress"
+  },
+  "seo": {
+    "categoryDescription": "Browse {count} {name} pieces at {shop} — officially licensed Korean selections. Free shipping over {threshold}, 7-day return window.",
+    "allProductsDescription": "Every product at {shop} — officially licensed Korean sleepwear, bedding and home accessories. Free shipping over {threshold}, 7-day return window."
   }
 }

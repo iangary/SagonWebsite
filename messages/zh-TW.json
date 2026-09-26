@@ -308,7 +308,7 @@
     "changePhone": "更換手機號碼",
     "bindPhone": "綁定手機號碼",
     "changePhoneHint": "目前綁定 {phone}。更換後將以新號碼登入。",
-    "bindPhoneHint": "綁定後可以用手機號碼加驗證碼登入，不需要記密碼。",
+    "bindPhoneHint": "綁定後可以用手機號碼加密碼登入，忘記密碼時也能用簡訊驗證碼重設。",
     "phone": "手機號碼",
     "otpCode": "驗證碼",
     "sendOtp": "發送驗證碼",
@@ -490,8 +490,7 @@
     "serviceHours": "客服時間",
     "serviceHoursValue": "週一至週五 10:00–18:00",
     "description": "創立於 2023 年春天，專注引進韓國高品質睡衣、寢具與家居飾品。堅持「經典、優雅、質感」並重的選品原則，與品牌總部正式授權合作。",
-    "copyright": "© {year} {shop}. All rights reserved.",
-    "disclaimer": "本站為 Next.js + 綠界串接的示範專案"
+    "copyright": "© {year} {shop}. All rights reserved."
   },
   "about": {
     "title": "關於{shop}",
@@ -645,7 +644,8 @@
     "anonymous": "匿名會員",
     "ratingLabel": "{rating} 分（滿分 5 分）",
     "count": "（{count} 則）",
-    "cta": "購買並完成訂單後，可於「會員中心 → 我的訂單」為商品留下評論。"
+    "cta": "購買並完成訂單後，可於「會員中心 → 我的訂單」為商品留下評論。",
+    "showingLatest": "共 {total} 則評論，此處顯示最新 {shown} 則。"
   },
   "notFound": {
     "title": "找不到頁面",
@@ -696,5 +696,9 @@
     "lineCta": "聯繫 LINE 客服",
     "lineId": "LINE ID：{id}",
     "refundInProgressTitle": "退款處理中"
+  },
+  "seo": {
+    "categoryDescription": "精選 {count} 款{name}，{shop}正式授權引進的韓國選品。滿 {threshold} 免運，享七日鑑賞期。",
+    "allProductsDescription": "{shop}全站商品一覽 —— 正式授權引進的韓國睡衣、寢具與家居飾品。滿 {threshold} 免運，享七日鑑賞期。"
   }
 }

@@ -1,0 +1,710 @@
+<title>莎岡選品店 — 進度盤點、SEO 強化與行銷自動化計畫</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #fbfaf8; --surface: #ffffff; --surface-2: #f4f2ee; --border: #e2ddd4;
+    --text: #1f1b16; --text-dim: #6b6459; --accent: #8a5a2b; --accent-soft: #f0e6d8;
+    --p0: #b3261e; --p0-bg: #fdeceb; --p1: #9a6700; --p1-bg: #fdf6e3;
+    --p2: #57606a; --p2-bg: #f0f2f4;
+    --done: #1a7f4b; --done-bg: #e8f5ed;
+    --todo: #b3261e; --todo-bg: #fdeceb;
+    --partial: #9a6700; --partial-bg: #fdf6e3;
+    --no: #8a2d8a; --no-bg: #f7ecf7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16140f; --surface: #1e1b16; --surface-2: #262219; --border: #3a342a;
+      --text: #ece7de; --text-dim: #a09a8e; --accent: #d9a86c; --accent-soft: #2f2820;
+      --p0: #ff8a80; --p0-bg: #3a1f1c; --p1: #e5c07b; --p1-bg: #332b18;
+      --p2: #a8b1bb; --p2-bg: #2a2d31;
+      --done: #6ee7a8; --done-bg: #17311f;
+      --todo: #ff8a80; --todo-bg: #3a1f1c;
+      --partial: #e5c07b; --partial-bg: #332b18;
+      --no: #e3a8e3; --no-bg: #332033;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #16140f; --surface: #1e1b16; --surface-2: #262219; --border: #3a342a;
+    --text: #ece7de; --text-dim: #a09a8e; --accent: #d9a86c; --accent-soft: #2f2820;
+    --p0: #ff8a80; --p0-bg: #3a1f1c; --p1: #e5c07b; --p1-bg: #332b18;
+    --p2: #a8b1bb; --p2-bg: #2a2d31; --done: #6ee7a8; --done-bg: #17311f;
+    --todo: #ff8a80; --todo-bg: #3a1f1c; --partial: #e5c07b; --partial-bg: #332b18;
+    --no: #e3a8e3; --no-bg: #332033;
+  }
+  :root[data-theme="light"] {
+    --bg: #fbfaf8; --surface: #ffffff; --surface-2: #f4f2ee; --border: #e2ddd4;
+    --text: #1f1b16; --text-dim: #6b6459; --accent: #8a5a2b; --accent-soft: #f0e6d8;
+    --p0: #b3261e; --p0-bg: #fdeceb; --p1: #9a6700; --p1-bg: #fdf6e3;
+    --p2: #57606a; --p2-bg: #f0f2f4; --done: #1a7f4b; --done-bg: #e8f5ed;
+    --todo: #b3261e; --todo-bg: #fdeceb; --partial: #9a6700; --partial-bg: #fdf6e3;
+    --no: #8a2d8a; --no-bg: #f7ecf7;
+  }
+
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    line-height: 1.65; margin: 0; padding: 0 1.25rem 6rem;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+
+  header.page { padding: 3rem 0 1.5rem; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
+  h1 { font-size: clamp(1.6rem, 4vw, 2.2rem); margin: 0 0 .5rem; letter-spacing: -.01em; }
+  .sub { color: var(--text-dim); font-size: .95rem; margin: 0 0 .4rem; }
+
+  h2 {
+    font-size: 1.25rem; margin: 3rem 0 .5rem; padding-top: 1.25rem;
+    border-top: 1px solid var(--border); scroll-margin-top: 1rem;
+  }
+  h2:first-of-type { border-top: none; }
+  h3 { font-size: 1.02rem; margin: 2rem 0 .4rem; color: var(--accent); scroll-margin-top: 1rem; }
+  h4 { font-size: .93rem; margin: 1.4rem 0 .3rem; }
+  p { margin: .5rem 0 1rem; }
+  ul, ol { margin: .5rem 0 1rem; padding-left: 1.35rem; }
+  li { margin-bottom: .3rem; }
+  code {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px;
+    padding: .08em .35em; font-size: .87em;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  pre {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: .9rem 1rem; overflow-x: auto; font-size: .82rem; line-height: 1.55;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: inherit; }
+  a { color: var(--accent); }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .75rem; margin: 1.5rem 0 2rem; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: .85rem 1rem; }
+  .stat .n { font-size: 1.65rem; font-weight: 650; line-height: 1.15; display: block; }
+  .stat .l { font-size: .78rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: .06em; }
+
+  .tw { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); margin: .75rem 0 1.5rem; }
+  table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: .89rem; }
+  thead th {
+    text-align: left; font-size: .74rem; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--text-dim); font-weight: 600;
+    padding: .6rem .7rem; border-bottom: 1px solid var(--border); background: var(--surface-2);
+    white-space: nowrap;
+  }
+  tbody td { padding: .6rem .7rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.id { font-family: ui-monospace, Consolas, monospace; font-size: .8rem; color: var(--text-dim); white-space: nowrap; }
+  .note { display: block; color: var(--text-dim); font-size: .82rem; margin-top: .15rem; }
+
+  .tag { display: inline-block; font-size: .72rem; font-weight: 600; padding: .1rem .45rem; border-radius: 5px; white-space: nowrap; letter-spacing: .02em; }
+  .P0 { color: var(--p0); background: var(--p0-bg); }
+  .P1 { color: var(--p1); background: var(--p1-bg); }
+  .P2 { color: var(--p2); background: var(--p2-bg); }
+  .s-done { color: var(--done); background: var(--done-bg); }
+  .s-todo { color: var(--todo); background: var(--todo-bg); }
+  .s-partial { color: var(--partial); background: var(--partial-bg); }
+  .s-no { color: var(--no); background: var(--no-bg); }
+
+  .callout { border-left: 3px solid var(--accent); background: var(--surface); padding: .8rem 1rem; border-radius: 0 8px 8px 0; margin: 1rem 0 1.5rem; }
+  .callout.warn { border-left-color: var(--p0); }
+  .callout.ok { border-left-color: var(--done); }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout p:first-child { margin-top: 0; }
+
+  nav.toc { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 2rem; }
+  nav.toc ol { margin: 0; padding-left: 1.2rem; columns: 2; column-gap: 2rem; font-size: .9rem; }
+  @media (max-width: 620px) { nav.toc ol { columns: 1; } }
+
+  .script { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.15rem; margin: 1rem 0; }
+  .script .hd { font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-dim); font-weight: 600; margin-bottom: .5rem; }
+  .script .body { white-space: pre-wrap; font-size: .9rem; line-height: 1.75; }
+  .script .meta { margin-top: .7rem; padding-top: .6rem; border-top: 1px dashed var(--border); font-size: .82rem; color: var(--text-dim); }
+
+  .themebtn {
+    position: fixed; right: 1rem; bottom: 1rem; z-index: 30;
+    font: inherit; font-size: .8rem; background: var(--surface); color: var(--text-dim);
+    border: 1px solid var(--border); border-radius: 999px; padding: .35rem .85rem; cursor: pointer;
+  }
+
+  @media print {
+    .themebtn, nav.toc { display: none; }
+    body { background: #fff; color: #000; padding: 0; }
+    tbody tr { break-inside: avoid; }
+  }
+</style>
+
+<div class="wrap">
+
+<header class="page">
+  <h1>莎岡選品店 — 進度盤點、SEO 強化與行銷自動化計畫</h1>
+  <p class="sub">產出日期 2026-08-29 ｜ 分支 <code>main</code> @ <code>95b7120</code> ｜ 依據實際原始碼盤點（<code>src/app/robots.ts</code>、<code>src/app/sitemap.ts</code>、各頁 <code>generateMetadata</code>、<code>prisma/schema.prisma</code>）</p>
+  <p class="sub">配套文件：<code>docs/test-checklist.html</code>（功能與測試檢核）、<code>docs/deploy.md</code>（部署）、<code>docs/site-review-findings.md</code>（前台體檢）</p>
+</header>
+
+<div class="stats">
+  <div class="stat"><span class="n" style="color:var(--done)">9</span><span class="l">已完成（2026-08-30）</span></div>
+  <div class="stat"><span class="n">1</span><span class="l">部分完成</span></div>
+  <div class="stat"><span class="n">7</span><span class="l">尚未動工</span></div>
+  <div class="stat"><span class="n">6</span><span class="l">可寫進 repo 的自動化</span></div>
+  <div class="stat"><span class="n">1</span><span class="l">明確不做的項目</span></div>
+</div>
+
+<div class="callout ok">
+  <p><b>2026-08-30 實作進度</b> —— 已完成並通過 <code>typecheck</code> / <code>lint</code> / 324 項 <code>vitest</code> / 正式建置：</p>
+  <p><span class="tag s-done">已完成</span> S-02 星等結構化資料 ・ S-03 OG 圖與 favicon ・ S-04 Organization + WebSite ・
+     S-05 麵包屑結構化資料 ・ S-07 商品購物欄位 ・ S-08 搜尋頁 noindex ・ S-15 <code>metadataBase</code><br>
+     <span class="tag s-partial">部分</span> S-06 分類頁描述（樣板已上，可編輯欄位待做）<br>
+     <span class="tag s-partial">待你提供</span> S-01 GA4 程式碼已接好，等你給量測 ID 與完成 Search Console 驗證</p>
+  <p style="margin-top:.6rem"><b>過程中順手修掉三個原本沒列進計畫的問題</b>（詳見 §2 各列的「實作紀錄」）：商品頁評分只算最新 20 則、
+     <code>generateMetadata</code> 與頁面重複查同一筆資料、JSON-LD 沒有跳脫 <code>&lt;</code>。</p>
+</div>
+
+<div class="callout ok">
+  <p><b>2026-08-30 第二批：A-01 商品 feed 與 A-02 評論邀請信</b>（738 項測試全過，含 10 項新的整合測試）</p>
+  <p><span class="tag s-done">A-01</span> <code>/feeds/google-merchant.xml</code> —— 對正式資料實測產出 <b>85 筆 item、81 個商品群組</b>，
+     並以 Google 規格逐項驗過（<code>g:id</code> 唯一、群組 id 全英數、標題 ≤150、描述 ≤5000、每筆都有
+     <code>identifier_exists</code> 與 <code>shipping</code>）。<br>
+     <b>實測抓到一個規格問題</b>：原本用 <code>slug</code> 當 <code>g:item_group_id</code>，但這個站的 slug 含中文
+     （<code>the-warmth-法式朱依紋圍裙-柔霧粉-2643530</code>），81 個群組<b>全部</b>不符合 Google「只用英數字元」的要求。已改用商品 cuid。</p>
+  <p><span class="tag s-done">A-02</span> 每天 10:00 的排程挑出「已完成滿 7 天、尚未邀請、還有未評項目、且是會員」的訂單寄邀請信。
+     已實際寄一封到 Mailpit 確認版型與連結正確。<b>不綁任何折扣或贈品、明講歡迎負評</b> —— 用對價換評價違反平台政策與公平會規範。</p>
+  <p style="margin-top:.6rem"><b>順帶修掉一個既有的紅燈測試</b>（不是這次改動造成的）：<code>c451de8</code> 加了
+     <code>adminMarkBankTransferPaid</code> 卻沒登記到權限測試表，<code>admin-permissions</code> 的完整性檢查因此一直失敗。
+     已補上（該 action 本身的權限控管是正確的，只是沒被測到）。</p>
+</div>
+
+<div class="callout warn">
+  <p><b>先把一件事講清楚：假帳號、假留言、假評價這一段我不做。</b></p>
+  <p>「做臉、做留言、做推銷」如果指的是<b>建立人設帳號假裝素人留言推薦自家商品</b>，這件事我不會幫忙實作，理由有三個，而且每一個都是實質風險，不是道德潔癖：</p>
+  <p><b>1. 會被停權，而且會連累登入功能。</b>Meta、Google、Threads、Dcard 的條款都禁止虛假帳號與協同性造假行為（coordinated inauthentic behavior）。被抓到不只掉貼文，是<b>粉專與廣告帳號一起停</b> —— 而你的網站現在把 Facebook 當成 SSO 登入提供者（<code>src/lib/auth/index.ts:129</code>），Meta 商業帳號被停會連帶影響會員登入。</p>
+  <p><b>2. 台灣有明文規範。</b>《公平交易法》第 21 條管不實廣告；公平會〈薦證廣告處理原則〉要求薦證者與廠商<b>有利益關係時必須揭露</b>。找 KOC 業配合法，偽裝成素人不合法。</p>
+  <p><b>3. 對 SEO 是負分，而且會反噬你的結構化資料。</b>Google 垃圾內容政策把假評價列為操縱行為。假評價寫進 <code>Review</code> 資料表、再輸出成 <code>aggregateRating</code>，等於<b>親手把違規證據交給 Google</b>；一旦被判定，整站失去複合式搜尋結果資格，要人工複審才能救回。</p>
+  <p style="margin-top:.7rem"><b>合法、而且長期效果更好的替代方案，本文都寫了：</b>§5 的自動評論邀請信（真客人、真評價，可全自動）、§6 的 KOC 合作信範本（含揭露句）、§6 的官方帳號貼文腳本（可排程全自動）。真評價還有一個假評價永遠拿不到的好處：<b>能合法接上 <code>aggregateRating</code>，讓 Google 搜尋結果長出星星</b>（見 §2 的 S-02）。</p>
+</div>
+
+<nav class="toc">
+  <b style="font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim)">目錄</b>
+  <ol>
+    <li><a href="#s-progress">0. 目前進度盤點</a></li>
+    <li><a href="#s-good">1. SEO：已經做對的</a></li>
+    <li><a href="#s-gap">2. SEO：缺口與優先序（主表）</a></li>
+    <li><a href="#s-code">3. 四個 P0 的實作草稿</a></li>
+    <li><a href="#s-auto">4. 「完全自動化」的誠實答案</a></li>
+    <li><a href="#s-build">5. 可以寫進 repo 的六件自動化</a></li>
+    <li><a href="#s-mkt">6. 行銷腳本（可直接拿去用）</a></li>
+    <li><a href="#s-plan">7. 90 天執行順序</a></li>
+    <li><a href="#s-need">8. 我需要你提供的資訊</a></li>
+  </ol>
+</nav>
+
+<h2 id="s-progress">0. 目前進度盤點</h2>
+
+<p>依 <code>git log</code> 與原始碼盤點，這是一個<b>功能面已經接近完成、但還沒真正開始經營</b>的站。</p>
+
+<h3>已經做完的（依最近 15 個 commit 反推）</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th style="width:9rem">面向</th><th>狀態</th></tr></thead>
+<tbody>
+<tr><td><b>金流</b></td><td><span class="tag s-done">完成</span> 綠界 AIO（信用卡／ATM／超商代碼／條碼）＋ <b>匯款到公司帳戶</b>（帳戶後台設定、入帳人工確認，<code>c451de8</code>）</td></tr>
+<tr><td><b>物流</b></td><td><span class="tag s-done">完成</span> 黑貓宅急便直連：印單、標籤、貨態輪詢、<b>後台叫車</b>（每日一次的鎖擋重複叫車，<code>498e919</code>）</td></tr>
+<tr><td><b>會員</b></td><td><span class="tag s-done">完成</span> Email／手機 OTP／Google／LINE／Facebook SSO；Email 驗證；<b>匿名購物車在登入當下併入會員車</b>（<code>70e5387</code>）；SSO 失敗訊息改為人話（<code>b932011</code>）</td></tr>
+<tr><td><b>簡訊</b></td><td><span class="tag s-done">完成</span> 三竹 API 落差 G1–G6、G8 已補，可用 <code>SMS_PROVIDER=mitake</code> 切換（<code>80074b0</code>）</td></tr>
+<tr><td><b>後台</b></td><td><span class="tag s-done">完成</span> 手機版改版（導覽收抽屜、列表變卡片，<code>d569815</code>）；<b>可指派其他會員為管理員</b>（<code>95b7120</code>）；付款設定與退款流程</td></tr>
+<tr><td><b>評論</b></td><td><span class="tag s-done">完成</span> <code>Review</code> 綁 <code>orderItemId</code>（<code>@unique</code>）—— <b>只有真的買過的人能評，每筆訂單項目只能評一次</b>，另有 <code>PENDING</code> 審核狀態。這個設計是後面 §2 S-02 能安全開星等的前提。</td></tr>
+<tr><td><b>部署</b></td><td><span class="tag s-done">完成</span> Docker + Caddy + CI 建 image；環境變數正本收斂到本機 <code>docs/sagon-deploy/</code>（<code>c81c3ce</code>）</td></tr>
+<tr><td><b>測試</b></td><td><span class="tag s-partial">部分</span> 511 項 Vitest ＋ 38 項 Playwright 通過；但依 <code>docs/test-checklist.html</code>，<b>還沒有人從頭到尾手動走完一次完整購買流程</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>工作樹裡還沒 commit 的（12 個檔案）</h3>
+
+<p>看起來是<b>「把 demo 專案改成真的要開的店」</b>這一批收尾：</p>
+<ul>
+  <li>店名英文版 <code>Sagan Select</code> → <code>Sagan Boutique</code>（<code>.env.example</code>、<code>src/lib/env.ts:128</code>）</li>
+  <li>頁尾拿掉「本站為 Next.js + 綠界串接的示範專案」免責句（<code>site-footer.tsx</code>、兩份 <code>messages/*.json</code>）—— <b>這句一定要拿掉，它會被 Google 當成頁面描述抓走</b></li>
+  <li>帳號安全頁與側邊導覽的調整（<code>account-nav.tsx</code>、<code>security-panel.tsx</code>）；手機綁定說明改為「手機＋密碼登入，忘記密碼可用簡訊重設」</li>
+  <li>未追蹤的 <code>deploy.md</code>（根目錄）—— 內容是 <code>scp</code> 指令備忘，與 <code>CLAUDE.md</code> 的送檔流程重複，建議併進 <code>docs/deploy.md</code> 或刪掉，避免兩份指令漂移</li>
+</ul>
+
+<div class="callout warn">
+  <p><b>上線前的兩個卡點（來自 <code>docs/test-checklist.html</code>，此文件不重複展開）</b></p>
+  <p>1. 沒有人完整走過「加購物車 → 刷卡 → 建物流單 → 開收據 → 出貨 → 收信」這條線。<br>
+     2. 電子收據尚未真正開立成功（卡在綠界後台的收據字軌設定）。</p>
+  <p style="margin-top:.5rem;color:var(--text-dim);font-size:.88rem"><b>本文所有 SEO 與行銷工作都排在這兩件事之後。</b>把流量導到一個結不了帳的站，比沒有流量更糟 —— 你會浪費掉第一批訪客，而且他們不會再回來。</p>
+</div>
+
+<h2 id="s-good">1. SEO：已經做對的</h2>
+
+<p>先講好消息。這個站的 SEO 底子<b>比多數自建電商好</b>，下面八項已經到位，不用動：</p>
+
+<div class="tw">
+<table>
+<thead><tr><th style="width:11rem">項目</th><th>現況</th></tr></thead>
+<tbody>
+<tr><td><code>robots.txt</code></td><td><code>src/app/robots.ts</code>。<code>/api/</code>、<code>/admin/</code>、<code>/account/</code>、<code>/cart</code>、<code>/checkout</code>、<code>/order/</code>、<code>/login</code>、<code>/register</code> 都擋掉了 —— 這幾條含個資又沒有索引價值，擋得正確。</td></tr>
+<tr><td><code>sitemap.xml</code></td><td><code>src/app/sitemap.ts</code>。<b>動態產生</b>，只列 <code>status: ACTIVE</code> 的商品，並帶上 <code>updatedAt</code> 當 <code>lastModified</code>。商品下架就自動從 sitemap 消失，這點很多站做錯。</td></tr>
+<tr><td>canonical</td><td>每一頁的 <code>generateMetadata</code> 都寫死無前綴 canonical。列表頁的 <code>?sort=</code>、<code>?brand=</code>、<code>?minPrice=</code> 等篩選組合全部收斂到同一個 canonical，<b>從源頭消滅了電商最經典的重複內容問題</b>。</td></tr>
+<tr><td>商品結構化資料</td><td><code>product/[slug]/page.tsx:92</code> 已輸出 <code>Product</code> + <code>AggregateOffer</code>，圖片轉成絕對網址、庫存對應 <code>InStock</code>／<code>OutOfStock</code>。基礎正確，只缺欄位（見 S-02、S-07）。</td></tr>
+<tr><td>FAQ 結構化資料</td><td><code>faq/page.tsx:79</code> 已輸出 <code>FAQPage</code>。</td></tr>
+<tr><td>語系策略</td><td><code>localePrefix: 'never'</code>（<code>src/i18n/routing.ts</code>）。中英共用同一組網址、靠 cookie 切換，<b>刻意不做 hreflang</b> —— 註解裡的理由是對的：英文版沒有獨立收錄價值，留 <code>/en</code> 只會多一組自我宣告重複的網址。</td></tr>
+<tr><td>字體</td><td>Noto Sans／Serif TC 自架，<code>display: swap</code>、<b>關掉 preload</b>（CJK 上百個 unicode-range 分片全 preload 反而拖慢首屏）。這個判斷對 LCP 是加分。</td></tr>
+<tr><td>渲染策略</td><td>商品頁走動態渲染（原因見該檔檔頭註解，是為了避開 <code>DYNAMIC_SERVER_USAGE</code> 500）。<b>對 SEO 沒有壞處</b> —— Googlebot 拿到的是完整 HTML，不是空殼 CSR。</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="s-gap">2. SEO：缺口與優先序（主表）</h2>
+
+<p>優先序的判準是「投入 ÷ 影響」，不是難度。<span class="tag P0">P0</span> 是<b>上線第一週就該有</b>的，缺了會讓後面所有努力都量不到、看不到。</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>ID</th><th>優先</th><th style="width:12rem">項目</th><th>現況與該做什麼</th></tr></thead>
+<tbody>
+
+<tr><td class="id">S-01</td><td><span class="tag P0">P0</span></td><td><b>完全沒有數據</b><span class="note">GSC / GA4</span></td>
+<td>全 repo grep 不到 <code>gtag</code>、<code>GoogleAnalytics</code>、<code>google-site-verification</code>。<b>現在你對這個站的自然流量一無所知</b> —— 哪個關鍵字帶人進來、哪一頁跳出、商品頁有沒有被索引，全部是黑箱。
+<span class="note">做法：① 到 Search Console 用 DNS TXT 驗證 <code>chenkuanyi.com.tw</code>（DNS 驗證比檔案驗證好，涵蓋所有子網域）→ 手動提交 <code>/sitemap.xml</code>。② 裝 <code>@next/third-parties</code> 的 <code>GoogleAnalytics</code> 元件到 <code>[locale]/layout.tsx</code>，量 ID 走 <code>NEXT_PUBLIC_GA_ID</code> 環境變數（沿用現有 <code>src/lib/env.ts</code> 的 zod schema，設成 optional）。③ GA4 開電商事件：<code>view_item</code>、<code>add_to_cart</code>、<code>begin_checkout</code>、<code>purchase</code>。</span></td></tr>
+
+<tr><td class="id">S-02</td><td><span class="tag P0">P0</span></td><td><b>搜尋結果沒有星星</b><span class="note">aggregateRating</span></td>
+<td><b>這是投報率最高的一項。</b><code>product-reviews.tsx:51</code> 已經算出平均分並顯示在頁面上，但 <code>product/[slug]/page.tsx:92</code> 的 JSON-LD <b>完全沒有 <code>aggregateRating</code></b>。等於分數算了、畫了，卻沒告訴 Google。
+<span class="note">補上之後，Google 搜尋結果會在標題下方長出 ★★★★☆ 與評論則數，<b>點擊率的提升通常比排名前進一名還多</b>，而且不需要等排名。前提是評價必須是真的 —— 你的 <code>Review</code> 綁 <code>orderItemId @unique</code>，這個條件天生成立。實作見 §3。</span><span class="note" style="margin-top:.5rem"><span class="tag s-done">實作紀錄</span> 已完成 —— <code>lib/seo/structured-data.ts</code> 的 <code>productJsonLd</code>；平均與則數改由 <code>getProductReviewStats</code>（全部已核准評論）提供，同一組數字同時餵給畫面與 JSON-LD。</span></td></tr>
+
+<tr><td class="id">S-03</td><td><span class="tag P0">P0</span></td><td><b>分享出去是一片空白</b><span class="note">OG image</span></td>
+<td>找不到任何 <code>opengraph-image</code> 檔，root metadata 的 <code>openGraph</code> 也沒有 <code>images</code>。<b>現在把首頁連結貼到 LINE 群組或 FB，出現的是沒有圖的純文字卡片</b> —— 在以 LINE 分享為主的台灣市場，這等於把社群導流的轉換率砍掉一大半。
+<span class="note">做法：① 新增 <code>src/app/[locale]/opengraph-image.tsx</code>（Next 的 ImageResponse，1200×630，放店名＋標語＋主視覺）當全站預設。② 商品頁已經會帶 <code>images: [product.images[0].url]</code>，但要確認那張圖<b>接近 1.91:1</b>，直式商品圖在 FB 會被裁掉主體。③ 順便補 <code>src/app/icon.png</code> 與 <code>apple-icon.png</code>（目前也沒有）。</span><span class="note" style="margin-top:.5rem"><span class="tag s-done">實作紀錄</span> 已完成 —— <code>[locale]/opengraph-image.tsx</code>（1200×630，已實際出圖確認中文正常）、<code>app/icon.tsx</code>、<code>app/apple-icon.tsx</code>。</span></td></tr>
+
+<tr><td class="id">S-04</td><td><span class="tag P0">P0</span></td><td><b>沒有品牌身分資料</b><span class="note">Organization / WebSite</span></td>
+<td>只有商品頁與 FAQ 頁有結構化資料，<b>全站沒有 <code>Organization</code> 也沒有 <code>WebSite</code></b>。Google 因此不知道「莎岡選品店」是一個品牌實體，也不知道你的官方社群帳號、客服信箱、統編對應到誰。
+<span class="note">做法：在 <code>[locale]/layout.tsx</code> 輸出一份全站 JSON-LD，含 <code>Organization</code>（name、url、logo、<code>sameAs</code> 指向你的 IG／FB／LINE OA、<code>contactPoint</code> 用 <code>SHOP_SERVICE_EMAIL</code>）與 <code>WebSite</code>（含 <code>SearchAction</code>，讓搜尋結果可能長出站內搜尋框）。<code>sameAs</code> 是把社群經營成果回灌給品牌搜尋的關鍵，<b>這條把 §6 的社群工作和 SEO 接起來</b>。</span><span class="note" style="margin-top:.5rem"><span class="tag s-done">實作紀錄</span> 已完成 —— <code>siteJsonLd()</code> 在 <code>[locale]/layout.tsx</code> 輸出。<code>sameAs</code> 讀 <code>SHOP_FACEBOOK_URL</code> / <code>SHOP_INSTAGRAM_URL</code> / <code>SHOP_LINE_URL</code>，<b>目前三個都空著，等你提供帳號網址</b>。</span></td></tr>
+
+<tr><td class="id">S-05</td><td><span class="tag P1">P1</span></td><td>麵包屑沒有結構化資料</td>
+<td><code>Breadcrumbs</code> 元件有畫在畫面上，但沒有對應的 <code>BreadcrumbList</code> JSON-LD。補上之後搜尋結果的網址列會變成「首頁 › 睡衣 › 商品名」，而不是一長串網址。<span class="note">商品頁、分類頁各補一份。</span><span class="note" style="margin-top:.5rem"><span class="tag s-done">實作紀錄</span> 已完成 —— <code>breadcrumbJsonLd()</code>；麵包屑資料只定義一次，畫面與結構化資料共用同一個陣列，不會漂移。</span></td></tr>
+
+<tr><td class="id">S-06</td><td><span class="tag P1">P1</span></td><td>分類頁 metadata 太薄</td>
+<td><code>category/[slug]/page.tsx:21</code> 的 <code>generateMetadata</code> <b>只有 <code>title</code> 和 <code>canonical</code>，沒有 <code>description</code>、沒有 <code>openGraph</code></b>。分類頁是最容易吃到「睡衣推薦」這類品類字的頁面，描述空著等於放棄 SERP 上的說服機會。<code>product/all</code> 同樣問題。
+<span class="note">做法：<code>Category</code> 加一個 <code>seoDescription</code> 欄位（後台可編），沒填時用「精選 N 款{分類名}，{店名}正式授權引進，滿額免運、七日鑑賞期」這種樣板兜底。順便補 <code>ItemList</code> JSON-LD 列出當頁商品。</span></td></tr>
+
+<tr><td class="id">S-07</td><td><span class="tag P1">P1</span></td><td>商品結構化資料缺購物欄位</td>
+<td>現有 JSON-LD 缺 <code>sku</code>、<code>gtin</code>、<code>priceValidUntil</code>、<code>shippingDetails</code>、<code>hasMerchantReturnPolicy</code>。<b>這幾個是 Google 購物免費版位的實質門檻</b> —— 缺了雖然不會報錯，但拿不到「免運」「可退貨」那幾行綠色標註，在比價情境下明顯吃虧。<span class="note">退貨政策直接對應現有的 <code>/returns</code> 頁（七日鑑賞期），運費對應現有運費規則，兩者都是既有資料，只是沒輸出。</span><span class="note" style="margin-top:.5rem"><span class="tag s-done">實作紀錄</span> 已完成 —— 改成每個變體一筆 <code>Offer</code>（各自帶 <code>sku</code>、價格、庫存），並附 <code>shippingDetails</code>（60／120／滿 1500 免運，取自 <code>shopConfig</code>）與 <code>hasMerchantReturnPolicy</code>（7 天，對齊 FAQ）。<b><code>returnFees</code> 與 <code>priceValidUntil</code> 刻意留空</b>，見下方說明。</span></td></tr>
+
+<tr><td class="id">S-08</td><td><span class="tag P1">P1</span></td><td>站內搜尋結果頁沒擋索引</td>
+<td>列表頁吃 <code>?q=</code> 參數（<code>product-listing.tsx:7</code>）。canonical 雖然收斂了，但<b>搜尋結果頁本身屬於 Google 明文不建議索引的類型</b>。<span class="note">做法：<code>generateMetadata</code> 裡當 <code>searchParams.q</code> 存在時回 <code>robots: { index: false, follow: true }</code>。</span><span class="note" style="margin-top:.5rem"><span class="tag s-done">實作紀錄</span> 已完成 —— <code>/product/all</code> 與 <code>/category/[slug]</code> 帶 <code>?q=</code> 時回 <code>robots: { index: false, follow: true }</code>。</span></td></tr>
+
+<tr><td class="id">S-09</td><td><span class="tag P1">P1</span></td><td>圖片沒有描述性 alt 與檔名</td>
+<td>商品圖來自 <code>img.cloudimg.in</code> 與 <code>public/uploads</code>，檔名多半是雜湊。<b>Google 圖片搜尋是服飾／寢具類商品被動的重要入口</b>，值得處理。<span class="note">做法：後台商品圖上傳時多一個 alt 欄位；沒填時用「{品牌} {商品名} — 第 N 張」兜底。</span></td></tr>
+
+<tr><td class="id">S-10</td><td><span class="tag P0">P0</span></td><td><b>全站沒有任何內容頁</b><span class="note">這是自然流量最大的缺口</span></td>
+<td>路由只有 <code>about / faq / contact / product / category / 政策頁</code>，<b>一篇文章都沒有</b>。這代表你目前<b>只可能被搜到品牌字與商品名</b> —— 也就是「已經知道你的人」。所有「絲質睡衣怎麼洗」「莫代爾和純棉差在哪」「送媽媽的睡衣挑什麼」這類<b>還沒決定要買誰、但正在找答案的人</b>，你全部接不到。
+<span class="note">這也是唯一一個「AI 能大幅加速、但不能全自動」的項目，見 §4。做法：新增 <code>/journal</code> 路由（<code>Post</code> model：slug／title／excerpt／bodyHtml／coverImage／publishedAt／relatedProductIds），文章頁輸出 <code>Article</code> JSON-LD，文末掛相關商品卡，並把新文章加進 <code>sitemap.ts</code>。<b>每篇文章都是一個新的搜尋入口，而且會持續帶流量 —— 廣告停了就沒有，文章不會。</b></span></td></tr>
+
+<tr><td class="id">S-11</td><td><span class="tag P1">P1</span></td><td>沒有商品 feed</td>
+<td>沒有 Google Merchant Center／Meta 目錄的商品 feed。有了 feed 才能上 Google 購物免費版位與 Meta 動態商品廣告（DPA）。<b>這件事可以 100% 自動化</b>，見 §5 A-01。</td></tr>
+
+<tr><td class="id">S-12</td><td><span class="tag P1">P1</span></td><td>沒有 Google 商家檔案</td>
+<td>如果有實體門市或可接待的地址，<b>Google 商家檔案是台灣本地搜尋最直接的免費流量</b>，而且能收到真實的 Google 評論（和站內評論互不衝突、互相加分）。有實體點的話再補 <code>LocalBusiness</code> JSON-LD。<span class="note">純網購沒有地址就跳過這條，不要為了做而虛構地址 —— 會被檢舉下架。</span></td></tr>
+
+<tr><td class="id">S-13</td><td><span class="tag P2">P2</span></td><td>Core Web Vitals 沒量測</td>
+<td>字體策略做得好，但沒有實際數據。<span class="note">GSC 接上後（S-01）會自動有「網頁體驗」報表，等有真實流量再看，不要提前優化。</span></td></tr>
+
+<tr><td class="id">S-14</td><td><span class="tag P2">P2</span></td><td>內部連結只有縱向</td>
+<td>有「相關商品」（<code>getRelatedProducts</code>），但分類之間、文章與商品之間沒有橫向連結。<span class="note">S-10 的文章上線後一併處理：文章 → 商品、商品 → 文章雙向掛。</span></td></tr>
+
+<tr><td class="id">S-15</td><td><span class="tag P2">P2</span></td><td><code>metadataBase</code> 的兜底值</td>
+<td><code>layout.tsx:59</code> 是 <code>process.env.APP_URL ?? 'http://localhost:3000'</code>。正式站有設 <code>APP_URL</code> 所以沒事，但<b>萬一哪次部署漏了，所有 OG 圖與 canonical 會靜靜指向 localhost</b>，而且站台其他部分完全正常、不會報錯。<span class="note">建議改成讀已驗證的 <code>env.APP_URL</code>（zod schema 會在啟動時就擋下來），而不是裸 <code>process.env</code>。這和 <code>CLAUDE.md</code> 裡 <code>AUTH_URL</code> 那格是同一類地雷。</span><span class="note" style="margin-top:.5rem"><span class="tag s-done">實作紀錄</span> 已完成 —— <code>metadataBase</code> 改讀已驗證的 <code>siteUrl()</code>（<code>env.APP_URL</code>），部署漏設會在容器啟動時就被 zod 擋下。</span></td></tr>
+
+</tbody>
+</table>
+</div>
+
+<h2 id="s-code">3. 四個 P0 的實作草稿</h2>
+
+<p>下面是可以直接動手的方向。<b>程式碼是示意，實際寫的時候要照 <code>AGENTS.md</code> 先讀 <code>node_modules/next/dist/docs/</code> 確認這版 Next 的 API。</b></p>
+
+<h3>S-02 — 讓搜尋結果長出星星</h3>
+
+<p>在 <code>src/app/[locale]/product/[slug]/page.tsx</code>，把已核准評價的統計一起查出來（Prisma 的 <code>aggregate</code>），接進現有的 <code>jsonLd</code>：</p>
+
+<pre><code>// 只統計 APPROVED —— PENDING / 被退回的不能算進去
+const stats = await db.review.aggregate({
+  where: { productId: product.id, status: 'APPROVED' },
+  _avg: { rating: true },
+  _count: { _all: true },
+})
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name,
+  sku: product.sku ?? product.slug,          // S-07
+  // ...現有欄位不動...
+
+  // 一則評價都沒有時必須整個省略。
+  // 給 reviewCount: 0 會被 Google 判為無效結構化資料，比不給還糟。
+  ...(stats._count._all > 0 &amp;&amp; stats._avg.rating
+    ? {
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: Math.round(stats._avg.rating * 10) / 10,
+          reviewCount: stats._count._all,
+          bestRating: 5,
+          worstRating: 1,
+        },
+      }
+    : {}),
+}</code></pre>
+
+<div class="callout">
+  <p><b>兩個一定要守住的規則：</b></p>
+  <p>1. <b>頁面上看得到的分數，必須等於 JSON-LD 裡的分數。</b><code>product-reviews.tsx:51</code> 目前是<b>對所有傳進來的評價</b>取平均並四捨五入到小數一位 —— 要確認那個查詢也只取 <code>APPROVED</code>，兩邊口徑不一致會被判定為欺騙性標記。<br>
+     2. <b>沒有評價就不要輸出 <code>aggregateRating</code></b>（上面的展開式已處理）。</p>
+</div>
+
+<h3>S-04 — 全站品牌身分</h3>
+
+<p>在 <code>[locale]/layout.tsx</code> 的 <code>&lt;body&gt;</code> 內輸出一次即可（全站共用，不必每頁重複）：</p>
+
+<pre><code>const orgJsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${env.APP_URL}/#organization`,
+      name: shopName(locale),
+      url: env.APP_URL,
+      logo: `${env.APP_URL}/logo.png`,
+      email: env.SHOP_SERVICE_EMAIL,
+      // 這裡填你的官方帳號 —— 這一格就是社群經營回灌品牌搜尋的接點
+      sameAs: [
+        'https://www.facebook.com/&lt;你的粉專&gt;',
+        'https://www.instagram.com/&lt;你的 IG&gt;',
+        'https://line.me/R/ti/p/&lt;你的 LINE OA&gt;',
+      ],
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${env.APP_URL}/#website`,
+      url: env.APP_URL,
+      name: shopName(locale),
+      publisher: { '@id': `${env.APP_URL}/#organization` },
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: `${env.APP_URL}/product/all?q={search_term_string}`,
+        'query-input': 'required name=search_term_string',
+      },
+    },
+  ],
+}</code></pre>
+
+<h3>S-03 — OG 圖</h3>
+
+<p>新增 <code>src/app/[locale]/opengraph-image.tsx</code>，用 Next 的 <code>ImageResponse</code> 產生 1200×630 的預設分享圖。注意 <b><code>ImageResponse</code> 不能用專案的 Tailwind class</b>，要寫 inline style，而且中文字體要自己載入 <code>.ttf</code> buffer（不然 CJK 會變成方框）。</p>
+
+<h3>S-01 — 數據</h3>
+
+<ol>
+  <li><b>Search Console</b>：用 DNS TXT 驗證 <code>chenkuanyi.com.tw</code>（涵蓋所有子網域，之後換主機也不用重驗）→ 提交 <code>https://chenkuanyi.com.tw/sitemap.xml</code>。</li>
+  <li><b>GA4</b>：<code>npm i @next/third-parties</code>，在 <code>[locale]/layout.tsx</code> 掛 <code>&lt;GoogleAnalytics gaId={env.NEXT_PUBLIC_GA_ID} /&gt;</code>，量測 ID 加進 <code>src/lib/env.ts</code> 的 zod schema（設 <code>.optional()</code>，本機開發不用填）。</li>
+  <li><b>環境變數</b>：新的 key 要同時進 <code>.env.example</code>（進版控）與 <code>docs/sagon-deploy/.env.production</code>（不進版控，正本在本機），送上主機後記得 <code>chmod 600</code> 與 <code>--force-recreate web</code> —— 流程見 <code>CLAUDE.md</code>。</li>
+  <li><b>Cookie 同意</b>：GA4 會寫 cookie，站上已有隱私權政策頁，要一併更新說明。歐盟訪客佔比高的話再考慮同意橫幅。</li>
+</ol>
+
+<h2 id="s-auto">4. 「完全自動化」的誠實答案</h2>
+
+<p><b>簡短版：內容產出、發佈排程、成效回報可以做到接近全自動；「互動」與「品牌判斷」不能，也不該。</b></p>
+
+<p>我的建議是把行銷拆成三層來想：</p>
+
+<div class="tw">
+<table>
+<thead><tr><th style="width:14rem">環節</th><th style="width:7rem">自動化程度</th><th>說明</th></tr></thead>
+<tbody>
+
+<tr><td>商品 feed 產出與更新</td><td><span class="tag s-done">可全自動</span></td><td>Merchant Center 與 Meta 目錄定時來抓你的 feed 網址，價格庫存自動同步。<b>寫一次，永久不用管。</b></td></tr>
+<tr><td>sitemap／IndexNow 通知</td><td><span class="tag s-done">可全自動</span></td><td>sitemap 已經是動態的；再加一個上架時主動 ping 搜尋引擎的 hook。</td></tr>
+<tr><td>評論邀請信</td><td><span class="tag s-done">可全自動</span></td><td>出貨後 N 天自動寄「請給個評價」。<b>這是「做留言」唯一正確的做法：讓真客人留真評價。</b>你已經有 bullmq 排程與寄信基礎建設。</td></tr>
+<tr><td>棄車信／補貨通知</td><td><span class="tag s-done">可全自動</span></td><td>結帳中斷 N 小時後寄信；缺貨商品到貨時通知登記過的人。轉換率通常是所有 email 裡最高的兩種。</td></tr>
+<tr><td>社群排程發文</td><td><span class="tag s-done">可全自動</span></td><td>用官方 API（Meta Graph API 發 FB 粉專／IG、LINE Messaging API 發 OA 推播）。<b>發自己的官方帳號完全合規</b>，排程隊列一週跑一次。</td></tr>
+<tr><td>成效週報</td><td><span class="tag s-done">可全自動</span></td><td>GSC API + GA4 Data API 拉數字，每週一早上寄一封「上週搜尋曝光／點擊／熱門關鍵字／轉換」給你。</td></tr>
+
+<tr><td>文章與貼文<b>草稿</b></td><td><span class="tag s-partial">半自動</span></td><td>AI 生成初稿可以自動，<b>但發佈前要有人看過</b>。理由不是品質，是責任：商品成分、洗滌方式、授權宣稱、退貨天數寫錯，是消費爭議不是文案問題。<span class="note">建議流程：排程觸發生成 → 存成 <code>DRAFT</code> → 寄信通知你 → 你在後台按「發佈」。你花的時間是每篇 3 分鐘，不是 3 小時。</span></td></tr>
+<tr><td>回覆留言與私訊</td><td><span class="tag s-partial">半自動</span></td><td>可以自動偵測＋草擬建議回覆，但<b>按送出的是人</b>。社群帳號公開回錯話的代價很高，而且客訴、退貨、尺寸諮詢這三類本來就需要判斷。<span class="note">站上已有 <code>SupportChat</code>，可以先把它接成「AI 草擬 → 你確認」。</span></td></tr>
+<tr><td>廣告投放</td><td><span class="tag s-partial">半自動</span></td><td>受眾、素材、預算分配可以自動化上傳與輪替，<b>但預算上限與停損要你決定</b>。</td></tr>
+
+<tr><td><b>假帳號、假素人留言、買評價</b></td><td><span class="tag s-no">不做</span></td><td>理由見文件開頭。<b>這一項不是「難以自動化」，是「不該做」</b> —— 而且它會直接破壞上面那些真的有效的東西（帳號被停、結構化資料被撤、品牌搜尋出現負評討論串）。</td></tr>
+
+</tbody>
+</table>
+</div>
+
+<div class="callout ok">
+  <p><b>換算成你實際要花的時間：</b>上面的自動化全部做完之後，穩定期你每週的行銷投入大約是 —— <b>審 2 篇文章草稿（10 分鐘）＋ 審一週社群貼文（15 分鐘）＋ 回留言私訊（每天 10 分鐘）＋ 看週報（5 分鐘）</b>。其餘全部是機器在跑。這已經非常接近「完全自動化」能到的實務極限了。</p>
+</div>
+
+<h2 id="s-build">5. 可以寫進 repo 的六件自動化</h2>
+
+<p>都對得上現有架構（Next route handler、Prisma、bullmq、既有寄信服務），不需要新的基礎建設。</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>ID</th><th style="width:13rem">要做的東西</th><th>落點與說明</th></tr></thead>
+<tbody>
+
+<tr><td class="id">A-01</td><td><b>Google／Meta 商品 feed</b></td>
+<td><code>src/app/api/feeds/google-merchant.xml/route.ts</code> —— 查 <code>status: ACTIVE</code> 的商品，輸出 Merchant Center 的 RSS 2.0 格式（<code>g:id</code>、<code>g:title</code>、<code>g:description</code>、<code>g:link</code>、<code>g:image_link</code>、<code>g:availability</code>、<code>g:price</code>、<code>g:brand</code>、<code>g:condition</code>、<code>g:shipping</code>）。跟 <code>sitemap.ts</code> 一樣設 <code>dynamic = 'force-dynamic'</code>（建置階段沒有資料庫）。Meta 目錄可以吃同一份，或另出一支 CSV。
+<span class="note">設定完 Merchant Center 排程每日抓取，之後<b>價格與庫存永遠自動同步，不用再手動上傳</b>。<code>robots.ts</code> 的 <code>/api/</code> disallow 不影響 —— Merchant Center 的抓取器不看 robots.txt 的 <code>*</code> 規則，但保險起見可以把 feed 放在 <code>/feeds/</code> 而不是 <code>/api/</code>。</span><span class="note" style="margin-top:.5rem"><span class="tag s-done">實作紀錄</span> 已完成 —— <code>src/app/feeds/google-merchant.xml/route.ts</code> ＋ <code>lib/seo/product-feed.ts</code>（12 項單元測試）。<b>放在 <code>/feeds/</code> 而不是 <code>/api/</code>，正是因為 robots.txt 擋掉整個 /api/</b>，這點在實作時確認過了。</span></td></tr>
+
+<tr><td class="id">A-02</td><td><b>評論邀請信</b><span class="note">「做留言」的正解</span></td>
+<td>訂單狀態轉為「已送達」後 +7 天，用 bullmq 排一個延遲任務，寄一封信給客人，內含直達 <code>/account/orders/[id]/review</code> 的連結（<b>這個頁面已經存在</b>）。
+<span class="note">評價進 <code>PENDING</code>，你在後台審核後轉 <code>APPROVED</code>，接著自動被 S-02 的 <code>aggregateRating</code> 統計到，變成搜尋結果上的星星。<b>從一封自動信到 Google 上多一顆星，整條路完全自動、完全合規。</b>審核只擋人身攻擊與廣告，<b>不要擋負評</b> —— 全五星反而降低可信度，而且刻意篩掉負評是《公平交易法》上的不實廣告風險。</span><span class="note" style="margin-top:.5rem"><span class="tag s-done">實作紀錄</span> 已完成 —— <code>lib/orders/review-invite.ts</code> ＋ worker 的 <code>send-review-invites</code> 排程（10 項整合測試，含「兩輪排程同時跑只會寄一封」的併發測試）。新增 <code>Order.completedAt</code> 與 <code>Order.reviewInviteSentAt</code> 兩個可為空的欄位，migration 是純新增，對正式資料無風險。</span></td></tr>
+
+<tr><td class="id">A-03</td><td><b>棄車信與補貨通知</b></td>
+<td>棄車：<code>Cart</code> 有內容但 N 小時無結帳 → 寄一封提醒（有會員 email 才寄）。補貨：商品頁缺貨時給「到貨通知我」按鈕，寫進新的 <code>StockAlert</code> 表，庫存回補時觸發。
+<span class="note">兩者都掛在既有的 bullmq queue 上。<b>寄信頻率要克制</b>，棄車最多兩封、補貨一封，被大量標記垃圾信會拖垮整個網域的送達率。</span></td></tr>
+
+<tr><td class="id">A-04</td><td><b>社群排程發文</b></td>
+<td><code>scripts/social-queue.ts</code> ＋ 一張 <code>SocialPost</code> 表（platform／bodyText／mediaUrl／scheduledAt／status／externalId）。後台一個簡單列表可編可排程；到點由 worker 呼叫官方 API 發出。
+<span class="note">API：FB 粉專與 IG 走 <b>Meta Graph API</b>（需要粉專的 long-lived token 與 <code>pages_manage_posts</code> 權限，IG 發圖要先 <code>media</code> 再 <code>media_publish</code> 兩步）；LINE OA 走 <b>Messaging API</b> 的 broadcast／narrowcast（<b>推播有免費則數上限，超過要付費，排程前要擋</b>）。<b>全部都是發自己的官方帳號，完全合規。</b></span></td></tr>
+
+<tr><td class="id">A-05</td><td><b>每週成效報表</b></td>
+<td><code>scripts/weekly-report.ts</code>：GSC Search Analytics API 拉「上週曝光／點擊／平均排名／前 20 名關鍵字」，GA4 Data API 拉「工作階段／加入購物車／結帳／營收」，組成 HTML 寄到 <code>SHOP_SERVICE_EMAIL</code>。
+<span class="note">重點看兩個訊號：<b>「有曝光但點擊率低」的關鍵字</b>（→ 標題與描述要改）、<b>「排名 8–20 名」的關鍵字</b>（→ 補一篇內容就可能進前五，投報率最高）。</span></td></tr>
+
+<tr><td class="id">A-06</td><td><b>上架即通知搜尋引擎</b></td>
+<td>商品上架／文章發佈時打 IndexNow API（Bing／Yandex 收），並在後台留一顆「請求 Google 重新索引」的按鈕。<span class="note">小事，但新商品被收錄的時間可以從幾天縮到幾小時。</span></td></tr>
+
+</tbody>
+</table>
+</div>
+
+<h2 id="s-mkt">6. 行銷腳本（可直接拿去用）</h2>
+
+<h3>6.1 先確定定位與關鍵字</h3>
+
+<p>從 <code>messages/zh-TW.json</code> 的品牌描述看，定位是：<b>「2023 年創立、正式授權引進韓國高品質睡衣／寢具／家居飾品，主打經典、優雅、質感」</b>。這個定位的關鍵字策略應該是：</p>
+
+<div class="tw">
+<table>
+<thead><tr><th style="width:8rem">層次</th><th>關鍵字方向</th><th style="width:10rem">落在哪一頁</th></tr></thead>
+<tbody>
+<tr><td><b>品牌字</b></td><td>莎岡選品店、莎岡、Sagan Boutique、莎岡 睡衣</td><td>首頁、關於頁<span class="note">最容易贏，但量最小。做好 S-04 的 <code>Organization</code> 就會穩。</span></td></tr>
+<tr><td><b>品類字</b></td><td>韓國睡衣、絲質睡衣、莫代爾睡衣、長袖睡衣套裝、居家服、韓國寢具、天絲床包<span class="note">競爭中等，商業意圖高 —— 這是主戰場</span></td><td>分類頁（所以 <b>S-06 的分類頁描述是 P1 不是 P2</b>）</td></tr>
+<tr><td><b>長尾／情境字</b></td><td>絲質睡衣 怎麼洗、莫代爾 vs 純棉 差別、睡衣 送禮 推薦、月子中心 睡衣、產後 哺乳睡衣、冬天 睡衣 保暖<span class="note">競爭最低、最好進、量加起來最大</span></td><td><b>文章（S-10）</b> —— 目前完全空白</td></tr>
+<tr><td><b>商品字</b></td><td>具體款式名＋顏色＋尺寸</td><td>商品頁（已有，補 S-02／S-07 即可）</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="callout">
+  <p><b>這張表是假設，不是數據。</b>我沒有你的市場搜尋量資料。做完 S-01（GSC）之後，<b>兩週內就會有真實的關鍵字報表</b>，那時候要拿真實數據回來修正這張表 —— 通常會發現一兩個你沒想到、但一直有人在搜的字。<b>不要憑感覺選字選超過兩週。</b></p>
+</div>
+
+<h3>6.2 內容日曆（每週節奏，可長期循環）</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th style="width:5rem">週幾</th><th style="width:8rem">平台</th><th>內容類型</th><th style="width:6rem">自動化</th></tr></thead>
+<tbody>
+<tr><td>週一</td><td>官網 Journal</td><td><b>知識文</b>（材質／保養／挑選指南）—— 這篇是 SEO 主力</td><td>草稿自動<br>發佈手動</td></tr>
+<tr><td>週二</td><td>IG ＋ Threads</td><td>週一文章的重點卡片（3–5 張），導流回官網</td><td>全自動</td></tr>
+<tr><td>週三</td><td>FB 粉專</td><td>單品聚焦：情境照＋一段文案＋商品連結</td><td>全自動</td></tr>
+<tr><td>週四</td><td>IG 限動</td><td>互動：票選／問答（「你睡覺穿長袖還是短袖？」）</td><td>半自動<span class="note">要看回覆</span></td></tr>
+<tr><td>週五</td><td>LINE OA</td><td>週末優惠或新品預告（<b>注意免費則數上限</b>）</td><td>全自動</td></tr>
+<tr><td>週六</td><td>IG Reels／短影音</td><td>開箱、材質特寫、洗滌前後對比</td><td>手動拍<br>排程自動</td></tr>
+<tr><td>週日</td><td>—</td><td>休息，或回覆本週累積的留言私訊</td><td>手動</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>6.3 貼文腳本範本</h3>
+
+<p>下面每一則都是可以直接改字上線的骨架。<b>括號裡是要你替換的部分。</b></p>
+
+<div class="script">
+  <div class="hd">腳本 1 ｜ IG／FB 貼文 · 單品聚焦</div>
+  <div class="body">凌晨三點翻身的時候，你會知道睡衣選得對不對。
+
+〔商品名〕用的是〔材質〕，〔材質的一個具體好處，例如：貼著皮膚不黏、翻身不會纏住手臂〕。
+我們挑它的原因很簡單 ——〔一句選品理由，講你真正在意的事〕。
+
+・尺寸：〔S / M / L〕
+・顏色：〔米白 / 霧灰 / 藕粉〕
+・洗滌：〔可機洗，建議洗衣袋，30 度以下〕
+
+連結在個人檔案 → 〔商品頁網址〕
+
+#韓國睡衣 #〔材質〕睡衣 #居家服 #莎岡選品店 #睡衣推薦</div>
+  <div class="meta"><b>為什麼這樣寫：</b>第一句寫「情境」不寫「商品」，讓沒有購買打算的人也讀得下去。中段給<b>可驗證的具體資訊</b>（材質、洗滌、尺寸）而不是形容詞 —— 這是選品店和便宜賣家的差別，也是最好被搜尋引擎與 AI 摘要引用的部分。</div>
+</div>
+
+<div class="script">
+  <div class="hd">腳本 2 ｜ 官網 Journal 文章 · 知識文（SEO 主力）</div>
+  <div class="body">標題：〔莫代爾、天絲、純棉睡衣差在哪？一次講清楚該怎麼挑〕
+網址：/journal/〔modal-tencel-cotton-pajamas〕
+
+第一段（150 字內，直接回答，不鋪陳）：
+　　〔莫代爾最軟、垂墜感最好，適合怕悶熱的人；天絲最涼、吸濕排汗最快，適合夏天與容易流汗的人；純棉最耐洗、最不容易起毛球，適合天天穿天天洗。以下是三種材質在「觸感、透氣、耐洗、價格」四個面向的完整比較。〕
+
+H2：〔三種材質的來源與差別〕
+H2：〔怎麼挑：四種常見情況〕
+　　H3：〔怕熱、容易流汗〕
+　　H3：〔皮膚敏感〕
+　　H3：〔孕期與產後〕
+　　H3：〔送禮不知道對方喜好〕
+H2：〔洗滌與保養：延長壽命的四件事〕
+H2：〔常見問題〕（3–5 題，會被 FAQ 結構化資料吃到）
+
+文末：〔挑好了嗎？看看我們的〕→ 掛 2–3 張相關商品卡</div>
+  <div class="meta"><b>為什麼這樣寫：</b>第一段就把答案講完，是為了 Google 的精選摘要與 AI 搜尋摘要 —— 它們只抓「直接回答問題」的段落。H2／H3 對應真實的搜尋句型。<b>這篇文章的目標不是賣東西，是接住「還在比較、還沒決定買誰」的人</b>，賣東西是文末那幾張卡片的事。</div>
+</div>
+
+<div class="script">
+  <div class="hd">腳本 3 ｜ LINE OA 推播（字要少，則數要省）</div>
+  <div class="body">【莎岡選品店】〔新品到貨〕
+
+〔韓國〇〇系列長袖睡衣，四色到齊〕
+〔本週下單滿 1,500 免運〕
+
+〔商品頁短網址〕
+
+（不想收到訊息可封鎖此帳號）</div>
+  <div class="meta"><b>為什麼這樣寫：</b>LINE 推播<b>有免費則數上限，超過要付費</b>，所以一次只講一件事、只放一個連結。開頭標明品牌是避免被當詐騙訊息。退出說明要留 —— 讓想走的人封鎖，比讓他檢舉好。</div>
+</div>
+
+<div class="script">
+  <div class="hd">腳本 4 ｜ 短影音（IG Reels／YouTube Shorts）15–30 秒</div>
+  <div class="body">0–3 秒（鉤子，這 3 秒決定有沒有人看完）：
+　　〔「這件睡衣我洗了 30 次。」〕（畫面：手拿睡衣特寫）
+
+3–10 秒（衝突／證據）：
+　　〔「一般睡衣洗 10 次就起毛球。」〕（畫面：對比鏡頭）
+
+10–22 秒（解釋原因）：
+　　〔「差別在〇〇織法 / 〇〇克重。」〕（畫面：布料特寫、拉扯、透光）
+
+22–30 秒（行動）：
+　　〔「連結在下面。」〕（畫面：商品全貌＋店名）
+
+字幕：全程要有（八成的人靜音看）
+配樂：用平台內建音樂庫，不要用有版權的歌</div>
+  <div class="meta"><b>為什麼這樣寫：</b>短影音的完播率幾乎完全由前 3 秒決定。用「一個可驗證的具體數字」開頭（洗了 30 次）比用形容詞（超好穿）有效得多。<b>這條必須你自己拍</b> —— 它是這份計畫裡最不能自動化、但轉換率最高的一項。</div>
+</div>
+
+<div class="script">
+  <div class="hd">腳本 5 ｜ 評論邀請信（配合 §5 A-02 自動寄出）</div>
+  <div class="body">主旨：〔您的〇〇睡衣還合身嗎？〕
+
+〔王小姐〕您好，
+
+您在〔8 月 12 日〕購買的〔商品名〕已經送達一週了。
+穿起來還習慣嗎？
+
+如果方便的話，想請您花一分鐘留下使用心得 ——
+不論好壞我們都想知道，這會直接影響我們接下來挑什麼、不挑什麼。
+
+〔留下評價〕（按鈕 → /account/orders/〔id〕/review）
+
+如果有任何不合適的地方，也可以直接回信給我們，
+〔七日鑑賞期內可退換〕。
+
+莎岡選品店</div>
+  <div class="meta"><b>為什麼這樣寫：</b>明講「不論好壞都想知道」有兩個作用：提高回覆率，以及<b>證明你沒有只徵求好評</b>（這是薦證廣告規範上的關鍵差別）。同時提供「直接回信」的出口，可以把本來會變成公開負評的不滿，先接到私下處理。<b>絕對不要寫「給我們五星就送優惠券」</b> —— 那是用對價換取評價，違反平台政策也違反公平會規範。</div>
+</div>
+
+<div class="script">
+  <div class="hd">腳本 6 ｜ KOC／部落客合作邀約信（合法的「找人推薦」）</div>
+  <div class="body">主旨：〔莎岡選品店〕想邀請您試穿我們的韓國睡衣
+
+〔您好，我是莎岡選品店的〇〇〕。
+
+我們看過您〔某篇具體的內容，要真的看過並講得出細節〕，
+覺得您對〔材質／居家風格〕的講法跟我們挑貨的標準很接近，
+想邀請您試試我們的〔商品名〕。
+
+合作方式：
+・我們寄一件〔商品名〕給您，不回收
+・〔是否有稿費：有的話寫金額，沒有就寫「本次為無償贈品合作」〕
+・希望您在〔平台〕發一則使用心得，形式與內容由您決定
+・〔不指定評價方向 —— 覺得不好也請照實寫〕
+
+唯一的請求：
+依公平會〈薦證廣告處理原則〉，
+請在貼文中明確標註〔#廠商邀約〕或〔#合作〕，
+說明您與我們的合作關係。這對雙方都是保護。
+
+如果有興趣，回信告訴我尺寸與收件資訊就可以了。
+
+〔您的名字〕
+莎岡選品店　〔客服信箱〕</div>
+  <div class="meta"><b>為什麼這樣寫：</b>「不指定評價方向」＋「必須標註合作」這兩句，就是<b>合法業配與違法假素人的分界線</b>。而且這樣做的實際效果更好：讀者看得出來這是業配還願意看完的內容，說服力遠高於一眼假的「素人真心推薦」。<b>對方願意在這個條件下合作，你才真的找對人。</b></div>
+</div>
+
+<h3>6.4 社群帳號的開設順序</h3>
+
+<p>不要一次開五個然後全部荒廢。建議順序：</p>
+<ol>
+  <li><b>Instagram</b> —— 服飾寢具的視覺主場，也是 Reels 的來源。</li>
+  <li><b>LINE 官方帳號</b> —— 台灣回購率最高的通路。<b>而且它是你自己的名單</b>，平台演算法改了也帶不走。</li>
+  <li><b>Facebook 粉專</b> —— 客群年齡偏高的話優先度提前；同時是 Meta 動態商品廣告（A-01 的 feed）的必要條件。</li>
+  <li><b>Threads</b> —— 成本低，同一批文案可直接複用。</li>
+  <li>官網 Journal —— 嚴格說不是社群，但<b>它是唯一一個不會被演算法收走的資產</b>，優先度其實應該排第一。</li>
+</ol>
+<p>五個帳號的網址開好之後，記得回填到 S-04 的 <code>sameAs</code> —— <b>那一步才讓社群經營的成果被算進品牌的搜尋權重</b>。</p>
+
+<h2 id="s-plan">7. 90 天執行順序</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th style="width:7rem">期間</th><th>要完成的事</th></tr></thead>
+<tbody>
+<tr><td><b>先決條件</b></td><td><span class="tag P0">P0</span> 手動走完一次完整購買流程；電子收據開立成功。<b>這兩件事沒完成之前不要開始導流。</b>（見 <code>docs/test-checklist.html</code>）</td></tr>
+<tr><td><b>第 1 週</b></td><td>S-01 GSC + GA4（<b>先裝，數據才會從第一天開始累積</b>）／ S-03 OG 圖與 favicon ／ S-04 Organization + WebSite ／ commit 掉工作樹那批改名與拿掉 demo 免責句</td></tr>
+<tr><td><b>第 2 週</b></td><td>S-02 <code>aggregateRating</code> ／ S-05 麵包屑 ／ S-07 商品購物欄位 ／ S-08 搜尋頁 noindex ／ S-15 <code>metadataBase</code></td></tr>
+<tr><td><b>第 3–4 週</b></td><td>A-01 商品 feed → 送 Merchant Center 與 Meta 目錄 ／ A-02 評論邀請信 ／ S-06 分類頁描述 ／ 開 IG 與 LINE OA，回填 <code>sameAs</code></td></tr>
+<tr><td><b>第 2 個月</b></td><td>S-10 <code>/journal</code> 上線，<b>每週一篇</b>（先寫 6.1 表裡的長尾字）／ A-04 社群排程 ／ A-03 棄車與補貨信 ／ 開始 §6.2 的週節奏</td></tr>
+<tr><td><b>第 3 個月</b></td><td>A-05 週報 ／ <b>拿 GSC 的真實關鍵字資料回頭修正 6.1 那張表</b> ／ 針對「排名 8–20 名」的字補文章 ／ 有實體點的話做 S-12 商家檔案 ／ 開始接觸 KOC（腳本 6）</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="callout">
+  <p><b>對時間的預期要正確：</b>SEO 的內容投資通常要 <b>3–6 個月</b>才看得到明顯的自然流量成長，第一個月幾乎一定是平的。這不是做錯了。真正該在第一個月看的指標是<b>「索引涵蓋率」</b>（GSC 裡商品頁有沒有被收錄）與<b>「結構化資料有沒有報錯」</b>，不是流量。<br>
+  想要快的話，付費廣告（Google Shopping／Meta DPA）是另一條路，而且 A-01 的 feed 兩邊共用 —— <b>做一次，SEO 與廣告同時受益</b>。</p>
+</div>
+
+<h2 id="s-need">8. 我需要你提供的資訊</h2>
+
+<ol>
+  <li><b>你已經有哪些社群帳號？</b>（IG／FB／LINE OA／YouTube 的網址）—— S-04 的 <code>sameAs</code> 要填，沒有的話就照 §6.4 的順序開。</li>
+  <li><b>有沒有實體地址可以做 Google 商家檔案？</b>有的話 S-12 的優先度會直接跳到 P0；沒有就跳過。</li>
+  <li><b>Google Analytics 與 Search Console 帳號誰管？</b>要用哪個 Google 帳號建立。</li>
+  <li><b>商品有沒有 GTIN／條碼？</b>有的話 A-01 的 feed 品質會好很多，Merchant Center 的比對也更準。</li>
+  <li><b>主打客群的年齡？</b>會決定 FB 與 IG 的先後順序，以及文案語氣。</li>
+  <li><b>「正式授權合作」的授權方是哪個韓國品牌？</b>如果對方品牌本身在台灣有搜尋量，<b>那是一個現成的關鍵字入口</b>（「〇〇 台灣 官方」），但要先確認合約允許你怎麼宣稱。</li>
+  <li><b>行銷預算的量級？</b>決定純做 SEO 與內容，還是同時開 Google Shopping／Meta 廣告。</li>
+</ol>
+
+<p class="sub" style="margin-top:3rem">本文件的建議依 2026-08-29 的原始碼狀態撰寫。各平台的 API 權限與政策會變動，實作前請以官方文件為準；程式碼片段為方向示意，實際撰寫時請依 <code>AGENTS.md</code> 先確認這一版 Next.js 的 API。</p>
+
+</div>
+
+<button class="themebtn" id="tt" type="button">切換深／淺色</button>
+<script>
+  (function () {
+    var root = document.documentElement
+    var saved = null
+    try { saved = localStorage.getItem('seo-plan-theme') } catch (e) {}
+    if (saved) root.setAttribute('data-theme', saved)
+
+    document.getElementById('tt').addEventListener('click', function () {
+      var cur = root.getAttribute('data-theme')
+      if (!cur) {
+        cur = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+      }
+      var next = cur === 'dark' ? 'light' : 'dark'
+      root.setAttribute('data-theme', next)
+      try { localStorage.setItem('seo-plan-theme', next) } catch (e) {}
+    })
+  })()
+</script>

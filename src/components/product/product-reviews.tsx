@@ -36,30 +36,36 @@ export function Stars({ rating, size = 14 }: { rating: number; size?: number }) 
   )
 }
 
+/**
+ * average / total 一律由伺服器端的 getProductReviewStats 給，不在這裡算。
+ *
+ * reviews 只是「最新的前 20 則」，拿它算平均會得到跟 Google 收到的
+ * aggregateRating 不一樣的數字（見 queries.ts 的 getProductReviewStats）。
+ */
 export function ProductReviews({
   reviews,
+  average,
+  total,
   labels,
 }: {
   productId: string
   reviews: Review[]
+  average: number
+  total: number
   labels: { title: string; empty: string }
 }) {
   const t = useTranslations('reviews')
   const locale = useLocale()
-  const average =
-    reviews.length > 0
-      ? Math.round((reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length) * 10) / 10
-      : 0
 
   return (
     <section className="mt-20 border-t border-cream-200 pt-10">
       <div className="flex flex-wrap items-baseline gap-4">
         <h2 className="text-lg tracking-[0.12em]">{labels.title}</h2>
-        {reviews.length > 0 && (
+        {total > 0 && (
           <p className="flex items-center gap-2 text-sm text-taupe-600">
             <Stars rating={Math.round(average)} />
             <span className="tabular-nums">{average}</span>
-            <span>{t('count', { count: reviews.length })}</span>
+            <span>{t('count', { count: total })}</span>
           </p>
         )}
       </div>
@@ -91,6 +97,12 @@ export function ProductReviews({
             </li>
           ))}
         </ul>
+      )}
+
+      {total > reviews.length && (
+        <p className="mt-6 text-xs text-taupe-500">
+          {t('showingLatest', { shown: reviews.length, total })}
+        </p>
       )}
 
       <p className="mt-8 text-xs text-taupe-500">{t('cta')}</p>

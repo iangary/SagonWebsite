@@ -29,7 +29,7 @@ export function ProfileForm({ defaultName }: { defaultName: string }) {
   }, [state, toast, update, name])
 
   return (
-    <form action={formAction} className="border border-cream-200 bg-white p-6">
+    <form action={formAction} className="border border-cream-200 bg-white p-5 sm:p-6">
       <h2 className="text-sm tracking-[0.1em]">{t('profileTitle')}</h2>
 
       <div className="mt-5 max-w-sm">

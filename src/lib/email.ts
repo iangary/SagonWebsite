@@ -6,6 +6,7 @@ import { formatTWD } from '@/lib/utils'
 import { LOGISTICS_SUBTYPE_LABEL } from '@/lib/ecpay/logistics'
 import { currentPaymentOf } from '@/lib/orders/payment'
 import { bankAccountOf } from '@/lib/orders/bank-transfer'
+import { reviewPageUrl } from '@/lib/orders/review-invite'
 import { getPaymentSettings } from '@/lib/shop-settings'
 
 let transporter: nodemailer.Transporter | null = null
@@ -41,6 +42,7 @@ export type EmailTemplate =
   | 'refund-approved'
   | 'refund-rejected'
   | 'refund-completed'
+  | 'review-invite'
 
 /** 退款相關的信要嘛寄給客服、要嘛寄給消費者，收件人不同 */
 const TO_SERVICE: ReadonlySet<EmailTemplate> = new Set(['refund-requested'])
@@ -348,6 +350,42 @@ export async function sendOrderEmail(
           退款方式：${refund?.method === 'CREDIT_REVERSE' ? '刷退至原信用卡' : '匯款'}
         </div>
         <p style="font-size:13px;color:#857263;">感謝您的耐心等候。</p>`
+      break
+    }
+
+    /*
+     * 評論邀請信。
+     *
+     * 文案上刻意寫「不論好壞都想知道」，而且不綁任何折扣或贈品 ——
+     * 用對價換取評價違反平台政策，也踩到公平會〈薦證廣告處理原則〉；
+     * 只徵求好評同樣是不實廣告的風險。明講歡迎負評才是安全的做法，
+     * 而且回覆率反而更高。
+     *
+     * 另外給一個「直接回信」的出口，把本來會變成公開負評的不滿先接到私下處理。
+     */
+    case 'review-invite': {
+      const firstItem = order.items[0]
+      // 商品名稱是從來源站帶進來的，中間常有連續空白，主旨裡看起來很髒
+      const firstName = firstItem?.productName.replace(/\s+/g, ' ').trim()
+      const itemSummary = firstName
+        ? `${firstName}${order.items.length > 1 ? ` 等 ${order.items.length} 件商品` : ''}`
+        : '您購買的商品'
+
+      subject = `【${env.SHOP_NAME}】${itemSummary}用起來還習慣嗎？`
+      body = `
+        <p>${escapeHtml(order.recipientName)} 您好，</p>
+        <p>您在 ${order.completedAt ? order.completedAt.toLocaleDateString('zh-TW') : ''} 完成的訂單已經送達一段時間了，${escapeHtml(itemSummary)}用起來還習慣嗎？</p>
+        <p>如果方便的話，想請您花一分鐘留下使用心得 ——
+           <strong>不論好壞我們都想知道</strong>，這會直接影響我們接下來挑什麼、不挑什麼。</p>
+        ${itemsTable(order.items)}
+        <p style="margin:24px 0 0;">
+          <a href="${reviewPageUrl(order.id)}" style="display:inline-block;padding:11px 24px;background:#2b2724;color:#faf8f5;text-decoration:none;font-size:13px;letter-spacing:.05em;">留下評價</a>
+        </p>
+        <p style="font-size:13px;color:#857263;margin-top:20px;">
+          如果有任何不合適的地方，歡迎來信客服信箱
+          <a href="mailto:${escapeHtml(env.SHOP_SERVICE_EMAIL)}" style="color:#857263;">${escapeHtml(env.SHOP_SERVICE_EMAIL)}</a>，
+          依《消費者保護法》商品到貨後享有 7 天鑑賞期。
+        </p>`
       break
     }
   }

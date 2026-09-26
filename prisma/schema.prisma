@@ -451,6 +451,11 @@ model Order {
 
   paidAt      DateTime?
   cancelledAt DateTime?
+  /// 轉為 COMPLETED 的時點。不能用 updatedAt 代替 —— 那個欄位任何一次
+  /// 更新都會動，算不出「完成後過了幾天」，而評論邀請信正是靠這個排程。
+  completedAt DateTime?
+  /// 評論邀請信寄出的時點。用來擋重複寄信（每張訂單只邀一次）。
+  reviewInviteSentAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -471,6 +476,8 @@ model Order {
   @@index([userId, createdAt])
   @@index([status, createdAt])
   @@index([email])
+  /// 評論邀請的排程每天掃一次「已完成、還沒邀請過」的訂單
+  @@index([status, reviewInviteSentAt, completedAt])
   @@map("orders")
 }
 

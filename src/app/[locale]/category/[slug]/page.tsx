@@ -1,7 +1,10 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { setRequestLocale } from 'next-intl/server'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { getCategoryBySlug } from '@/lib/catalog/queries'
+import { env } from '@/lib/env'
+import { formatTWD } from '@/lib/utils'
+import { shopName } from '@/lib/shop-config'
 import { localizedName } from '@/lib/i18n/localized'
 import { ProductListing, type ListingSearchParams } from '@/components/product/product-listing'
 
@@ -12,15 +15,38 @@ import { ProductListing, type ListingSearchParams } from '@/components/product/p
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string; slug: string }>
+  searchParams: Promise<ListingSearchParams>
 }): Promise<Metadata> {
   const { locale, slug } = await params
   const category = await getCategoryBySlug(decodeURIComponent(slug))
   if (!category) return {}
+
+  const [t, sp] = await Promise.all([getTranslations({ locale, namespace: 'seo' }), searchParams])
+  const name = localizedName(locale, category)
+
   return {
-    title: localizedName(locale, category),
+    title: name,
+    /*
+     * 分類頁是最容易吃到品類字（「韓國睡衣」「絲質睡衣」）的頁面，
+     * 描述空著等於放棄搜尋結果上的說服機會。
+     *
+     * 目前是樣板兜底 —— Category 還沒有可編輯的 seoDescription 欄位，
+     * 那需要一次 migration 與後台表單。加了欄位之後這裡改成
+     * `category.seoDescription ?? t('categoryDescription', …)`。
+     */
+    description: t('categoryDescription', {
+      count: category._count.products,
+      name,
+      shop: shopName(locale),
+      threshold: formatTWD(env.FREE_SHIPPING_THRESHOLD),
+    }),
     alternates: { canonical: `/category/${category.slug}` },
+    openGraph: { type: 'website', title: name },
+    // 站內搜尋結果頁 Google 明文不建議索引；follow 保留，讓權重繼續流向商品頁
+    ...(sp.q ? { robots: { index: false, follow: true } } : {}),
   }
 }
 

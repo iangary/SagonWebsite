@@ -394,7 +394,14 @@ export async function advanceOrderForShipmentStatus(
   const isRegression = order.status === 'COMPLETED' && orderStatus === 'SHIPPED'
   if (isRegression || order.status === orderStatus) return
 
-  await db.order.update({ where: { id: orderId }, data: { status: orderStatus } })
+  await db.order.update({
+    where: { id: orderId },
+    data: {
+      status: orderStatus,
+      // 評論邀請的排程要算「完成後過了幾天」，updatedAt 會被其他更新蓋掉
+      ...(orderStatus === 'COMPLETED' ? { completedAt: new Date() } : {}),
+    },
+  })
   if (orderStatus === 'SHIPPED') {
     await enqueue('send-email', { template: 'shipped', orderId })
   }

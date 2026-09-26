@@ -7,11 +7,13 @@ import { SessionProvider } from 'next-auth/react'
 
 import { routing } from '@/i18n/routing'
 import { shopName } from '@/lib/shop-config'
+import { serializeJsonLd, siteJsonLd, siteUrl } from '@/lib/seo/structured-data'
 import { SiteHeader } from '@/components/layout/site-header'
 import { SiteFooter } from '@/components/layout/site-footer'
 import { ToastProvider } from '@/components/ui/toast'
 import { CartCountProvider } from '@/components/cart/cart-count-provider'
 import { SupportChat } from '@/components/chat/support-chat'
+import { GoogleAnalytics } from '@/components/analytics/google-analytics'
 import '@/styles/globals.css'
 
 /*
@@ -54,7 +56,15 @@ export async function generateMetadata({
 
   const title = shopName(locale)
   return {
-    metadataBase: new URL(process.env.APP_URL ?? 'http://localhost:3000'),
+    /*
+     * 走已驗證的 env.APP_URL，不要用裸 process.env。
+     *
+     * 原本是 `process.env.APP_URL ?? 'http://localhost:3000'` —— 部署漏設時
+     * 全站的 canonical 與 OG 圖會靜靜指向 localhost，站台其他部分完全正常、
+     * 不會有任何錯誤訊息，只有搜尋引擎那邊壞掉。改讀 env 之後，
+     * zod schema 會在容器啟動時就擋下來（同 CLAUDE.md 的 AUTH_URL 那格）。
+     */
+    metadataBase: new URL(siteUrl()),
     title: { default: title, template: `%s${tCommon('titleSeparator')}${title}` },
     description: t('heroSubtitle'),
     openGraph: {
@@ -90,6 +100,14 @@ export default async function LocaleLayout({
       className={`${serifDisplay.variable} ${sansBody.variable}`}
     >
       <body className="flex min-h-screen flex-col">
+        {/*
+          全站的品牌身分（Organization + WebSite）。放在 layout 輸出一次即可，
+          各頁自己的 Product／BreadcrumbList／FAQPage 是另外掛的，互不衝突。
+        */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(siteJsonLd(locale)) }}
+        />
         <NextIntlClientProvider>
           <SessionProvider>
             <ToastProvider>
@@ -102,6 +120,7 @@ export default async function LocaleLayout({
             </ToastProvider>
           </SessionProvider>
         </NextIntlClientProvider>
+        <GoogleAnalytics />
       </body>
     </html>
   )

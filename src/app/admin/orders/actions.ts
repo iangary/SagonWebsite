@@ -257,7 +257,14 @@ export async function adminUpdateOrderStatus(
       select: { status: true },
     })
 
-    await db.order.update({ where: { id: orderId }, data: { status } })
+    await db.order.update({
+      where: { id: orderId },
+      data: {
+        status,
+        // 手動改成已完成也要記時點，否則這張訂單不會進評論邀請的排程
+        ...(status === 'COMPLETED' ? { completedAt: new Date() } : {}),
+      },
+    })
     await audit({
       userId: admin.id,
       action: 'order.status',

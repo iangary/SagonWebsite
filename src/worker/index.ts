@@ -13,6 +13,11 @@ import { releaseExpiredReservations } from '@/lib/orders/stock'
 import { reconcilePendingPayments } from '@/lib/orders/payment'
 import { pollTcatShipmentStatuses } from '@/lib/orders/tcat-status'
 import { sendOrderEmail } from '@/lib/email'
+import {
+  claimReviewInvite,
+  findOrdersAwaitingReviewInvite,
+  releaseReviewInvite,
+} from '@/lib/orders/review-invite'
 
 const CONCURRENCY = 4
 
@@ -50,6 +55,30 @@ const handlers: {
       )
     }
     return result
+  },
+
+  'send-review-invites': async () => {
+    const pending = await findOrdersAwaitingReviewInvite()
+    let sent = 0
+
+    for (const order of pending) {
+      // 先搶下這封（條件式更新），搶不到代表另一輪已經處理過
+      if (!(await claimReviewInvite(order.id))) continue
+
+      try {
+        await sendOrderEmail('review-invite', order.id)
+        sent += 1
+      } catch (error) {
+        // 解除標記讓明天那輪重試；不解除的話這位客人就永遠收不到了
+        console.error(`[worker] 評論邀請信寄送失敗 ${order.id}`, error)
+        await releaseReviewInvite(order.id).catch((err) =>
+          console.error('[worker] 解除評論邀請標記失敗', err),
+        )
+      }
+    }
+
+    if (sent > 0) console.info(`[worker] 評論邀請信：寄出 ${sent} 封（候選 ${pending.length} 筆）`)
+    return { candidates: pending.length, sent }
   },
 
   'release-expired-reservations': async () => {

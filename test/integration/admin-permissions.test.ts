@@ -112,6 +112,12 @@ const ADMIN_ACTIONS: AdminActionCase[] = [
     name: 'orders.adminMarkCodCollected',
     run: () => ordersActions.adminMarkCodCollected('order-x'),
   },
+  // 手動確認「匯款到公司帳戶」已入帳。等於直接把訂單標成已付款並放行出貨，
+  // 非管理者呼叫得到的話，任何人都能不付錢把訂單推進出貨流程。
+  {
+    name: 'orders.adminMarkBankTransferPaid',
+    run: () => ordersActions.adminMarkBankTransferPaid('order-x', '偷標的入帳'),
+  },
 
   // --- src/app/admin/refunds/actions.ts ---
   // 退款是直接把錢送出去的動作，權限漏了等於任何人都能發起退款

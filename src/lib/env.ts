@@ -125,7 +125,7 @@ export const envSchema = z.object({
 
   SHOP_NAME: z.string().default('莎岡選品店'),
   /** 英文站的店名。前台的 logo、頁尾、關於頁都依語系挑這一個。 */
-  SHOP_NAME_EN: z.string().default('Sagan Select'),
+  SHOP_NAME_EN: z.string().default('Sagan Boutique'),
   SHOP_TAX_ID: z.string().default('93124857'),
   /** 通知信頁尾的客服信箱。要是收得到信的真信箱 —— 客戶會直接回信到這裡。 */
   SHOP_SERVICE_EMAIL: z.string().email().default('ian890711@gmail.com'),
@@ -140,6 +140,20 @@ export const envSchema = z.object({
   SHOP_LINE_URL: z.string().optional().default(''),
   /** LINE 官方帳號的顯示 ID（例如 @sagon）。只用於畫面上告訴客人要加誰。 */
   SHOP_LINE_ID: z.string().optional().default(''),
+  /**
+   * 官方社群帳號的網址。目前唯一的用途是全站 Organization 結構化資料的
+   * `sameAs` —— Google 靠它把粉專／IG 與這個品牌認回同一個實體，
+   * 社群經營的成果才算得進品牌搜尋。留空就不會輸出該欄位。
+   */
+  SHOP_FACEBOOK_URL: z.string().optional().default(''),
+  SHOP_INSTAGRAM_URL: z.string().optional().default(''),
+  /**
+   * GA4 量測 ID（G-XXXXXXXXXX）。留空就完全不載入追蹤碼。
+   *
+   * 沒有 NEXT_PUBLIC_ 前綴是刻意的 —— 那個前綴會在建置時內聯，
+   * 而 image 是在 CI 建的，理由見 components/analytics/google-analytics.tsx。
+   */
+  GA_MEASUREMENT_ID: z.string().optional().default(''),
   SHIPPING_FEE_CVS: intFromString(60),
   SHIPPING_FEE_HOME: intFromString(120),
   FREE_SHIPPING_THRESHOLD: intFromString(1500),

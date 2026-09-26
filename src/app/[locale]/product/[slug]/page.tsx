@@ -4,7 +4,12 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Link } from '@/i18n/routing'
 import { env } from '@/lib/env'
 import { formatTWD, truncate } from '@/lib/utils'
-import { getProductBySlug, getRelatedProducts } from '@/lib/catalog/queries'
+import {
+  breadcrumbJsonLd,
+  productJsonLd,
+  serializeJsonLd,
+} from '@/lib/seo/structured-data'
+import { getProductBySlug, getProductReviewStats, getRelatedProducts } from '@/lib/catalog/queries'
 import { normalizeDescriptionHtml } from '@/lib/catalog/description'
 import { localizedName } from '@/lib/i18n/localized'
 import { availableStock } from '@/lib/cart'
@@ -65,11 +70,12 @@ export default async function ProductPage({
   const product = await getProductBySlug(decodeURIComponent(slug))
   if (!product) notFound()
 
-  const [t, tNav, tCommon, related] = await Promise.all([
+  const [t, tNav, tCommon, related, reviewStats] = await Promise.all([
     getTranslations('product'),
     getTranslations('nav'),
     getTranslations('common'),
     getRelatedProducts(product),
+    getProductReviewStats(product.id),
   ])
 
   const name = localizedName(locale, product)
@@ -86,46 +92,59 @@ export default async function ProductPage({
   const description = normalizeDescriptionHtml(product.descriptionHtml)
 
   const onSale = product.compareAtPrice !== null && product.compareAtPrice > product.basePrice
-  const inStock = variants.some((v) => v.available > 0)
+
+  /*
+   * 麵包屑只定義一次，畫面與 BreadcrumbList 結構化資料共用。
+   * 分開寫的話改了其中一邊很難發現，而 Google 要求兩者一致。
+   */
+  const crumbCategory = product.categories[0]?.category
+  const breadcrumbTrail = [
+    { name: tNav('home'), path: '/' },
+    ...(crumbCategory
+      ? [
+          {
+            name: localizedName(locale, crumbCategory),
+            path: `/category/${crumbCategory.slug}`,
+          },
+        ]
+      : []),
+    { name, path: `/product/${product.slug}` },
+  ]
 
   // Google 購物與搜尋結果需要的結構化資料
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Product',
-    name,
-    description: truncate(product.summary ?? name, 300),
-    image: product.images.map((i) => new URL(i.url, env.APP_URL).toString()),
-    brand: product.brand ? { '@type': 'Brand', name: product.brand.name } : undefined,
-    offers: {
-      '@type': 'AggregateOffer',
-      priceCurrency: 'TWD',
-      lowPrice: Math.min(...variants.map((v) => v.price)),
-      highPrice: Math.max(...variants.map((v) => v.price)),
-      offerCount: variants.length,
-      availability: inStock
-        ? 'https://schema.org/InStock'
-        : 'https://schema.org/OutOfStock',
-    },
-  }
+  const jsonLd = [
+    productJsonLd({
+      product: {
+        ...product,
+        // 每個變體帶自己的 sku 與可售量（Product 本身沒有 sku 欄位）
+        variants: product.variants.map((v) => ({
+          sku: v.sku,
+          price: v.price,
+          available: availableStock(v),
+        })),
+      },
+      name,
+      description: truncate(product.summary ?? name, 300),
+      reviewStats,
+    }),
+    breadcrumbJsonLd(breadcrumbTrail),
+  ]
 
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
 
       <div className="mx-auto max-w-7xl px-6 py-10">
         <Breadcrumbs
           label={tNav('breadcrumb')}
-          items={[
-            { label: tNav('home'), href: '/' },
-            ...product.categories.slice(0, 1).map((c) => ({
-              label: localizedName(locale, c.category),
-              href: `/category/${c.category.slug}`,
-            })),
-            { label: name },
-          ]}
+          items={breadcrumbTrail.map((c, i) => ({
+            label: c.name,
+            // 最後一層是本頁，不給連結
+            href: i === breadcrumbTrail.length - 1 ? undefined : c.path,
+          }))}
         />
 
         <div className="mt-8 gap-12 lg:flex">
@@ -210,6 +229,8 @@ export default async function ProductPage({
         <ProductReviews
           productId={product.id}
           reviews={product.reviews}
+          average={reviewStats.average}
+          total={reviewStats.total}
           labels={{ title: t('reviews'), empty: t('noReviews') }}
         />
 

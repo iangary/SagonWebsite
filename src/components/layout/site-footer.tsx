@@ -92,10 +92,7 @@ export async function SiteFooter() {
               </li>
             ))}
           </ul>
-          <div className="flex flex-col items-center justify-between gap-2 sm:flex-row">
-            <p>{t('copyright', { year, shop })}</p>
-            <p>{t('disclaimer')}</p>
-          </div>
+          <p className="text-center sm:text-left">{t('copyright', { year, shop })}</p>
         </div>
       </div>
     </footer>

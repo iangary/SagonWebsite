@@ -23,10 +23,10 @@ export default async function AccountLayout({ children }: { children: React.Reac
   const unverifiedEmail = user?.email && !user.emailVerified ? user.email : null
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-12">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
       <h1 className="text-2xl tracking-[0.12em]">{t('title')}</h1>
 
-      <div className="mt-10 gap-10 lg:flex lg:items-start">
+      <div className="mt-8 gap-10 sm:mt-10 lg:flex lg:items-start">
         <AccountNav
           labels={{
             orders: t('orders'),

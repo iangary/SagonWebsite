@@ -1,4 +1,5 @@
 import 'server-only'
+import { cache } from 'react'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 
@@ -96,7 +97,14 @@ export async function listProducts(filters: ProductListFilters) {
   }
 }
 
-export async function getProductBySlug(slug: string) {
+/** 商品頁只顯示最新這幾則評論；總平均與總則數另外用 getProductReviewStats 算。 */
+export const REVIEWS_ON_PRODUCT_PAGE = 20
+
+/**
+ * 用 React cache 包起來 —— 商品頁的 generateMetadata 與頁面本身都會呼叫，
+ * 沒有包的話同一個請求會查兩次資料庫（Next 的 metadata 指南明講這件事）。
+ */
+export const getProductBySlug = cache(async (slug: string) => {
   return db.product.findFirst({
     where: { slug, status: 'ACTIVE' },
     include: {
@@ -107,14 +115,37 @@ export async function getProductBySlug(slug: string) {
       reviews: {
         where: { status: 'APPROVED' },
         orderBy: { createdAt: 'desc' },
-        take: 20,
+        take: REVIEWS_ON_PRODUCT_PAGE,
         include: { user: { select: { name: true, image: true } } },
       },
     },
   })
-}
+})
 
 export type ProductDetail = NonNullable<Awaited<ReturnType<typeof getProductBySlug>>>
+
+/**
+ * 全部已核准評論的平均分與則數。
+ *
+ * 不能直接拿 product.reviews 算 —— 那個查詢有 `take: 20`，超過 20 則之後
+ * 算出來的是「最新 20 則的平均」，則數也永遠停在 20。頁面上顯示的分數
+ * 必須等於送給 Google 的 aggregateRating，兩邊對不上會被判定為欺騙性標記，
+ * 所以平均與則數一律以這裡為準。
+ */
+export const getProductReviewStats = cache(async (productId: string) => {
+  const result = await db.review.aggregate({
+    where: { productId, status: 'APPROVED' },
+    _avg: { rating: true },
+    _count: { _all: true },
+  })
+
+  const total = result._count._all
+  return {
+    total,
+    // 一則都沒有時 _avg.rating 是 null
+    average: total > 0 && result._avg.rating ? Math.round(result._avg.rating * 10) / 10 : 0,
+  }
+})
 
 /** 同分類的其他商品，湊不滿就用同品牌補 */
 export async function getRelatedProducts(product: ProductDetail, take = 4) {
@@ -146,9 +177,16 @@ export async function getRelatedProducts(product: ProductDetail, take = 4) {
   return [...byCategory, ...byBrand]
 }
 
-export async function getCategoryBySlug(slug: string) {
-  return db.category.findUnique({ where: { slug } })
-}
+/** 同樣被 generateMetadata 與頁面各呼叫一次，理由見 getProductBySlug */
+export const getCategoryBySlug = cache(async (slug: string) => {
+  return db.category.findUnique({
+    where: { slug },
+    // 上架商品數，給 metadata 的描述用（「精選 N 款…」）
+    include: {
+      _count: { select: { products: { where: { product: { status: 'ACTIVE' } } } } },
+    },
+  })
+})
 
 export async function listBrands() {
   return db.brand.findMany({

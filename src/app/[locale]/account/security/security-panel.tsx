@@ -11,6 +11,7 @@ import { Input, Field } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/toast'
 import { SsoMark } from '@/components/auth/sso-buttons'
+import { cn } from '@/lib/utils'
 import { SSO_PROVIDER_LABELS, type SsoProviderId } from '@/lib/auth/sso'
 import { setPassword, bindPhone, unlinkProvider, type ActionState } from '../actions'
 
@@ -46,7 +47,7 @@ export function SecurityPanel({
 
   return (
     <div className="space-y-5">
-      <section className="border border-cream-200 bg-white p-6">
+      <section className="border border-cream-200 bg-white p-5 sm:p-6">
         <h2 className="text-sm tracking-[0.1em]">{t('loginMethods')}</h2>
         <p className="mt-2 text-xs text-taupe-500">{t('loginMethodsHint')}</p>
 
@@ -116,16 +117,22 @@ function MethodRow({
   activeLabel: string
   action?: React.ReactNode
 }) {
+  /**
+   * gap-y-2 + ml-auto 是給手機版的：一行放不下時（例如「Facebook 帳號」配上
+   * 徽章與解除綁定），徽章與按鈕整組換到第二行並靠右，
+   * 而不是被 justify-between 丟到左邊、每一列對不齊。
+   * 左側 min-w-0 才不會被長 Email 撐破卡片。
+   */
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3 py-3.5">
-      <div className="flex items-center gap-3">
-        <span className={active ? 'text-taupe-600' : 'text-taupe-400'}>{icon}</span>
-        <div>
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3.5">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className={cn('shrink-0', active ? 'text-taupe-600' : 'text-taupe-400')}>{icon}</span>
+        <div className="min-w-0">
           <p className="text-sm text-ink-900">{title}</p>
-          <p className="mt-0.5 text-xs text-taupe-500">{status}</p>
+          <p className="mt-0.5 break-words text-xs text-taupe-500">{status}</p>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-2">
         {active && (
           <Badge tone="success">
             <Check size={11} className="mr-1" />
@@ -205,7 +212,7 @@ function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
   const errors = state.fieldErrors ?? {}
 
   return (
-    <form ref={formRef} action={formAction} className="border border-cream-200 bg-white p-6">
+    <form ref={formRef} action={formAction} className="border border-cream-200 bg-white p-5 sm:p-6">
       <h2 className="text-sm tracking-[0.1em]">
         {hasPassword ? t('changePassword') : t('setPassword')}
       </h2>
@@ -333,7 +340,7 @@ function PhoneSection({
   }
 
   return (
-    <form action={formAction} className="border border-cream-200 bg-white p-6">
+    <form action={formAction} className="border border-cream-200 bg-white p-5 sm:p-6">
       <h2 className="text-sm tracking-[0.1em]">
         {hasPhone ? t('changePhone') : t('bindPhone')}
       </h2>
