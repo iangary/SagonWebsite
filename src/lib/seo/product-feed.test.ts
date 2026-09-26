@@ -29,7 +29,9 @@ const product: FeedProduct = {
   ],
 }
 
-const feed = () => buildProductFeed([product], '莎岡選品店')
+const SHIPPING_FEE = 130
+
+const feed = () => buildProductFeed([product], '莎岡選品店', SHIPPING_FEE)
 
 describe('buildProductFeed', () => {
   it('一個變體一筆 item', () => {
@@ -60,6 +62,7 @@ describe('buildProductFeed', () => {
     const single = buildProductFeed(
       [{ ...product, variants: [product.variants[0]] }],
       '莎岡選品店',
+      SHIPPING_FEE,
     )
     expect(single).not.toContain('g:sale_price')
   })
@@ -79,6 +82,7 @@ describe('buildProductFeed', () => {
     const many = buildProductFeed(
       [{ ...product, images: Array.from({ length: 15 }, (_, i) => ({ url: `/uploads/${i}.jpg` })) }],
       '莎岡選品店',
+      SHIPPING_FEE,
     )
     expect(many).toContain('<g:image_link>http://localhost:3000/uploads/0.jpg</g:image_link>')
     // 第一張是 g:image_link，其餘上限 10 張
@@ -89,6 +93,7 @@ describe('buildProductFeed', () => {
     const xml = buildProductFeed(
       [{ ...product, name: 'A & B <test>', summary: null }],
       '莎岡選品店',
+      SHIPPING_FEE,
     )
     expect(xml).toContain('A &amp; B &lt;test&gt;')
     expect(xml).not.toMatch(/<title>[^<]*<test>/)
@@ -98,6 +103,7 @@ describe('buildProductFeed', () => {
     const xml = buildProductFeed(
       [{ ...product, name: '長'.repeat(200) }],
       '莎岡選品店',
+      SHIPPING_FEE,
     )
     const title = xml.match(/<title>(.*?)<\/title>/g)!.find((t) => t.includes('長'))!
     expect(title.replace(/<\/?title>/g, '').length).toBeLessThanOrEqual(150)
@@ -108,6 +114,7 @@ describe('buildProductFeed', () => {
     const xml = buildProductFeed(
       [{ ...product, slug: 'the-warmth-法式朱依紋圍裙-2643530' }],
       '莎岡選品店',
+      SHIPPING_FEE,
     )
     for (const m of xml.matchAll(/<g:item_group_id>(.*?)<\/g:item_group_id>/g)) {
       expect(m[1]).toMatch(/^[A-Za-z0-9_-]+$/)
@@ -115,7 +122,12 @@ describe('buildProductFeed', () => {
   })
 
   it('沒有品牌時不輸出空的 g:brand', () => {
-    const xml = buildProductFeed([{ ...product, brand: null }], '莎岡選品店')
+    const xml = buildProductFeed([{ ...product, brand: null }], '莎岡選品店', SHIPPING_FEE)
     expect(xml).not.toContain('<g:brand>')
+  })
+
+  it('運費用傳進來的值（後台運費設定），不是寫死的數字', () => {
+    const xml = buildProductFeed([product], '莎岡選品店', 150)
+    expect(xml).toContain('<g:shipping><g:country>TW</g:country><g:price>150 TWD</g:price></g:shipping>')
   })
 })

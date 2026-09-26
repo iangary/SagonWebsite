@@ -154,10 +154,7 @@ export const envSchema = z.object({
    * 而 image 是在 CI 建的，理由見 components/analytics/google-analytics.tsx。
    */
   GA_MEASUREMENT_ID: z.string().optional().default(''),
-  SHIPPING_FEE_CVS: intFromString(60),
-  SHIPPING_FEE_HOME: intFromString(120),
-  FREE_SHIPPING_THRESHOLD: intFromString(1500),
-  STOCK_RESERVATION_MINUTES: intFromString(30),
+  // 運費、免運門檻、信用卡保留時間在後台「設定」改（lib/shop-settings.ts），不在這裡
 })
 
 function load() {

@@ -35,7 +35,7 @@ const LINKS = [
   { href: '/admin/reviews', label: '評論', icon: Star },
   { href: '/admin/members', label: '會員', icon: Users },
   { href: '/admin/webhooks', label: 'Webhook', icon: Webhook },
-  { href: '/admin/settings', label: '付款設定', icon: Settings },
+  { href: '/admin/settings', label: '商店設定', icon: Settings },
 ]
 
 function isActive(pathname: string, link: (typeof LINKS)[number]) {

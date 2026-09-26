@@ -5,9 +5,13 @@ import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { getCart } from '@/lib/cart'
 import { localizedName } from '@/lib/i18n/localized'
-import { shopConfig } from '@/lib/shop-config'
 import { isCallbackReachable } from '@/lib/ecpay/config'
-import { getPaymentSettings, isBankTransferAvailable } from '@/lib/shop-settings'
+import {
+  getPaymentSettings,
+  getShippingSettings,
+  isBankTransferAvailable,
+  shippingFeesOf,
+} from '@/lib/shop-settings'
 import { CHECKOUT_LOGIN_REDIRECT } from '@/lib/auth/checkout-gate'
 import { CheckoutForm } from './checkout-form'
 
@@ -35,9 +39,10 @@ export default async function CheckoutPage({ params }: { params: Promise<{ local
   const cart = await getCart()
   if (cart.items.length === 0) redirect('/cart')
 
-  const [t, paymentSettings, defaultAddress] = await Promise.all([
+  const [t, paymentSettings, shipping, defaultAddress] = await Promise.all([
     getTranslations('checkout'),
     getPaymentSettings(),
+    getShippingSettings(),
     db.address.findFirst({
       where: { userId: session.user.id, isDefault: true },
     }),
@@ -85,8 +90,8 @@ export default async function CheckoutPage({ params }: { params: Promise<{ local
               }
             : null
         }
-        shippingFees={shopConfig.shippingFee}
-        freeShippingThreshold={shopConfig.freeShippingThreshold}
+        shippingFees={shippingFeesOf(shipping)}
+        freeShippingThreshold={shipping.freeShippingThreshold}
         payment={{
           prepayEnabled: paymentSettings.prepayEnabled,
           methods: paymentSettings.methods,

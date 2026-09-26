@@ -5,11 +5,62 @@ import { requireAdmin } from '@/lib/auth'
 import { audit } from '@/lib/audit'
 import {
   getPaymentSettings,
+  getShippingSettings,
   paymentSettingsSchema,
   savePaymentSettings,
+  saveShippingSettings,
+  shippingSettingsSchema,
 } from '@/lib/shop-settings'
 
 export type SettingsState = { ok: boolean; message?: string; error?: string }
+
+/** 表單送上來的數字欄位是字串；空的或打錯就用 fallback，值域交給 zod 擋 */
+function intField(formData: FormData, name: string, fallback: number): number {
+  const raw = formData.get(name)
+  const parsed = Number.parseInt(typeof raw === 'string' ? raw : '', 10)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+/**
+ * 運費與付款設定都會出現在前台每一頁（公告列的免運門檻）或有 ISR 的頁面
+ * （常見問題、服務條款），只清結帳頁不夠 —— 後台是低頻操作，整站清掉最不會漏。
+ */
+function revalidateStorefront() {
+  revalidatePath('/', 'layout')
+}
+
+/** 儲存運費設定。 */
+export async function saveShippingSettingsAction(
+  _prev: SettingsState,
+  formData: FormData,
+): Promise<SettingsState> {
+  const admin = await requireAdmin()
+
+  const before = await getShippingSettings()
+  const parsed = shippingSettingsSchema.safeParse({
+    cvsFee: intField(formData, 'cvsFee', before.cvsFee),
+    homeFee: intField(formData, 'homeFee', before.homeFee),
+    freeShippingThreshold: intField(formData, 'freeShippingThreshold', before.freeShippingThreshold),
+  })
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? '設定值不合法' }
+  }
+
+  await saveShippingSettings(parsed.data, admin.id)
+
+  await audit({
+    userId: admin.id,
+    action: 'settings.shipping',
+    entity: 'ShopSetting',
+    entityId: 'shipping',
+    before,
+    after: parsed.data,
+  })
+
+  revalidateStorefront()
+
+  return { ok: true, message: '運費設定已儲存' }
+}
 
 /**
  * 儲存付款設定。
@@ -24,11 +75,7 @@ export async function saveSettingsAction(
   const admin = await requireAdmin()
 
   const bool = (name: string) => formData.get(name) === 'on'
-  const int = (name: string, fallback: number) => {
-    const raw = formData.get(name)
-    const parsed = Number.parseInt(typeof raw === 'string' ? raw : '', 10)
-    return Number.isFinite(parsed) ? parsed : fallback
-  }
+  const int = (name: string, fallback: number) => intField(formData, name, fallback)
 
   const text = (name: string) => {
     const raw = formData.get(name)
@@ -58,6 +105,7 @@ export async function saveSettingsAction(
     bankTransferNote: text('bankTransferNote'),
     cvsExpireDays: int('cvsExpireDays', 2),
     atmExpireDays: int('atmExpireDays', 2),
+    creditHoldMinutes: int('creditHoldMinutes', 30),
     refundWindowDays: int('refundWindowDays', 7),
   })
 
@@ -106,9 +154,8 @@ export async function saveSettingsAction(
     after: parsed.data,
   })
 
-  revalidatePath('/admin/settings')
-  // 結帳頁與訂單頁都會讀這份設定
-  revalidatePath('/checkout')
+  // 結帳頁、訂單頁與服務條款（保留期限）都會讀這份設定
+  revalidateStorefront()
 
-  return { ok: true, message: '設定已儲存' }
+  return { ok: true, message: '付款設定已儲存' }
 }

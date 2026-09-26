@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Link } from '@/i18n/routing'
-import { env } from '@/lib/env'
+import { getShippingSettings } from '@/lib/shop-settings'
 import { formatTWD } from '@/lib/utils'
 
 /**
@@ -30,7 +30,7 @@ export default async function FaqPage({ params }: { params: Promise<{ locale: st
   const { locale } = await params
   setRequestLocale(locale)
 
-  const t = await getTranslations('faq')
+  const [t, shipping] = await Promise.all([getTranslations('faq'), getShippingSettings()])
 
   const groups: { title: string; items: FaqItem[] }[] = [
     {
@@ -47,9 +47,9 @@ export default async function FaqPage({ params }: { params: Promise<{ locale: st
         {
           q: t('q_fee'),
           a: t('a_fee', {
-            cvs: formatTWD(env.SHIPPING_FEE_CVS),
-            home: formatTWD(env.SHIPPING_FEE_HOME),
-            threshold: formatTWD(env.FREE_SHIPPING_THRESHOLD),
+            cvs: formatTWD(shipping.cvsFee),
+            home: formatTWD(shipping.homeFee),
+            threshold: formatTWD(shipping.freeShippingThreshold),
           }),
         },
         { q: t('q_dispatch'), a: t('a_dispatch') },

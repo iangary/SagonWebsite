@@ -2,15 +2,16 @@ import 'server-only'
 import type { LogisticsSubType, ShippingMethod } from '@prisma/client'
 import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
-import { shopConfig } from '@/lib/shop-config'
 import { getOrCreateCart } from '@/lib/cart'
 import { enqueue } from '@/lib/queue'
 import { generateMerchantTradeNo } from '@/lib/ecpay/aio'
 import {
   getPaymentSettings,
+  getShippingSettings,
   holdMinutesFor,
   isBankTransferAvailable,
   isCodAvailable,
+  shippingFeesOf,
   type PaymentChoice,
 } from '@/lib/shop-settings'
 import { formatTransferDeadline } from './bank-transfer'
@@ -111,7 +112,7 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
     }
   }
 
-  const settings = await getPaymentSettings()
+  const [settings, shipping] = await Promise.all([getPaymentSettings(), getShippingSettings()])
   const isCod = input.choosePayment === 'COD'
   // 匯款到公司帳戶：訂單一樣要等錢進來才出貨，但錢不經綠界，
   // 帳號在下單當下就已經知道，所以不必去收銀台、也不會有取號通知。
@@ -120,8 +121,8 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
   const pricing = calculatePricing({
     lines,
     shippingMethod: input.shippingMethod,
-    shippingFees: shopConfig.shippingFee,
-    freeShippingThreshold: shopConfig.freeShippingThreshold,
+    shippingFees: shippingFeesOf(shipping),
+    freeShippingThreshold: shipping.freeShippingThreshold,
     coupon,
     codFee: isCod ? settings.codFee : 0,
   })

@@ -1,5 +1,4 @@
 import 'server-only'
-import { shopConfig } from '@/lib/shop-config'
 import { absoluteUrl, siteUrl } from '@/lib/seo/structured-data'
 
 /**
@@ -77,7 +76,7 @@ function variantAttributes(options: unknown): { color?: string; size?: string } 
   }
 }
 
-function itemXml(product: FeedProduct, variant: FeedVariant): string {
+function itemXml(product: FeedProduct, variant: FeedVariant, shippingFee: number): string {
   const link = absoluteUrl(`/product/${product.slug}`)
   const [cover, ...rest] = product.images
 
@@ -118,15 +117,23 @@ function itemXml(product: FeedProduct, variant: FeedVariant): string {
     tag('g:identifier_exists', 'no'),
     ...(color ? [tag('g:color', color)] : []),
     ...(size ? [tag('g:size', size)] : []),
-    `<g:shipping>${tag('g:country', 'TW')}${tag('g:price', `${shopConfig.shippingFee.HOME} TWD`)}</g:shipping>`,
+    `<g:shipping>${tag('g:country', 'TW')}${tag('g:price', `${shippingFee} TWD`)}</g:shipping>`,
   ]
 
   return `<item>${parts.join('')}</item>`
 }
 
-export function buildProductFeed(products: FeedProduct[], shopTitle: string): string {
+/**
+ * @param shippingFee 報給 Google 的運費。用宅配價：Merchant Center 一個國家只收一個價，
+ *   報較高的那個，客人結帳時只會更便宜、不會更貴。
+ */
+export function buildProductFeed(
+  products: FeedProduct[],
+  shopTitle: string,
+  shippingFee: number,
+): string {
   const items = products
-    .flatMap((p) => p.variants.map((v) => itemXml(p, v)))
+    .flatMap((p) => p.variants.map((v) => itemXml(p, v, shippingFee)))
     .join('\n')
 
   return `<?xml version="1.0" encoding="UTF-8"?>

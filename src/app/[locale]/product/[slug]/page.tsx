@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Link } from '@/i18n/routing'
-import { env } from '@/lib/env'
+import { getShippingSettings } from '@/lib/shop-settings'
 import { formatTWD, truncate } from '@/lib/utils'
 import {
   breadcrumbJsonLd,
@@ -70,12 +70,13 @@ export default async function ProductPage({
   const product = await getProductBySlug(decodeURIComponent(slug))
   if (!product) notFound()
 
-  const [t, tNav, tCommon, related, reviewStats] = await Promise.all([
+  const [t, tNav, tCommon, related, reviewStats, shipping] = await Promise.all([
     getTranslations('product'),
     getTranslations('nav'),
     getTranslations('common'),
     getRelatedProducts(product),
     getProductReviewStats(product.id),
+    getShippingSettings(),
   ])
 
   const name = localizedName(locale, product)
@@ -126,6 +127,7 @@ export default async function ProductPage({
       name,
       description: truncate(product.summary ?? name, 300),
       reviewStats,
+      shipping,
     }),
     breadcrumbJsonLd(breadcrumbTrail),
   ]
@@ -201,7 +203,7 @@ export default async function ProductPage({
                   {tCommon('colon')}
                 </dt>
                 <dd className="inline">
-                  {t('freeShippingValue', { amount: formatTWD(env.FREE_SHIPPING_THRESHOLD) })}
+                  {t('freeShippingValue', { amount: formatTWD(shipping.freeShippingThreshold) })}
                 </dd>
               </div>
             </dl>

@@ -1,10 +1,10 @@
 import { getLocale, getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/routing'
 import { db } from '@/lib/db'
-import { env } from '@/lib/env'
 import { formatTWD } from '@/lib/utils'
 import { localizedName } from '@/lib/i18n/localized'
 import { shopName } from '@/lib/shop-config'
+import { getShippingSettings } from '@/lib/shop-settings'
 import { HeaderActions } from './header-actions'
 import { MobileNav } from './mobile-nav'
 
@@ -32,11 +32,12 @@ async function getNavCategories() {
 }
 
 export async function SiteHeader() {
-  const [t, tAnnouncement, locale, categories] = await Promise.all([
+  const [t, tAnnouncement, locale, categories, shipping] = await Promise.all([
     getTranslations('nav'),
     getTranslations('announcement'),
     getLocale(),
     getNavCategories(),
+    getShippingSettings(),
   ])
 
   const navLinks = [
@@ -53,7 +54,7 @@ export async function SiteHeader() {
     <header className="sticky top-0 z-50 border-b border-cream-200 bg-cream-50/95 backdrop-blur">
       {/* 公告列：免運門檻 */}
       <div className="bg-ink-900 px-4 py-2 text-center text-xs tracking-wide text-cream-100">
-        {tAnnouncement('freeShipping', { amount: formatTWD(env.FREE_SHIPPING_THRESHOLD) })}
+        {tAnnouncement('freeShipping', { amount: formatTWD(shipping.freeShippingThreshold) })}
       </div>
 
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">

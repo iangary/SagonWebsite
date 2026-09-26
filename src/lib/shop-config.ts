@@ -2,21 +2,16 @@ import 'server-only'
 import { env } from '@/lib/env'
 import { pickLocalized } from '@/lib/i18n/localized'
 
-/** 商店層級的營運參數，集中一處方便後台日後改成 DB 設定。 */
+/**
+ * 商店的基本資料（部署層，來自環境變數）。
+ * 運費、免運門檻與付款期限是營運數字，在後台改，見 lib/shop-settings.ts。
+ */
 export const shopConfig = {
   name: env.SHOP_NAME,
   nameEn: env.SHOP_NAME_EN,
   taxId: env.SHOP_TAX_ID,
   serviceEmail: env.SHOP_SERVICE_EMAIL,
-  shippingFee: {
-    CVS: env.SHIPPING_FEE_CVS,
-    HOME: env.SHIPPING_FEE_HOME,
-  },
-  freeShippingThreshold: env.FREE_SHIPPING_THRESHOLD,
-  stockReservationMinutes: env.STOCK_RESERVATION_MINUTES,
 } as const
-
-export type ShippingMethodKey = keyof typeof shopConfig.shippingFee
 
 /**
  * LINE 官方帳號（退款與退換貨的客服入口）。

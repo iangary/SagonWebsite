@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { availableStock } from '@/lib/cart'
 import { shopConfig } from '@/lib/shop-config'
+import { getShippingSettings } from '@/lib/shop-settings'
 import { buildProductFeed, type FeedProduct } from '@/lib/seo/product-feed'
 
 /**
@@ -14,35 +15,38 @@ import { buildProductFeed, type FeedProduct } from '@/lib/seo/product-feed'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const products = await db.product.findMany({
-    where: {
-      status: 'ACTIVE',
-      // 沒有可售變體的商品送進去只會被 Merchant Center 退件
-      variants: { some: { isActive: true } },
-    },
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      summary: true,
-      basePrice: true,
-      images: { select: { url: true }, orderBy: { sortOrder: 'asc' } },
-      brand: { select: { name: true } },
-      variants: {
-        where: { isActive: true },
-        orderBy: { sortOrder: 'asc' },
-        select: {
-          sku: true,
-          name: true,
-          options: true,
-          price: true,
-          compareAtPrice: true,
-          stock: true,
-          reservedStock: true,
+  const [products, shipping] = await Promise.all([
+    db.product.findMany({
+      where: {
+        status: 'ACTIVE',
+        // 沒有可售變體的商品送進去只會被 Merchant Center 退件
+        variants: { some: { isActive: true } },
+      },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        summary: true,
+        basePrice: true,
+        images: { select: { url: true }, orderBy: { sortOrder: 'asc' } },
+        brand: { select: { name: true } },
+        variants: {
+          where: { isActive: true },
+          orderBy: { sortOrder: 'asc' },
+          select: {
+            sku: true,
+            name: true,
+            options: true,
+            price: true,
+            compareAtPrice: true,
+            stock: true,
+            reservedStock: true,
+          },
         },
       },
-    },
-  })
+    }),
+    getShippingSettings(),
+  ])
 
   const feedProducts: FeedProduct[] = products.map((p) => ({
     ...p,
@@ -56,7 +60,7 @@ export async function GET() {
     })),
   }))
 
-  const xml = buildProductFeed(feedProducts, shopConfig.name)
+  const xml = buildProductFeed(feedProducts, shopConfig.name, shipping.homeFee)
 
   return new Response(xml, {
     headers: {

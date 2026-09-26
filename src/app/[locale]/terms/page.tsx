@@ -3,6 +3,11 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Link } from '@/i18n/routing'
 import { env } from '@/lib/env'
 import { formatTWD } from '@/lib/utils'
+import {
+  getPaymentSettings,
+  getShippingSettings,
+  isBankTransferAvailable,
+} from '@/lib/shop-settings'
 import { LegalPage, type LegalSection } from '@/components/legal/legal-page'
 
 export const revalidate = 3600
@@ -20,6 +25,8 @@ export async function generateMetadata({
 export default async function TermsPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
   setRequestLocale(locale)
+
+  const [shipping, payment] = await Promise.all([getShippingSettings(), getPaymentSettings()])
 
   const sections: LegalSection[] = [
     {
@@ -57,18 +64,25 @@ export default async function TermsPage({ params }: { params: Promise<{ locale: 
       title: '訂單成立與買賣契約',
       blocks: [
         '您於本站送出訂單，屬於向本站提出購買的要約；本站收到金流機構的付款成功通知並確認入帳後，買賣契約始為成立，訂單狀態會轉為「已付款」。',
-        '在您完成付款之前，本站僅為您暫時保留庫存：',
+        '在您完成付款之前，本站僅為您暫時保留庫存，保留期間即為該付款方式的繳費期限：',
         {
+          // 與 holdMinutesFor（lib/shop-settings.ts）一致，後台改期限這裡會跟著動
           terms: [
             {
-              term: '信用卡、超商代碼繳費',
-              description: `保留 ${env.STOCK_RESERVATION_MINUTES} 分鐘。`,
+              term: '信用卡',
+              description: `保留 ${payment.creditHoldMinutes} 分鐘。`,
+            },
+            {
+              term: '超商代碼／條碼繳費',
+              description: `保留 ${payment.cvsExpireDays} 天。`,
             },
             {
               term: 'ATM 虛擬帳號轉帳',
-              description:
-                '保留 1 天。因綠界的虛擬帳號繳費期限以「日」為單位計算，最短為 1 天，庫存保留期間比照辦理。',
+              description: `保留 ${payment.atmExpireDays} 天。`,
             },
+            ...(isBankTransferAvailable(payment)
+              ? [{ term: '匯款到公司帳戶', description: `保留 ${payment.bankExpireDays} 天。` }]
+              : []),
           ],
         },
         '逾期未完成付款的訂單將自動取消並釋放庫存，屆時該商品可能已被其他消費者購買。訂單成立後恕不接受自行修改；如需協助，請於出貨前聯繫客服。',
@@ -109,15 +123,15 @@ export default async function TermsPage({ params }: { params: Promise<{ locale: 
           terms: [
             {
               term: '超商取貨',
-              description: `運費 ${formatTWD(env.SHIPPING_FEE_CVS)}，支援 7-ELEVEN、全家、萊爾富、OK 超商。`,
+              description: `運費 ${formatTWD(shipping.cvsFee)}，支援 7-ELEVEN、全家、萊爾富、OK 超商。`,
             },
             {
               term: '宅配到府',
-              description: `運費 ${formatTWD(env.SHIPPING_FEE_HOME)}，由黑貓宅急便配送。`,
+              description: `運費 ${formatTWD(shipping.homeFee)}，由黑貓宅急便配送。`,
             },
             {
               term: '免運門檻',
-              description: `單筆訂單消費滿 ${formatTWD(env.FREE_SHIPPING_THRESHOLD)} 免運費。`,
+              description: `單筆訂單消費滿 ${formatTWD(shipping.freeShippingThreshold)} 免運費。`,
             },
           ],
         },

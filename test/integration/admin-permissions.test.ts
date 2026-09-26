@@ -145,6 +145,14 @@ const ADMIN_ACTIONS: AdminActionCase[] = [
         formDataFrom({ codEnabled: 'on', cod_CVS: 'on', codFee: '0' }),
       ),
   },
+  {
+    name: 'settings.saveShippingSettingsAction',
+    run: () =>
+      settingsActions.saveShippingSettingsAction(
+        { ok: false },
+        formDataFrom({ cvsFee: '0', homeFee: '0', freeShippingThreshold: '1' }),
+      ),
+  },
 
   // --- src/app/admin/products/actions.ts ---
   {

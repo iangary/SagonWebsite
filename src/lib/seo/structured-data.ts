@@ -1,6 +1,7 @@
 import 'server-only'
 import { env } from '@/lib/env'
 import { shopConfig, shopName } from '@/lib/shop-config'
+import type { ShippingSettings } from '@/lib/shop-settings'
 
 /**
  * schema.org 結構化資料的產生器。
@@ -29,13 +30,13 @@ export function serializeJsonLd(data: unknown): string {
   return JSON.stringify(data).replace(/</g, '\\u003c')
 }
 
-// ── 運送與退貨：值一律取自 shopConfig 與實際政策頁，不在這裡另外寫死 ──
+// ── 運送與退貨：值一律取自後台運費設定與實際政策頁，不在這裡另外寫死 ──
 
 /**
- * 運送方式與費率。對應 shopConfig.shippingFee 與免運門檻，
- * 改 SHIPPING_FEE_* 或 FREE_SHIPPING_THRESHOLD 這裡會跟著動。
+ * 運送方式與費率。由呼叫端傳入後台的運費設定（getShippingSettings），
+ * 後台改運費或免運門檻，這裡會跟著動。
  */
-function shippingDetails() {
+function shippingDetails(settings: ShippingSettings) {
   const destination = { '@type': 'DefinedRegion', addressCountry: 'TW' }
 
   const rate = (value: number, label: string) => ({
@@ -46,8 +47,8 @@ function shippingDetails() {
   })
 
   return [
-    rate(shopConfig.shippingFee.CVS, '超商取貨'),
-    rate(shopConfig.shippingFee.HOME, '宅配'),
+    rate(settings.cvsFee, '超商取貨'),
+    rate(settings.homeFee, '宅配'),
     {
       '@type': 'OfferShippingDetails',
       name: '滿額免運',
@@ -58,7 +59,7 @@ function shippingDetails() {
         // 滿 freeShippingThreshold 免運（見 lib/orders/pricing.ts）
         eligibleTransactionVolume: {
           '@type': 'PriceSpecification',
-          minPrice: shopConfig.freeShippingThreshold,
+          minPrice: settings.freeShippingThreshold,
           priceCurrency: 'TWD',
         },
       },
@@ -103,14 +104,16 @@ export function productJsonLd({
   name,
   description,
   reviewStats,
+  shipping: shippingSettings,
 }: {
   product: ProductForJsonLd
   name: string
   description: string
   reviewStats: { average: number; total: number }
+  shipping: ShippingSettings
 }) {
   const url = absoluteUrl(`/product/${product.slug}`)
-  const shipping = shippingDetails()
+  const shipping = shippingDetails(shippingSettings)
   const returns = returnPolicy()
 
   return {

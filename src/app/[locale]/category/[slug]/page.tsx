@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { getCategoryBySlug } from '@/lib/catalog/queries'
-import { env } from '@/lib/env'
+import { getShippingSettings } from '@/lib/shop-settings'
 import { formatTWD } from '@/lib/utils'
 import { shopName } from '@/lib/shop-config'
 import { localizedName } from '@/lib/i18n/localized'
@@ -24,7 +24,11 @@ export async function generateMetadata({
   const category = await getCategoryBySlug(decodeURIComponent(slug))
   if (!category) return {}
 
-  const [t, sp] = await Promise.all([getTranslations({ locale, namespace: 'seo' }), searchParams])
+  const [t, sp, shipping] = await Promise.all([
+    getTranslations({ locale, namespace: 'seo' }),
+    searchParams,
+    getShippingSettings(),
+  ])
   const name = localizedName(locale, category)
 
   return {
@@ -41,7 +45,7 @@ export async function generateMetadata({
       count: category._count.products,
       name,
       shop: shopName(locale),
-      threshold: formatTWD(env.FREE_SHIPPING_THRESHOLD),
+      threshold: formatTWD(shipping.freeShippingThreshold),
     }),
     alternates: { canonical: `/category/${category.slug}` },
     openGraph: { type: 'website', title: name },

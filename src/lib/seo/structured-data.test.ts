@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { breadcrumbJsonLd, productJsonLd, serializeJsonLd, siteJsonLd } from './structured-data'
 
+const SHIPPING = { cvsFee: 65, homeFee: 130, freeShippingThreshold: 2000 }
+
 /**
  * 這幾條測試守的是「Google 會不會判我們造假」這件事，不是格式好不好看。
  * 特別是 aggregateRating —— 頁面顯示與結構化資料對不上會失去複合式搜尋結果資格。
@@ -23,6 +25,7 @@ function build(reviewStats: { average: number; total: number }) {
     name: '真絲睡衣套組',
     description: '100% 桑蠶絲睡衣套組',
     reviewStats,
+    shipping: SHIPPING,
   })
 }
 
@@ -81,12 +84,23 @@ describe('productJsonLd', () => {
     }
   })
 
+  it('運費與免運門檻取自傳進來的運費設定', () => {
+    const [cvs, home, free] = build({ average: 0, total: 0 }).offers[0].shippingDetails
+    expect(cvs.shippingRate.value).toBe(65)
+    expect(home.shippingRate.value).toBe(130)
+    expect(free.shippingRate).toMatchObject({
+      value: 0,
+      eligibleTransactionVolume: { minPrice: 2000 },
+    })
+  })
+
   it('沒有品牌時不輸出空的 brand 欄位', () => {
     const ld = productJsonLd({
       product: { ...baseProduct, brand: null },
       name: '無品牌商品',
       description: '',
       reviewStats: { average: 0, total: 0 },
+      shipping: SHIPPING,
     })
     expect(ld).not.toHaveProperty('brand')
   })

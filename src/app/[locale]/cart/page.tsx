@@ -3,7 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { getCart, availableStock } from '@/lib/cart'
-import { shopConfig } from '@/lib/shop-config'
+import { getShippingSettings, shippingFeesOf } from '@/lib/shop-settings'
 import { localizedName } from '@/lib/i18n/localized'
 import { calculatePricing } from '@/lib/orders/pricing'
 import { CartView } from './cart-view'
@@ -24,7 +24,7 @@ export default async function CartPage({ params }: { params: Promise<{ locale: s
   const { locale } = await params
   setRequestLocale(locale)
 
-  const [cart, session] = await Promise.all([getCart(), auth()])
+  const [cart, session, shipping] = await Promise.all([getCart(), auth(), getShippingSettings()])
 
   const coupon = cart.couponCode
     ? await db.coupon.findUnique({ where: { code: cart.couponCode } })
@@ -38,8 +38,8 @@ export default async function CartPage({ params }: { params: Promise<{ locale: s
       qty: i.qty,
     })),
     shippingMethod: 'CVS',
-    shippingFees: shopConfig.shippingFee,
-    freeShippingThreshold: shopConfig.freeShippingThreshold,
+    shippingFees: shippingFeesOf(shipping),
+    freeShippingThreshold: shipping.freeShippingThreshold,
     coupon,
   })
 
@@ -61,7 +61,7 @@ export default async function CartPage({ params }: { params: Promise<{ locale: s
       items={items}
       pricing={pricing}
       couponCode={cart.couponCode}
-      freeShippingThreshold={shopConfig.freeShippingThreshold}
+      freeShippingThreshold={shipping.freeShippingThreshold}
       isMember={Boolean(session?.user?.id)}
     />
   )

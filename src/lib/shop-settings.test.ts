@@ -7,6 +7,8 @@ import {
   isCodAvailable,
   isPaymentChoice,
   paymentSettingsSchema,
+  shippingFeesOf,
+  shippingSettingsSchema,
   CVS_COLLECTION_MAX,
   type PaymentSettings,
 } from './shop-settings'
@@ -50,6 +52,31 @@ describe('paymentSettingsSchema', () => {
   })
 })
 
+describe('shippingSettingsSchema', () => {
+  it('空物件補出綠界／黑貓的實收價與預設免運門檻', () => {
+    expect(shippingSettingsSchema.parse({})).toEqual({
+      cvsFee: 65,
+      homeFee: 130,
+      freeShippingThreshold: 2000,
+    })
+  })
+
+  it('舊資料少一欄時只補那一欄', () => {
+    expect(shippingSettingsSchema.parse({ cvsFee: 70 })).toMatchObject({ cvsFee: 70, homeFee: 130 })
+  })
+
+  it('負數運費與 0 元門檻都擋下', () => {
+    expect(shippingSettingsSchema.safeParse({ cvsFee: -1 }).success).toBe(false)
+    expect(shippingSettingsSchema.safeParse({ freeShippingThreshold: 0 }).success).toBe(false)
+    // 運費 0 是合法的（店家全額吸收）
+    expect(shippingSettingsSchema.safeParse({ homeFee: 0 }).success).toBe(true)
+  })
+
+  it('shippingFeesOf 轉成 calculatePricing 要的形狀', () => {
+    expect(shippingFeesOf(shippingSettingsSchema.parse({}))).toEqual({ CVS: 65, HOME: 130 })
+  })
+})
+
 describe('holdMinutesFor — 庫存要保留多久', () => {
   it('超商與 ATM 跟著設定的天數走', () => {
     const s = settings({ cvsExpireDays: 2, atmExpireDays: 3 })
@@ -66,10 +93,9 @@ describe('holdMinutesFor — 庫存要保留多久', () => {
     expect(holdMinutesFor('COD', settings())).toBe(0)
   })
 
-  it('信用卡只需要留住填卡號的那幾分鐘', () => {
-    // FAKE_TEST_ENV 的 STOCK_RESERVATION_MINUTES
-    expect(holdMinutesFor('Credit', settings())).toBeGreaterThan(0)
-    expect(holdMinutesFor('Credit', settings())).toBeLessThan(24 * 60)
+  it('信用卡只需要留住填卡號的那幾分鐘，跟著後台設定走', () => {
+    expect(holdMinutesFor('Credit', settings())).toBe(30)
+    expect(holdMinutesFor('Credit', settings({ creditHoldMinutes: 90 }))).toBe(90)
   })
 })
 

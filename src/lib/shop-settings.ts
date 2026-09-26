@@ -1,17 +1,62 @@
 import 'server-only'
+import { cache } from 'react'
 import { z } from 'zod'
 import { db } from '@/lib/db'
-import { env } from '@/lib/env'
 
 /**
- * 後台可改的付款設定。
+ * 後台可改的營運設定（付款、運費）。
  *
- * 與 shop-config.ts 的分工：那裡是「部署層」的設定（金鑰、網域、運費），
- * 改了要重新部署；這裡是「營運層」的設定（要不要開放貨到付款、繳費期限幾天），
+ * 與 shop-config.ts 的分工：那裡是「部署層」的設定（金鑰、網域、店名），
+ * 改了要重新部署；這裡是「營運層」的設定（要不要開放貨到付款、繳費期限幾天、運費多少），
  * 店長在後台就能改，存在 shop_settings 這張表。
  *
  * 值用 zod 解析並補預設值 —— 加欄位不必跑 migration，舊資料少一欄也不會壞。
  */
+
+// ── 運費 ──
+
+export const SHIPPING_SETTINGS_KEY = 'shipping'
+
+export const shippingSettingsSchema = z.object({
+  /**
+   * 超商取貨運費（元）。預設 65 是綠界超商取貨的實收價 ——
+   * 設得比它低，差額就是店家自己吸收。
+   */
+  cvsFee: z.number().int().min(0).max(1000).default(65),
+  /** 宅配運費（元）。預設 130 是黑貓宅急便本島常溫的起價，離島與大件另計。 */
+  homeFee: z.number().int().min(0).max(1000).default(130),
+  /** 單筆商品金額（折扣後）滿這個數字免運，見 lib/orders/pricing.ts */
+  freeShippingThreshold: z.number().int().min(1).max(100_000).default(2000),
+})
+
+export type ShippingSettings = z.infer<typeof shippingSettingsSchema>
+
+export const DEFAULT_SHIPPING_SETTINGS: ShippingSettings = shippingSettingsSchema.parse({})
+
+/**
+ * 讀出運費設定。沒有紀錄或內容壞掉時回預設值。
+ *
+ * 用 React cache() 包住：公告列在每一頁都會讀，同一個 request 裡商品頁、
+ * JSON-LD 又各讀一次，這樣只查一次資料庫。刻意不做跨 request 的快取 ——
+ * 這是主鍵查詢，而後台改完運費就該立刻看到。
+ */
+export const getShippingSettings = cache(async (): Promise<ShippingSettings> => {
+  return readSetting(SHIPPING_SETTINGS_KEY, shippingSettingsSchema, DEFAULT_SHIPPING_SETTINGS, '運費')
+})
+
+export async function saveShippingSettings(
+  input: ShippingSettings,
+  updatedById: string,
+): Promise<void> {
+  await writeSetting(SHIPPING_SETTINGS_KEY, input, updatedById)
+}
+
+/** 轉成 calculatePricing 要的 { CVS, HOME } 形狀 */
+export function shippingFeesOf(settings: ShippingSettings): { CVS: number; HOME: number } {
+  return { CVS: settings.cvsFee, HOME: settings.homeFee }
+}
+
+// ── 付款 ──
 
 export const PAYMENT_SETTINGS_KEY = 'payment'
 
@@ -77,6 +122,11 @@ export const paymentSettingsSchema = z.object({
   cvsExpireDays: z.number().int().min(1).max(30).default(2),
   /** ATM 虛擬帳號的付款期限（天）。綠界的單位就是天，下限 1 天。 */
   atmExpireDays: z.number().int().min(1).max(30).default(2),
+  /**
+   * 信用卡訂單保留庫存的分鐘數。信用卡當場刷完，這段時間只是讓消費者
+   * 在綠界付款頁填卡號、過 3D 驗證；逾時未付就取消並釋放庫存。
+   */
+  creditHoldMinutes: z.number().int().min(10).max(1440).default(30),
 
   /**
    * 取貨後多少天內還能退款。
@@ -97,35 +147,49 @@ export const DEFAULT_PAYMENT_SETTINGS: PaymentSettings = paymentSettingsSchema.p
  * 設定讀不到不該讓整個結帳流程掛掉。
  */
 export async function getPaymentSettings(): Promise<PaymentSettings> {
-  let row: { value: unknown } | null = null
-  try {
-    row = await db.shopSetting.findUnique({
-      where: { key: PAYMENT_SETTINGS_KEY },
-      select: { value: true },
-    })
-  } catch (error) {
-    console.error('[settings] 讀取付款設定失敗，改用預設值', error)
-    return DEFAULT_PAYMENT_SETTINGS
-  }
-
-  if (!row) return DEFAULT_PAYMENT_SETTINGS
-
-  const parsed = paymentSettingsSchema.safeParse(row.value)
-  if (!parsed.success) {
-    console.error('[settings] 付款設定格式不符，改用預設值', parsed.error.issues)
-    return DEFAULT_PAYMENT_SETTINGS
-  }
-  return parsed.data
+  return readSetting(PAYMENT_SETTINGS_KEY, paymentSettingsSchema, DEFAULT_PAYMENT_SETTINGS, '付款')
 }
 
 export async function savePaymentSettings(
   input: PaymentSettings,
   updatedById: string,
 ): Promise<void> {
+  await writeSetting(PAYMENT_SETTINGS_KEY, input, updatedById)
+}
+
+async function readSetting<T>(
+  key: string,
+  schema: z.ZodType<T>,
+  fallback: T,
+  label: string,
+): Promise<T> {
+  let row: { value: unknown } | null = null
+  try {
+    row = await db.shopSetting.findUnique({ where: { key }, select: { value: true } })
+  } catch (error) {
+    console.error(`[settings] 讀取${label}設定失敗，改用預設值`, error)
+    return fallback
+  }
+
+  if (!row) return fallback
+
+  const parsed = schema.safeParse(row.value)
+  if (!parsed.success) {
+    console.error(`[settings] ${label}設定格式不符，改用預設值`, parsed.error.issues)
+    return fallback
+  }
+  return parsed.data
+}
+
+async function writeSetting(
+  key: string,
+  value: PaymentSettings | ShippingSettings,
+  updatedById: string,
+): Promise<void> {
   await db.shopSetting.upsert({
-    where: { key: PAYMENT_SETTINGS_KEY },
-    create: { key: PAYMENT_SETTINGS_KEY, value: input, updatedById },
-    update: { value: input, updatedById },
+    where: { key },
+    create: { key, value, updatedById },
+    update: { value, updatedById },
   })
 }
 
@@ -195,7 +259,7 @@ export function isPaymentChoice(value: string): value is PaymentChoice {
 /**
  * 這個付款方式實際上會被綠界／我們保留多久（分鐘）。
  *
- * 庫存預扣一定要用這個值，不能用 STOCK_RESERVATION_MINUTES ——
+ * 庫存預扣一定要用這個值，不能一律用信用卡的保留分鐘數 ——
  * 超商代碼給消費者 2 天，庫存卻只留 30 分鐘的話，訂單會在第 31 分鐘
  * 被排程取消，消費者兩天後拿著有效代碼去繳費，錢收了但沒貨可出。
  */
@@ -213,6 +277,6 @@ export function holdMinutesFor(choice: PaymentChoice, settings: PaymentSettings)
       return 0
     case 'Credit':
       // 信用卡當場刷完，只需要留住「填卡號的那幾分鐘」
-      return env.STOCK_RESERVATION_MINUTES
+      return settings.creditHoldMinutes
   }
 }

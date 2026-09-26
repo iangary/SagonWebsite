@@ -7,6 +7,7 @@ vi.mock('next/cache', async () => (await import('./mocks')).nextCacheMockModule(
 
 import { db } from '@/lib/db'
 import { createOrderFromCart, type CreateOrderInput, type CreateOrderResult } from '@/lib/orders/create'
+import { DEFAULT_SHIPPING_SETTINGS, saveShippingSettings } from '@/lib/shop-settings'
 import {
   createTestCart,
   createTestCoupon,
@@ -47,6 +48,13 @@ async function seedGuestCart(items: Array<{ variantId: string; qty: number }>) {
   mockAuthUser(null)
   return cart
 }
+
+/**
+ * 每個測試前整庫 TRUNCATE，shop_settings 是空的 → 運費走預設值。
+ * 金額斷言從預設值推，後台預設值改了這裡不必跟著改數字。
+ */
+const { cvsFee: CVS_FEE, homeFee: HOME_FEE, freeShippingThreshold: FREE_THRESHOLD } =
+  DEFAULT_SHIPPING_SETTINGS
 
 function baseInput(overrides: Partial<CreateOrderInput> = {}): CreateOrderInput {
   return {
@@ -112,16 +120,17 @@ describe('createOrderFromCart — happy path', () => {
     const before = Date.now()
     const result = assertOk(await createOrderFromCart(baseInput({ choosePayment: 'CVS' })))
 
-    // 1000 未達免運門檻（1500）→ 超商運費 60
-    expect(result.grandTotal).toBe(1060)
+    // 1000 未達免運門檻 → 加超商運費
+    expect(FREE_THRESHOLD).toBeGreaterThan(1000)
+    expect(result.grandTotal).toBe(1000 + CVS_FEE)
 
     const order = await reloadOrder(result.orderId)
     expect(order.orderNo).toBe(result.orderNo)
     expect(order.orderNo).toMatch(/^[A-Z0-9]{1,20}$/)
     expect(order.status).toBe('PENDING_PAYMENT')
     expect(order.subtotal).toBe(1000)
-    expect(order.shippingFee).toBe(60)
-    expect(order.grandTotal).toBe(1060)
+    expect(order.shippingFee).toBe(CVS_FEE)
+    expect(order.grandTotal).toBe(1000 + CVS_FEE)
 
     // 商品快照
     expect(order.items).toHaveLength(1)
@@ -138,7 +147,7 @@ describe('createOrderFromCart — happy path', () => {
     expect(order.payment?.merchantTradeNo).toBe(order.orderNo)
     expect(order.payment?.merchantTradeNo).toMatch(/^[A-Z0-9]{1,20}$/)
     expect(order.payment?.choosePayment).toBe('CVS')
-    expect(order.payment?.amount).toBe(1060)
+    expect(order.payment?.amount).toBe(1000 + CVS_FEE)
 
     // 物流：超商門市欄位
     expect(order.shipment?.logisticsType).toBe('CVS')
@@ -153,9 +162,9 @@ describe('createOrderFromCart — happy path', () => {
 
     // 發票（人工）與電子收據都先建 PENDING 紀錄
     expect(order.invoice?.status).toBe('PENDING')
-    expect(order.invoice?.amount).toBe(1060)
+    expect(order.invoice?.amount).toBe(1000 + CVS_FEE)
     expect(order.receipt?.status).toBe('PENDING')
-    expect(order.receipt?.amount).toBe(1060)
+    expect(order.receipt?.amount).toBe(1000 + CVS_FEE)
 
     // 預扣：超商代碼的繳費期限預設 2 天（後台可調），預扣必須跟著一樣長 ——
     // 否則會發生「代碼還有效、庫存卻被排程釋放」。
@@ -197,7 +206,7 @@ describe('createOrderFromCart — happy path', () => {
     expect(order.addressCity).toBe('台北市')
     // 訂單存「區 + 路段」，city 另存一欄
     expect(order.addressLine).toBe('中山區南京東路 1 號')
-    expect(order.shippingFee).toBe(120)
+    expect(order.shippingFee).toBe(HOME_FEE)
 
     expect(order.shipment?.logisticsType).toBe('HOME')
     expect(order.shipment?.logisticsSubType).toBe('TCAT')
@@ -218,19 +227,35 @@ describe('createOrderFromCart — happy path', () => {
   })
 
   it('金額一致性：grandTotal 貫穿付款/物流/收據，達免運門檻運費為 0', async () => {
-    // 800 x 2 = 1600 ≥ FREE_SHIPPING_THRESHOLD(1500) → 免運
-    const { variants } = await createTestProduct({ price: 800, stock: 10 })
+    // 1100 x 2 = 2200 ≥ 免運門檻 → 免運
+    const { variants } = await createTestProduct({ price: 1100, stock: 10 })
     await seedMemberCart([{ variantId: variants[0].id, qty: 2 }])
+    expect(2200).toBeGreaterThanOrEqual(FREE_THRESHOLD)
 
     const result = assertOk(await createOrderFromCart(baseInput()))
 
     const order = await reloadOrder(result.orderId)
     expect(order.shippingFee).toBe(0)
-    expect(order.grandTotal).toBe(1600)
-    expect(order.payment?.amount).toBe(1600)
-    expect(order.shipment?.goodsAmount).toBe(1600)
-    expect(order.receipt?.amount).toBe(1600)
-    expect(order.invoice?.amount).toBe(1600)
+    expect(order.grandTotal).toBe(2200)
+    expect(order.payment?.amount).toBe(2200)
+    expect(order.shipment?.goodsAmount).toBe(2200)
+    expect(order.receipt?.amount).toBe(2200)
+    expect(order.invoice?.amount).toBe(2200)
+  })
+
+  it('運費與免運門檻照後台設定算，不是寫死的數字', async () => {
+    const admin = await createTestUser()
+    await saveShippingSettings({ cvsFee: 80, homeFee: 150, freeShippingThreshold: 3000 }, admin.id)
+
+    // 2200 在預設門檻下會免運，門檻調到 3000 之後就要收運費
+    const { variants } = await createTestProduct({ price: 1100, stock: 10 })
+    await seedMemberCart([{ variantId: variants[0].id, qty: 2 }])
+
+    const result = assertOk(await createOrderFromCart(homeInput()))
+
+    const order = await reloadOrder(result.orderId)
+    expect(order.shippingFee).toBe(150)
+    expect(order.grandTotal).toBe(2350)
   })
 
   it('email 一律轉小寫存入', async () => {
@@ -315,8 +340,8 @@ describe('createOrderFromCart — 折扣碼', () => {
 
     const order = await reloadOrder(result.orderId)
     expect(order.discountTotal).toBe(100)
-    // 1000 - 100 = 900 未達免運 → +60
-    expect(order.grandTotal).toBe(960)
+    // 1000 - 100 = 900 未達免運 → 加超商運費
+    expect(order.grandTotal).toBe(900 + CVS_FEE)
     expect(order.couponId).toBe(coupon.id)
 
     const freshCoupon = await db.coupon.findUniqueOrThrow({ where: { id: coupon.id } })
