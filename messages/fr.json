@@ -123,7 +123,15 @@
     "couponAppliedCode": "Code « {code} » appliqué",
     "couponFailed": "Ce code promo n’est pas valable",
     "memberOnlyNotice": "La commande nécessite un compte client : l’étape suivante vous invitera d’abord à vous inscrire.",
-    "loginToCheckout": "Vous avez déjà un compte ? Connectez-vous"
+    "loginToCheckout": "Vous avez déjà un compte ? Connectez-vous",
+    "pendingTitle": "{count, plural, one {Vous avez # commande non réglée} other {Vous avez # commandes non réglées}}",
+    "pendingNote": "Passé le délai, les commandes non réglées sont annulées automatiquement et les articles ne vous sont plus réservés.",
+    "pendingItems": "{count, plural, one {# article} other {# articles}}",
+    "pendingHoldUntil": "Articles réservés jusqu’au {deadline}",
+    "pendingPayBy": "Merci de régler avant le {deadline}",
+    "pendingPay": "Payer maintenant",
+    "pendingDetail": "Détails de la commande",
+    "pendingViewPayment": "Voir les infos de paiement"
   },
   "checkout": {
     "title": "Commande",

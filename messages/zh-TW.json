@@ -123,7 +123,15 @@
     "couponAppliedCode": "已套用「{code}」",
     "couponFailed": "折扣碼無法使用",
     "memberOnlyNotice": "結帳需要會員帳號，下一步會請您先註冊。",
-    "loginToCheckout": "已經有帳號？直接登入"
+    "loginToCheckout": "已經有帳號？直接登入",
+    "pendingTitle": "您有 {count} 筆訂單尚未完成付款",
+    "pendingNote": "逾期未付款，訂單會自動取消，商品也不再為您保留。",
+    "pendingItems": "共 {count} 件",
+    "pendingHoldUntil": "商品保留至 {deadline}",
+    "pendingPayBy": "請於 {deadline} 前完成繳費",
+    "pendingPay": "前往付款",
+    "pendingDetail": "訂單明細",
+    "pendingViewPayment": "查看繳費資訊"
   },
   "checkout": {
     "title": "結帳",

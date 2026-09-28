@@ -123,7 +123,15 @@
     "couponAppliedCode": "“{code}” applied",
     "couponFailed": "This coupon cannot be used",
     "memberOnlyNotice": "Checkout requires an account — the next step is a quick registration.",
-    "loginToCheckout": "Already have one? Sign in"
+    "loginToCheckout": "Already have one? Sign in",
+    "pendingTitle": "{count, plural, one {You have # unpaid order} other {You have # unpaid orders}}",
+    "pendingNote": "Unpaid orders are cancelled automatically after the deadline, and the items are no longer held for you.",
+    "pendingItems": "{count, plural, one {# item} other {# items}}",
+    "pendingHoldUntil": "Items held until {deadline}",
+    "pendingPayBy": "Please pay by {deadline}",
+    "pendingPay": "Pay now",
+    "pendingDetail": "Order details",
+    "pendingViewPayment": "View payment info"
   },
   "checkout": {
     "title": "Checkout",

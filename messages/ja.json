@@ -123,7 +123,15 @@
     "couponAppliedCode": "「{code}」を適用しました",
     "couponFailed": "このクーポンコードはご利用いただけません",
     "memberOnlyNotice": "ご購入には会員登録が必要です。次のステップで会員登録をお願いします。",
-    "loginToCheckout": "アカウントをお持ちの方はこちらからログイン"
+    "loginToCheckout": "アカウントをお持ちの方はこちらからログイン",
+    "pendingTitle": "未払いのご注文が {count} 件あります",
+    "pendingNote": "お支払い期限を過ぎると注文は自動的にキャンセルされ、商品の確保も解除されます。",
+    "pendingItems": "計 {count} 点",
+    "pendingHoldUntil": "{deadline} まで商品を確保しています",
+    "pendingPayBy": "{deadline} までにお支払いください",
+    "pendingPay": "お支払いへ進む",
+    "pendingDetail": "注文詳細",
+    "pendingViewPayment": "お支払い情報を見る"
   },
   "checkout": {
     "title": "ご購入手続き",

@@ -34,6 +34,7 @@ export function CartView({
   couponCode,
   freeShippingThreshold,
   isMember,
+  pendingOrders,
 }: {
   items: CartItemView[]
   pricing: PricingResult
@@ -41,6 +42,8 @@ export function CartView({
   freeShippingThreshold: number
   /** 訪客也有購物車，但結帳需要會員 —— 決定結帳鈕要去結帳頁還是註冊頁 */
   isMember: boolean
+  /** 還沒付款的訂單提醒（server component），空車時也要顯示 */
+  pendingOrders: React.ReactNode
 }) {
   const t = useTranslations('cart')
   const router = useRouter()
@@ -74,15 +77,20 @@ export function CartView({
 
   if (items.length === 0) {
     return (
-      <div className="mx-auto flex max-w-md flex-col items-center px-6 py-28 text-center">
+      <>
         {/* 空狀態也要有 h1 —— 每頁一個 h1 是無障礙與 SEO 的底線 */}
         <h1 className="sr-only">{t('title')}</h1>
-        <ShoppingBag size={40} strokeWidth={1} className="text-taupe-400" />
-        <p className="mt-6 text-ink-700">{t('empty')}</p>
-        <Button asChild className="mt-8">
-          <Link href="/product/all">{t('emptyCta')}</Link>
-        </Button>
-      </div>
+        {pendingOrders && <div className="mx-auto max-w-3xl px-6 pt-12">{pendingOrders}</div>}
+        <div
+          className={`mx-auto flex max-w-md flex-col items-center px-6 text-center ${pendingOrders ? 'py-16' : 'py-28'}`}
+        >
+          <ShoppingBag size={40} strokeWidth={1} className="text-taupe-400" />
+          <p className="mt-6 text-ink-700">{t('empty')}</p>
+          <Button asChild className="mt-8">
+            <Link href="/product/all">{t('emptyCta')}</Link>
+          </Button>
+        </div>
+      </>
     )
   }
 
@@ -91,6 +99,8 @@ export function CartView({
   return (
     <div className="mx-auto max-w-6xl px-6 py-12">
       <h1 className="text-2xl tracking-[0.12em]">{t('title')}</h1>
+
+      {pendingOrders && <div className="mt-8">{pendingOrders}</div>}
 
       <div className="mt-10 gap-12 lg:flex lg:items-start">
         <ul className="flex-1 divide-y divide-cream-200 border-y border-cream-200">
