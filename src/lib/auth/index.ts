@@ -4,6 +4,7 @@ import Google from 'next-auth/providers/google'
 import Line from 'next-auth/providers/line'
 import Facebook from 'next-auth/providers/facebook'
 import Credentials from 'next-auth/providers/credentials'
+import { CredentialsSignin } from 'next-auth'
 import { z } from 'zod'
 
 import { db } from '@/lib/db'
@@ -14,6 +15,21 @@ import { verifyPassword } from './password'
 import { verifyOtp } from './otp'
 import { normalizeTwMobile } from '@/lib/sms/provider'
 import { toLocale } from '@/i18n/config'
+import { clientIp, peekRateLimit, recordRateLimitHit } from '@/lib/rate-limit'
+
+/**
+ * 密碼登入的失敗次數上限（15 分鐘視窗，只算失敗）。
+ * 帳號維度擋針對單一會員猜密碼；IP 維度擋一台機器撞一堆帳號（撞庫）。
+ * argon2 每次驗證約 19 MiB 記憶體，不擋的話大量登入請求本身就能把 1g 的容器打掛。
+ */
+const LOGIN_WINDOW_SECONDS = 15 * 60
+const LOGIN_FAILURES_PER_ACCOUNT = 10
+const LOGIN_FAILURES_PER_IP = 30
+
+/** 前端靠 signIn() 回傳的 code 分辨「被節流」與「帳密錯誤」 */
+class LoginRateLimited extends CredentialsSignin {
+  code = 'rate_limited'
+}
 
 const passwordSchema = z.object({
   /** 手機號碼或 Email —— 手機註冊的會員沒有 Email，只能用號碼當帳號 */
@@ -178,22 +194,32 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
         identifier: { label: '手機號碼或 Email', type: 'text' },
         password: { label: '密碼', type: 'password' },
       },
-      async authorize(raw) {
+      async authorize(raw, request) {
         const parsed = passwordSchema.safeParse(raw)
         if (!parsed.success) return null
 
-        // 09xxxxxxxx 當手機、其餘當 Email。兩者在 schema 上都是唯一鍵，
-        // 所以不會有「同一個字串同時是兩個人的帳號」的問題。
-        const phone = normalizeTwMobile(parsed.data.identifier)
-        const user = phone
-          ? await db.user.findUnique({ where: { phone } })
-          : await db.user.findUnique({ where: { email: parsed.data.identifier.toLowerCase() } })
+        // 號碼先正規化，免得換個寫法（0912-345-678）就換一個計數桶
+        const account =
+          normalizeTwMobile(parsed.data.identifier) ?? parsed.data.identifier.toLowerCase()
+        const accountKey = `login:id:${account}`
+        const ipKey = `login:ip:${clientIp(request.headers)}`
+        const [byAccount, byIp] = await Promise.all([
+          peekRateLimit(accountKey, LOGIN_FAILURES_PER_ACCOUNT),
+          peekRateLimit(ipKey, LOGIN_FAILURES_PER_IP),
+        ])
+        if (!byAccount.ok || !byIp.ok) throw new LoginRateLimited()
 
-        // 只用 Google 註冊、或還沒設密碼的手機會員沒有 passwordHash，這條路直接不通
-        if (!user?.passwordHash) return null
-
-        const ok = await verifyPassword(user.passwordHash, parsed.data.password)
-        if (!ok) return null
+        const user = await findPasswordUser(parsed.data.identifier)
+        const ok = user?.passwordHash
+          ? await verifyPassword(user.passwordHash, parsed.data.password)
+          : false
+        if (!user || !ok) {
+          await Promise.all([
+            recordRateLimitHit(accountKey, LOGIN_WINDOW_SECONDS),
+            recordRateLimitHit(ipKey, LOGIN_WINDOW_SECONDS),
+          ])
+          return null
+        }
 
         return {
           id: user.id,
@@ -333,6 +359,18 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
 })
 
 export { normalizeTwMobile }
+
+/**
+ * 密碼登入用的帳號查詢。09xxxxxxxx 當手機、其餘當 Email —— 兩者在 schema 上都是唯一鍵，
+ * 所以不會有「同一個字串同時是兩個人的帳號」的問題。
+ * 只用 SSO 註冊、或還沒設密碼的手機會員沒有 passwordHash，呼叫端會當成登入失敗。
+ */
+async function findPasswordUser(identifier: string) {
+  const phone = normalizeTwMobile(identifier)
+  return phone
+    ? db.user.findUnique({ where: { phone } })
+    : db.user.findUnique({ where: { email: identifier.toLowerCase() } })
+}
 
 /** 取得目前登入者；未登入回 null。 */
 export async function currentUser() {

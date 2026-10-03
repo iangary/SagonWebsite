@@ -111,6 +111,12 @@ export const envSchema = z.object({
    * 詳見 docs/三竹/mitake-reply-api-provisioned.md。
    */
   MITAKE_ENDPOINT: z.string().url().default('https://smsb2c.mitake.com.tw/b2c/mtk'),
+  /**
+   * 全站 24 小時內最多發幾則驗證碼簡訊。簡訊每則都要錢，而索取端點不需登入 ——
+   * 每支號碼的上限擋不住「輪流換號碼」的刷法，這是最後一道帳單上限。
+   * 正常量遠低於此；真的被擋到，代表不是被刷就是生意好到該調高了。
+   */
+  SMS_DAILY_LIMIT: intFromString(300),
 
   SMTP_HOST: z.string().default('localhost'),
   SMTP_PORT: intFromString(1025),

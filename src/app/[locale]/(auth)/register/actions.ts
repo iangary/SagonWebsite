@@ -1,11 +1,16 @@
 'use server'
 
+import { headers } from 'next/headers'
 import { getTranslations } from 'next-intl/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
 import { hashPassword } from '@/lib/auth/password'
 import { maskEmail, requestEmailVerification } from '@/lib/auth/email-verification'
 import { normalizeTwMobile } from '@/lib/sms/provider'
+import { clientIp, consumeRateLimit } from '@/lib/rate-limit'
+
+/** 同一個 IP 每小時最多送出幾次註冊（每次都可能寄一封驗證信，也能拿來探測哪些 Email 是會員） */
+const REGISTER_PER_IP_HOURLY = 10
 
 const schema = z
   .object({
@@ -52,6 +57,13 @@ export async function registerAction(
     }
     return { ok: false, fieldErrors }
   }
+
+  const limited = await consumeRateLimit(
+    `register:ip:${clientIp(await headers())}`,
+    REGISTER_PER_IP_HOURLY,
+    3600,
+  )
+  if (!limited.ok) return { ok: false, error: (await getTranslations('errors'))('tooManyRequests') }
 
   const { name, email, password } = parsed.data
 

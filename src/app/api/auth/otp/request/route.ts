@@ -1,7 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { z } from 'zod'
+import { auth } from '@/lib/auth'
 import { requestOtp } from '@/lib/auth/otp'
 import { env } from '@/lib/env'
+import { clientIp, consumeRateLimit } from '@/lib/rate-limit'
+
+/** 同一個 IP 每小時最多索取幾次（跨號碼）。擋「一台機器輪流打一堆號碼」。 */
+const OTP_IP_HOURLY_LIMIT = 10
 
 export const dynamic = 'force-dynamic'
 
@@ -14,6 +19,28 @@ export async function POST(req: NextRequest) {
   const parsed = bodySchema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) {
     return NextResponse.json({ ok: false, error: '參數格式錯誤' }, { status: 400 })
+  }
+
+  // 綁定號碼是帳號安全頁的操作，一定要登入。以前這條沒擋，任何人都能拿 bind
+  // 對任意號碼發簡訊（連已設密碼的號碼也發），是最便宜的盜發簡訊入口。
+  if (parsed.data.purpose === 'bind') {
+    const session = await auth()
+    if (!session?.user) {
+      return NextResponse.json({ ok: false, error: '請先登入' }, { status: 401 })
+    }
+  }
+
+  const ipLimit = await consumeRateLimit(`otp:ip:${clientIp(req.headers)}`, OTP_IP_HOURLY_LIMIT, 3600)
+  if (!ipLimit.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        reason: 'rate_limited',
+        error: '索取次數過於頻繁，請一小時後再試',
+        retryAfterSeconds: ipLimit.retryAfterSeconds,
+      },
+      { status: 429 },
+    )
   }
 
   const result = await requestOtp(parsed.data.phone, parsed.data.purpose)
