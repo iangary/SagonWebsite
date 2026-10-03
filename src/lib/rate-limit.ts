@@ -43,8 +43,15 @@ function redisKey(key: string): string {
   return `rl:${key}`
 }
 
+/**
+ * 測試環境不節流：整合測試不清 Redis，計數會跨測試、跨執行累積，
+ * 跑幾輪之後就隨機被擋（而且所有請求都沒有 X-Real-IP，全擠在同一個 'unknown' 桶）。
+ */
+const disabled = env.NODE_ENV === 'test'
+
 /** 看目前是否已達上限，不計數。搭配 recordRateLimitHit 做「只算失敗」的節流。 */
 export async function peekRateLimit(key: string, limit: number): Promise<RateLimitResult> {
+  if (disabled) return { ok: true }
   try {
     const k = redisKey(key)
     const [count, ttl] = await Promise.all([client().get(k), client().ttl(k)])
@@ -57,6 +64,7 @@ export async function peekRateLimit(key: string, limit: number): Promise<RateLim
 
 /** 計一次。視窗從第一次計數開始算，到期整個歸零。 */
 export async function recordRateLimitHit(key: string, windowSeconds: number): Promise<number> {
+  if (disabled) return 0
   try {
     const k = redisKey(key)
     const count = await client().incr(k)

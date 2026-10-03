@@ -53,6 +53,9 @@ function currentAuthUser(): MockUser {
   return authStorage.getStore()?.user ?? authUser
 }
 
+/** 變更密碼後「留住目前這個 session」的呼叫 —— 斷言有沒有被叫、帶了哪個版本 */
+export const keepCurrentSessionMock = vi.fn(async (_userId: string, _version: number) => {})
+
 export function authMockModule() {
   return {
     auth: vi.fn(async () => {
@@ -77,6 +80,8 @@ export function authMockModule() {
     handlers: {},
     signIn: vi.fn(),
     signOut: vi.fn(),
+    unstable_update: vi.fn(async () => null),
+    keepCurrentSessionAfterPasswordChange: keepCurrentSessionMock,
   }
 }
 
