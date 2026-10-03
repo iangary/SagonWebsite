@@ -23,6 +23,8 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: devOriginsFromAppUrl(),
   output: 'standalone',
   reactStrictMode: true,
+  // 不對外宣告框架與版本（Caddy 也會再剝一次 X-Powered-By，兩邊都關才不怕哪天換掉前端代理）
+  poweredByHeader: false,
   // 明確指定專案根目錄，避免 Turbopack 往上找到 C:\Users\user 的 package-lock.json
   turbopack: { root: import.meta.dirname },
   images: {
