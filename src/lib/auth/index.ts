@@ -1,4 +1,5 @@
 import NextAuth from 'next-auth'
+import { createHmac, timingSafeEqual } from 'node:crypto'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import Google from 'next-auth/providers/google'
 import Line from 'next-auth/providers/line'
@@ -42,8 +43,36 @@ const phoneSchema = z.object({
   code: z.string().min(4),
 })
 
-/** token 上的 role 最多能舊多久（毫秒）。見下方 jwt callback。 */
+/** token 上的 role 與 sessionVersion 最多能舊多久（毫秒）。見下方 jwt callback。 */
 const ROLE_TTL_MS = 5 * 60 * 1000
+
+/**
+ * 「目前這個 session 可以跟上新的 sessionVersion」的證明。
+ *
+ * 會員在帳號安全頁改密碼時，要把**其他**裝置踢掉、但留住自己這一個。
+ * update() 從瀏覽器也打得到，不能讓 client 自己送一個新的 sessionVersion 進來 ——
+ * 舊 session 的持有人（也就是我們要踢掉的人）會照做。所以由 server action 用 AUTH_SECRET
+ * 簽一份證明，jwt callback 驗過才接受。
+ */
+function sessionVersionProof(userId: string, version: number): string {
+  return createHmac('sha256', env.AUTH_SECRET)
+    .update(`session-version:${userId}:${version}`)
+    .digest('base64url')
+}
+
+/** 改密碼的 server action 用：讓呼叫者自己的 session 跟上新版本，其他裝置照樣作廢 */
+export async function keepCurrentSessionAfterPasswordChange(userId: string, version: number) {
+  await unstable_update({
+    user: { sessionVersion: version, sessionVersionProof: sessionVersionProof(userId, version) },
+  } as never)
+}
+
+function isValidSessionVersionProof(userId: string, version: unknown, proof: unknown): boolean {
+  if (typeof version !== 'number' || typeof proof !== 'string') return false
+  const expected = Buffer.from(sessionVersionProof(userId, version))
+  const given = Buffer.from(proof)
+  return expected.length === given.length && timingSafeEqual(expected, given)
+}
 
 /**
  * unstable_update 是 Auth.js v5 的 server 端 session 更新。
@@ -94,6 +123,11 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
       const token = await authConfig.callbacks.jwt(params)
 
       if (params.trigger === 'update' && typeof token?.id === 'string') {
+        const patch = (params.session as { user?: Record<string, unknown> } | undefined)?.user
+        if (isValidSessionVersionProof(token.id, patch?.sessionVersion, patch?.sessionVersionProof)) {
+          token.sessionVersion = patch!.sessionVersion as number
+        }
+
         const touchedPhone = token.phone !== before.phone
         const unlocked = before.needsPassword === true && token.needsPassword !== true
         if (touchedPhone || unlocked) {
@@ -132,10 +166,12 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
       if (typeof token?.id === 'string' && Date.now() - (token.roleCheckedAt ?? 0) > ROLE_TTL_MS) {
         const user = await db.user.findUnique({
           where: { id: token.id },
-          select: { role: true },
+          select: { role: true, sessionVersion: true },
         })
-        // 查不到就是帳號已經被刪掉，別讓 token 繼續帶著舊權限走
-        token.role = user?.role ?? 'CUSTOMER'
+        // 帳號被刪了，或改過密碼（sessionVersion 變了）→ 這個 session 作廢。
+        // 回 null 會讓 Auth.js 清掉 session cookie；舊 token 沒有這欄就視同 0。
+        if (!user || user.sessionVersion !== (token.sessionVersion ?? 0)) return null
+        token.role = user.role
         token.roleCheckedAt = Date.now()
       }
       return token
@@ -231,6 +267,7 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
           // 資料庫是 TEXT，收斂成 Locale 才對得上 next-auth.d.ts 的字面量聯集
           locale: toLocale(user.locale),
           needsPassword: false,
+          sessionVersion: user.sessionVersion,
         }
       },
     }),
@@ -273,6 +310,7 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
           // 還沒有密碼就代表這是第一次用簡訊進來。旗標帶進 token，
           // proxy 會把他擋在設定密碼頁，之後就能用號碼＋密碼登入、不必再發簡訊。
           needsPassword: !user.passwordHash,
+          sessionVersion: user.sessionVersion,
         }
       },
     }),

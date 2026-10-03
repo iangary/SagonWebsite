@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { getTranslations } from 'next-intl/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
-import { requireUser } from '@/lib/auth'
+import { keepCurrentSessionAfterPasswordChange, requireUser } from '@/lib/auth'
 import { hashPassword, verifyPassword } from '@/lib/auth/password'
 import { verifyOtp } from '@/lib/auth/otp'
 import { requestEmailVerification } from '@/lib/auth/email-verification'
@@ -184,10 +184,18 @@ export async function setPassword(_prev: ActionState, formData: FormData): Promi
     }
   }
 
-  await db.user.update({
+  // 變更（不是第一次設定）密碼時，其他裝置上的 session 一併作廢，只留目前這一個
+  const updated = await db.user.update({
     where: { id: sessionUser.id },
-    data: { passwordHash: await hashPassword(parsed.data.newPassword) },
+    data: {
+      passwordHash: await hashPassword(parsed.data.newPassword),
+      ...(user.passwordHash ? { sessionVersion: { increment: 1 } } : {}),
+    },
+    select: { sessionVersion: true },
   })
+  if (user.passwordHash) {
+    await keepCurrentSessionAfterPasswordChange(sessionUser.id, updated.sessionVersion)
+  }
 
   const tAccount = await getTranslations('account')
   revalidatePath('/account/security')
