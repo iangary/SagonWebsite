@@ -235,6 +235,8 @@
     "freeShipping": "Livraison offerte",
     "total": "Total",
     "shippingInfo": "Informations de livraison",
+    "personalHidden": "Le destinataire et l’adresse de livraison ne sont visibles que par l’auteur de la commande.",
+    "personalHiddenLink": "Retrouvez votre commande avec le téléphone ou l’e-mail utilisé",
     "shippingMethod": "Mode de livraison",
     "receiver": "Destinataire",
     "cvsStore": "Point de retrait",

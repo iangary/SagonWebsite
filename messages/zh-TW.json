@@ -235,6 +235,8 @@
     "freeShipping": "免運費",
     "total": "總計",
     "shippingInfo": "配送資訊",
+    "personalHidden": "收件人與配送地址只有訂單本人看得到。",
+    "personalHiddenLink": "前往訂單查詢，用下單時的手機或 Email 查看",
     "shippingMethod": "配送方式",
     "receiver": "收件人",
     "cvsStore": "取貨門市",

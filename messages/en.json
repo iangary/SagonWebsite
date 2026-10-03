@@ -235,6 +235,8 @@
     "freeShipping": "Free shipping",
     "total": "Total",
     "shippingInfo": "Delivery details",
+    "personalHidden": "Recipient and delivery details are only shown to the person who placed the order.",
+    "personalHiddenLink": "Look up your order with the phone or email you used",
     "shippingMethod": "Shipping method",
     "receiver": "Recipient",
     "cvsStore": "Pickup store",

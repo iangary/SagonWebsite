@@ -3,7 +3,7 @@
 import { cookies, headers } from 'next/headers'
 import { getTranslations } from 'next-intl/server'
 import { clientIp, peekRateLimit, recordRateLimitHit } from '@/lib/rate-limit'
-import { findGuestOrder, ORDER_QUERY_COOKIE, ORDER_QUERY_COOKIE_MAX_AGE } from './lookup'
+import { findGuestOrder, ORDER_QUERY_COOKIE, ORDER_QUERY_COOKIE_MAX_AGE } from '@/lib/orders/guest-query'
 
 /** 同一個 IP 15 分鐘內最多查錯幾次。只算查無資料，正常查詢不受影響。 */
 const QUERY_FAILURES_PER_IP = 20

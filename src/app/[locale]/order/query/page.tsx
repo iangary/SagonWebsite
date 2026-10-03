@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { OrderSummaryCard } from '@/components/order/order-summary-card'
 import { OrderQueryForm } from './query-form'
-import { findGuestOrder, ORDER_QUERY_COOKIE } from './lookup'
+import { findGuestOrder, ORDER_QUERY_COOKIE, readSavedQuery } from '@/lib/orders/guest-query'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,18 +15,6 @@ export async function generateMetadata({
   const { locale } = await params
   const t = await getTranslations({ locale, namespace: 'nav' })
   return { title: t('orderQuery'), alternates: { canonical: '/order/query' } }
-}
-
-/** cookie 是查詢成功時由 actions.ts 寫的；壞掉或被竄改就當作沒查過 */
-function readSavedQuery(raw: string | undefined): { orderNo: string; contact: string } | null {
-  if (!raw) return null
-  try {
-    const parsed = JSON.parse(raw) as { orderNo?: unknown; contact?: unknown }
-    if (typeof parsed.orderNo !== 'string' || typeof parsed.contact !== 'string') return null
-    return { orderNo: parsed.orderNo, contact: parsed.contact }
-  } catch {
-    return null
-  }
 }
 
 /**
