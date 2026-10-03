@@ -37,6 +37,10 @@ model User {
   phoneVerified DateTime?
   passwordHash  String?
 
+  /// 每次重設或變更密碼就 +1。JWT 裡記著登入當下的值，對不上就作廢那個 session ——
+  /// 密碼被盜、改了密碼之後，攻擊者手上的舊 session 不能繼續用 30 天。
+  sessionVersion Int @default(0)
+
   role UserRole @default(CUSTOMER)
 
   /// 會員自己選過的介面語系（'zh-TW' / 'en'）。null = 沒選過，跟著 Accept-Language 走。

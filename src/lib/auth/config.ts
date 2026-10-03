@@ -35,6 +35,8 @@ export const authConfig = {
         token.needsPassword = (user as { needsPassword?: boolean }).needsPassword ?? false
         // 剛從資料庫讀出來的 role 當然是新的，蓋上時間戳讓 index.ts 那段節流不用馬上再查一次
         token.roleCheckedAt = Date.now()
+        // SSO 的 user 是 PrismaAdapter 吐出的整列，密碼／簡訊登入由 authorize() 帶上
+        token.sessionVersion = (user as { sessionVersion?: number }).sessionVersion ?? 0
       }
       // 會員在 /account 改完資料、或在 header 換語系後呼叫 update()，讓 token 立刻反映新值
       if (trigger === 'update' && session) {

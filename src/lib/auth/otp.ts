@@ -70,6 +70,14 @@ export async function requestOtp(rawPhone: string, purpose: OtpPurpose = 'login'
     return { ok: false, reason: 'rate_limited', retryAfterSeconds: 3600 }
   }
 
+  // 全站上限：每支號碼的上限擋不住輪流換號碼的刷法，簡訊費得有個天花板
+  const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+  const dailyCount = await db.phoneOtp.count({ where: { createdAt: { gte: dayAgo } } })
+  if (dailyCount >= env.SMS_DAILY_LIMIT) {
+    console.error(`[otp] 全站 24 小時簡訊已達上限 ${env.SMS_DAILY_LIMIT} 則，暫停發送`)
+    return { ok: false, reason: 'rate_limited', retryAfterSeconds: 3600 }
+  }
+
   // randomInt 是 CSPRNG；Math.random 不能拿來產驗證碼
   const code = String(randomInt(0, 1_000_000)).padStart(6, '0')
   const codeHash = await hashPassword(code)
@@ -166,23 +174,33 @@ export async function verifyOtp(
     return { ok: false, reason: 'expired' }
   }
 
-  if (record.attempts >= OTP_MAX_ATTEMPTS) {
-    await db.phoneOtp.update({ where: { id: record.id }, data: { consumedAt: new Date() } })
+  /**
+   * 先佔一次嘗試額度，佔到了才比對。
+   *
+   * 以前是「讀 attempts → 跑 argon2 → 失敗才 +1」，並行送出時每個請求都讀到同一個舊值，
+   * 5 次上限形同虛設，可以在 5 分鐘內並行猜碼（忘記密碼那條路猜中就能重設密碼）。
+   * 條件式 updateMany 在資料庫裡是原子的：第 6 個請求一定拿到 count 0。
+   */
+  const claimed = await db.phoneOtp.updateMany({
+    where: { id: record.id, consumedAt: null, attempts: { lt: OTP_MAX_ATTEMPTS } },
+    data: { attempts: { increment: 1 } },
+  })
+  if (claimed.count === 0) {
+    await db.phoneOtp.updateMany({
+      where: { id: record.id, consumedAt: null },
+      data: { consumedAt: new Date() },
+    })
     return { ok: false, reason: 'too_many_attempts' }
   }
 
   const matched = await verifyPassword(record.codeHash, code.trim())
-  if (!matched) {
-    await db.phoneOtp.update({
-      where: { id: record.id },
-      data: { attempts: { increment: 1 } },
-    })
-    return { ok: false, reason: 'mismatch' }
-  }
+  if (!matched) return { ok: false, reason: 'mismatch' }
 
-  await db.phoneOtp.update({
-    where: { id: record.id },
+  // 同樣用條件式更新：兩個帶著正確碼的並行請求只有一個能消耗成功
+  const consumed = await db.phoneOtp.updateMany({
+    where: { id: record.id, consumedAt: null },
     data: { consumedAt: new Date(), devCode: null },
   })
+  if (consumed.count === 0) return { ok: false, reason: 'not_found' }
   return { ok: true, phone }
 }

@@ -31,10 +31,24 @@ const SIGN_IN_ERROR_KEYS: Record<string, 'invalidCredentials' | 'ssoAccountTaken
   AccountNotLinked: 'ssoAccountTaken',
 }
 
-export type SignInErrorKey = 'invalidCredentials' | 'ssoAccountTaken' | 'loginFailed'
+export type SignInErrorKey = 'invalidCredentials' | 'ssoAccountTaken' | 'ssoEmailTaken' | 'loginFailed'
 
-/** 登入頁與帳號安全頁共用同一份對照，訊息才不會兩邊各講一套。 */
-export function signInErrorKey(code: string | null | undefined): SignInErrorKey {
+/**
+ * 登入頁與帳號安全頁共用同一份對照，訊息才不會兩邊各講一套。
+ *
+ * 唯一的差別是 OAuthAccountNotLinked：同一個代碼在兩頁代表不同的事。
+ * - 帳號安全頁（已登入、在綁定）：那個第三方帳號已經屬於別的會員。
+ * - 登入頁（未登入）：第三方回來的 Email 已經是會員，但這個 provider 不准自動併入
+ *   （LINE、Facebook 沒開 allowDangerousEmailAccountLinking，理由見 lib/auth/index.ts）。
+ *   這時要告訴他「用原本的方式登入再去綁」，講「綁在別人身上」會讓人以為帳號被盜。
+ */
+export function signInErrorKey(
+  code: string | null | undefined,
+  context: 'login' | 'link' = 'link',
+): SignInErrorKey {
   if (!code) return 'loginFailed'
+  if (context === 'login' && (code === 'OAuthAccountNotLinked' || code === 'AccountNotLinked')) {
+    return 'ssoEmailTaken'
+  }
   return SIGN_IN_ERROR_KEYS[code] ?? 'loginFailed'
 }

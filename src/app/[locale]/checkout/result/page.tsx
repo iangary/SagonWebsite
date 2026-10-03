@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { CheckCircle2, Clock, XCircle, Copy, ExternalLink, Printer } from 'lucide-react'
@@ -18,6 +19,11 @@ import { ShipmentTimeline } from '@/components/order/shipment-timeline'
 import { PaymentPoller } from './payment-poller'
 import { PaymentSwitcher, type SwitchableChoice } from './payment-switcher'
 import { RefundContact } from './refund-contact'
+import {
+  ORDER_QUERY_COOKIE,
+  readSavedQuery,
+  savedQueryMatches,
+} from '@/lib/orders/guest-query'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,7 +49,7 @@ export default async function CheckoutResultPage({
   const { orderNo } = await searchParams
   if (!orderNo) notFound()
 
-  const [t, tStatus, tShipment, tLogistics, tCheckout, settings, viewer, order] =
+  const [t, tStatus, tShipment, tLogistics, tCheckout, settings, viewer, order, cookieStore] =
     await Promise.all([
       getTranslations('result'),
       getTranslations('orderStatus'),
@@ -62,6 +68,7 @@ export default async function CheckoutResultPage({
           shipment: { include: { logs: { orderBy: { occurredAt: 'desc' } } } },
         },
       }),
+      cookies(),
     ])
 
   if (!order) notFound()
@@ -108,6 +115,17 @@ export default async function CheckoutResultPage({
 
   // 訪客（訂單沒綁會員，或不是本人在看）動手之前要用 Email／手機確認身分
   const needsContact = !(viewer && order.userId && viewer.id === order.userId)
+
+  /**
+   * 收件人姓名、地址／門市、託運單號、發票號碼只給證明過身分的人看：
+   * 訂單的會員本人，或剛在訂單查詢頁用「編號 + 聯絡方式」查到這張單的訪客。
+   *
+   * 這頁只靠網址上的 orderNo 就打得開，而訂單編號印在出貨單上 ——
+   * 撿到包裹、看到截圖的人都拿得到。付款狀態與金額照常顯示（付款流程需要），個資不行。
+   */
+  const showPersonal =
+    !needsContact ||
+    savedQueryMatches(readSavedQuery(cookieStore.get(ORDER_QUERY_COOKIE)?.value), order)
 
   const refund = refundEligibility(order, settings)
   const openRefund = order.refunds.find(
@@ -316,25 +334,44 @@ export default async function CheckoutResultPage({
                 </Badge>
               </dd>
             </div>
-            {order.shipment.shipmentNo && (
-              <InfoRow label={t('shipmentNo')} value={order.shipment.shipmentNo} copyable />
-            )}
-            <InfoRow label={t('receiver')} value={order.shipment.receiverName} />
-            {order.shipment.cvsStoreName ? (
+            {showPersonal && (
               <>
-                <InfoRow label={t('cvsStore')} value={order.shipment.cvsStoreName} />
-                <InfoRow label={t('cvsStoreAddress')} value={order.shipment.cvsAddress ?? '—'} />
+                {order.shipment.shipmentNo && (
+                  <InfoRow label={t('shipmentNo')} value={order.shipment.shipmentNo} copyable />
+                )}
+                <InfoRow label={t('receiver')} value={order.shipment.receiverName} />
+                {order.shipment.cvsStoreName ? (
+                  <>
+                    <InfoRow label={t('cvsStore')} value={order.shipment.cvsStoreName} />
+                    <InfoRow
+                      label={t('cvsStoreAddress')}
+                      value={order.shipment.cvsAddress ?? '—'}
+                    />
+                  </>
+                ) : (
+                  <InfoRow
+                    label={t('receiverAddress')}
+                    value={order.shipment.receiverAddress ?? '—'}
+                  />
+                )}
+                {order.invoice?.invoiceNumber && (
+                  <InfoRow label={t('invoiceNumber')} value={order.invoice.invoiceNumber} />
+                )}
               </>
-            ) : (
-              <InfoRow label={t('receiverAddress')} value={order.shipment.receiverAddress ?? '—'} />
-            )}
-            {order.invoice?.invoiceNumber && (
-              <InfoRow label={t('invoiceNumber')} value={order.invoice.invoiceNumber} />
             )}
           </dl>
 
+          {!showPersonal && (
+            <p className="mt-4 text-xs leading-relaxed text-taupe-600">
+              {t('personalHidden')}{' '}
+              <Link href="/order/query" className="text-ink-900 underline underline-offset-4">
+                {t('personalHiddenLink')}
+              </Link>
+            </p>
+          )}
+
           {/* 查詢頁多半不吃 query string 帶單號，所以是「顯示單號 + 外連」讓客戶自己貼 */}
-          {trackingUrl && order.shipment.shipmentNo && (
+          {showPersonal && trackingUrl && order.shipment.shipmentNo && (
             <a
               href={trackingUrl}
               target="_blank"
@@ -348,7 +385,7 @@ export default async function CheckoutResultPage({
         </section>
       )}
 
-      {order.shipment && (
+      {showPersonal && order.shipment && (
         <ShipmentTimeline
           logs={order.shipment.logs}
           subType={order.shipment.logisticsSubType}

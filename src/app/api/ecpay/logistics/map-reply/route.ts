@@ -1,9 +1,13 @@
 import { type NextRequest } from 'next/server'
 import { env } from '@/lib/env'
 import { parseMapReply } from '@/lib/ecpay/logistics'
+import { toScriptLiteral } from '@/lib/html/script-literal'
 import { readCallbackParams, recordWebhook, markWebhookProcessed } from '@/lib/ecpay/webhook'
 
 export const dynamic = 'force-dynamic'
+
+/** 門市欄位與 token 的長度上限。正常值都在幾十字以內，超過就是亂送的。 */
+const MAX_FIELD_LENGTH = 200
 
 /**
  * 綠界電子地圖選完門市後，會把消費者的瀏覽器 POST 回這裡。
@@ -14,14 +18,19 @@ export const dynamic = 'force-dynamic'
  * 回傳一頁把結果 postMessage 給開啟它的結帳頁，然後自己關掉。
  */
 export async function POST(req: NextRequest) {
-  const params = await readCallbackParams(req)
+  const raw = await readCallbackParams(req)
+  // 截長度：這支誰都能 POST，每次還會寫一筆 webhookEvent，不能讓人塞大包資料進資料庫
+  const params: Record<string, string> = {}
+  for (const [key, value] of Object.entries(raw)) {
+    params[key] = String(value ?? '').slice(0, MAX_FIELD_LENGTH)
+  }
   const selection = parseMapReply(params)
 
   // 留一份紀錄，日後查「使用者到底選了哪間店」時有依據
   const event = await recordWebhook('logistics_map', params, false)
   await markWebhookProcessed(event.id)
 
-  const payload = JSON.stringify({
+  const payload = toScriptLiteral({
     type: 'ecpay:cvs-store-selected',
     store: selection,
     // 結帳頁開地圖時產生的一次性 token（經 ExtraData 原樣繞回來），
@@ -51,7 +60,7 @@ export async function POST(req: NextRequest) {
       try {
         if (window.opener && !window.opener.closed) {
           // 指定 targetOrigin，不要用 '*'，避免門市資料被其他分頁讀走
-          window.opener.postMessage(payload, ${JSON.stringify(origin)});
+          window.opener.postMessage(payload, ${toScriptLiteral(origin)});
           window.close();
           return;
         }

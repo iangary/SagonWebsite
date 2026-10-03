@@ -73,7 +73,11 @@ export async function resetPasswordByOtp(formData: FormData): Promise<ResetPassw
   const passwordHash = await hashPassword(parsed.data.password)
   // updateMany：號碼在 schema 上唯一，但帳號可能在這幾分鐘內被刪掉，
   // 用 update 會拋 P2025。0 列就是查無此人。
-  const { count } = await db.user.updateMany({ where: { phone }, data: { passwordHash } })
+  // sessionVersion +1：忘記密碼常常是因為密碼外洩，已經登入在別處的 session 一併作廢
+  const { count } = await db.user.updateMany({
+    where: { phone },
+    data: { passwordHash, sessionVersion: { increment: 1 } },
+  })
   if (count === 0) {
     return { ok: false, error: (await getTranslations('auth'))('resetNoAccount') }
   }

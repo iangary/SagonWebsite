@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { SmsLoginForm } from './sms-login-form'
+import { safeCallbackUrl } from '@/lib/auth/callback-url'
 
 export async function generateMetadata({
   params,
@@ -25,7 +26,7 @@ export default async function SmsLoginPage({
   const t = await getTranslations('auth')
 
   // 只收站內相對路徑，免得被塞成 open redirect（與 /login 同一套規則）
-  const target = callbackUrl?.startsWith('/') ? callbackUrl : undefined
+  const target = safeCallbackUrl(callbackUrl)
 
   return (
     <div className="mx-auto flex max-w-md flex-col px-6 py-16">
