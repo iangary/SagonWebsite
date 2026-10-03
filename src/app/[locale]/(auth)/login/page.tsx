@@ -42,7 +42,7 @@ export default async function LoginPage({
       <LoginForm
         callbackUrl={target ?? '/account'}
         ssoProviders={enabledSsoProviders}
-        initialError={error ? t(signInErrorKey(error)) : undefined}
+        initialError={error ? t(signInErrorKey(error, 'login')) : undefined}
       />
     </div>
   )

@@ -57,8 +57,39 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
      * 這個 callback 跑在 Node route handler 裡，碰得到 Prisma；proxy 只用 getToken()
      * 解 JWT，不會走到這裡。
      */
+    /**
+     * Google 沒驗證過的 email 不准登入。
+     *
+     * Google 開著 allowDangerousEmailAccountLinking（同 email 自動併入既有會員），
+     * 這個前提是「Google 回來的 email 確實屬於登入的人」。絕大多數 Google 帳號都是驗證過的，
+     * 但 profile 上有明確的 email_verified 欄位，就不要賭。
+     * 只有原始 profile 在這裡看得到，events.linkAccount 拿到的是已經正規化過的 user。
+     */
+    async signIn({ account, profile }) {
+      if (account?.provider === 'google' && profile?.email_verified === false) return false
+      return true
+    },
+
     async jwt(params) {
+      // update() 可以從瀏覽器直接呼叫（POST /api/auth/session），送什麼 config.ts 就收什麼。
+      // 先記住原本的值，下面再對照資料庫，免得有人自己送 needsPassword:false 跳過設定密碼頁、
+      // 或送一個不是他的 phone 進 token。
+      const before = { needsPassword: params.token?.needsPassword, phone: params.token?.phone }
       const token = await authConfig.callbacks.jwt(params)
+
+      if (params.trigger === 'update' && typeof token?.id === 'string') {
+        const touchedPhone = token.phone !== before.phone
+        const unlocked = before.needsPassword === true && token.needsPassword !== true
+        if (touchedPhone || unlocked) {
+          const user = await db.user.findUnique({
+            where: { id: token.id },
+            select: { phone: true, passwordHash: true },
+          })
+          if (touchedPhone) token.phone = user?.phone ?? null
+          if (unlocked && !user?.passwordHash) token.needsPassword = true
+        }
+      }
+
       if (token?.needsPassword && typeof token.id === 'string') {
         const user = await db.user.findUnique({
           where: { id: token.id },
@@ -119,7 +150,10 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
             clientSecret: env.AUTH_LINE_SECRET,
             // LINE 的 email 需要另外申請「Email address permission」才拿得到，
             // 沒過審或使用者拒絕授權時 profile.email 會是 undefined —— 見下方 createUser。
-            allowDangerousEmailAccountLinking: true,
+            //
+            // 不開 allowDangerousEmailAccountLinking：LINE 沒有保證回傳的 email 驗證過，
+            // 開了等於「誰能在 LINE 填上你的信箱，誰就能登進你的會員帳號」。
+            // 同 email 的既有會員會看到 ssoEmailTaken，請他用原本的方式登入後到帳號安全頁綁定。
           }),
         ]
       : []),
@@ -131,7 +165,8 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
             clientSecret: env.AUTH_FACEBOOK_SECRET,
             // email 權限只有「進階存取」才對一般用戶生效；用手機註冊的 FB 帳號
             // 本來就可能沒有 email，兩種情況 profile.email 都會是 null —— 見下方 createUser。
-            allowDangerousEmailAccountLinking: true,
+            //
+            // 不開 allowDangerousEmailAccountLinking，理由同 LINE。
           }),
         ]
       : []),
@@ -218,6 +253,44 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
   ],
 
   events: {
+    /**
+     * Google 自動併入既有帳號時，作廢「沒人證明過信箱」的那組密碼。
+     *
+     * Google 開著 allowDangerousEmailAccountLinking，所以 Google 回來的 email 若已經是
+     * 會員，就會直接登進那個帳號。但那個帳號可能是別人搶先用這個信箱註冊的：
+     * 註冊不需要先驗證信箱，攻擊者可以拿受害者的 Gmail 先開帳號、設好自己的密碼，
+     * 等受害者哪天按「Google 登入」就被併進去 —— 之後受害者下的訂單、填的地址，
+     * 攻擊者用那組密碼都看得到。
+     *
+     * Google 驗證過的 email 就是信箱主人的證明（未驗證的在 signIn callback 就擋掉了），所以這時：
+     * - emailVerified 還是空的 → 密碼是誰設的沒人知道，清掉；同時把信箱標成已驗證。
+     *   真的是本人的話，到帳號安全頁重設一組就好（SSO 會員設密碼不需要舊密碼）。
+     * - emailVerified 已經有值 → 密碼確實是信箱主人設的，不動。
+     *
+     * 只看「Google 給的 email 等於帳號 email」的情況：已登入的會員在帳號安全頁綁一個
+     * 不同信箱的 Google 也會走到這裡，那種綁定跟搶註無關，不該清他的密碼。
+     */
+    async linkAccount({ user, account, profile }) {
+      if (account.provider !== 'google' || !user.id) return
+      const googleEmail = typeof profile?.email === 'string' ? profile.email.toLowerCase() : null
+      // email_verified 已經在 signIn callback 擋過，走到這裡的 Google email 都是驗證過的
+      if (!googleEmail) return
+
+      const existing = await db.user.findUnique({
+        where: { id: user.id },
+        select: { email: true, emailVerified: true, passwordHash: true },
+      })
+      if (!existing || existing.email?.toLowerCase() !== googleEmail || existing.emailVerified) return
+
+      await db.user.update({
+        where: { id: user.id },
+        data: { emailVerified: new Date(), ...(existing.passwordHash ? { passwordHash: null } : {}) },
+      })
+      if (existing.passwordHash) {
+        console.warn(`[auth] Google 併入未驗證信箱的帳號，已作廢原密碼 userId=${user.id}`)
+      }
+    },
+
     /**
      * 登入成功的當下把匿名購物車併進會員車。
      *
