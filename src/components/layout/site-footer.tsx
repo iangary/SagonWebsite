@@ -1,7 +1,9 @@
 import { getLocale, getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/routing'
 import { env } from '@/lib/env'
+import Image from 'next/image'
 import { shopName } from '@/lib/shop-config'
+import logoImg from '@/assets/brand/sagan-logo.png'
 
 export async function SiteFooter() {
   const [t, tNav, tCommon, locale] = await Promise.all([
@@ -44,7 +46,10 @@ export async function SiteFooter() {
     <footer className="mt-20 border-t border-cream-200 bg-cream-100">
       <div className="mx-auto grid max-w-7xl gap-10 px-6 py-14 sm:grid-cols-2 lg:grid-cols-4">
         <div className="sm:col-span-2 lg:col-span-2">
-          <h3 className="font-serif-display text-lg tracking-[0.2em] text-ink-900">{shop}</h3>
+          {/* 頁尾的 logo 放大一點，下面那行「莎岡選品店」才看得清楚（header 裡的太小） */}
+          <h3>
+            <Image src={logoImg} alt={shop} sizes="160px" className="h-[4.5rem] w-auto" />
+          </h3>
           <p className="mt-4 max-w-md text-sm leading-relaxed text-ink-700">
             {t('description')}
           </p>

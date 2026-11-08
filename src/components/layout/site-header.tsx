@@ -3,7 +3,9 @@ import { Link } from '@/i18n/routing'
 import { db } from '@/lib/db'
 import { formatTWD } from '@/lib/utils'
 import { localizedName } from '@/lib/i18n/localized'
+import Image from 'next/image'
 import { shopName } from '@/lib/shop-config'
+import logoImg from '@/assets/brand/sagan-logo.png'
 import { getShippingSettings } from '@/lib/shop-settings'
 import { HeaderActions } from './header-actions'
 import { MobileNav } from './mobile-nav'
@@ -74,10 +76,15 @@ export async function SiteHeader() {
             }}
           />
 
+          {/* 品牌粉色 logo（SAGAN + 莎岡選品店）。高度跟著 header 的 h-16 / lg:h-[4.5rem] 走，上下各留約 10px */}
           <Link href="/" className="shrink-0">
-            <span className="font-serif-display text-xl tracking-[0.2em] text-ink-900 sm:text-2xl">
-              {shopName(locale)}
-            </span>
+            <Image
+              src={logoImg}
+              alt={shopName(locale)}
+              priority
+              sizes="(min-width: 1024px) 104px, 94px"
+              className="h-11 w-auto lg:h-12"
+            />
           </Link>
         </div>
 
