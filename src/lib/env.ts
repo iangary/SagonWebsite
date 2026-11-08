@@ -141,12 +141,15 @@ export const envSchema = z.object({
   /** LINE 官方帳號的顯示 ID（例如 @sagon）。只用於畫面上告訴客人要加誰。 */
   SHOP_LINE_ID: z.string().optional().default(''),
   /**
-   * 官方社群帳號的網址。目前唯一的用途是全站 Organization 結構化資料的
-   * `sameAs` —— Google 靠它把粉專／IG 與這個品牌認回同一個實體，
-   * 社群經營的成果才算得進品牌搜尋。留空就不會輸出該欄位。
+   * 官方社群帳號與其他購物平台的網址。用在兩個地方：
+   * 頁尾的連結，以及全站 Organization 結構化資料的 `sameAs` ——
+   * Google 靠它把粉專／IG／平台賣場與這個品牌認回同一個實體，
+   * 社群經營的成果才算得進品牌搜尋。設成空字串就兩邊都不顯示。
    */
   SHOP_FACEBOOK_URL: z.string().optional().default(''),
-  SHOP_INSTAGRAM_URL: z.string().optional().default(''),
+  SHOP_INSTAGRAM_URL: z.string().optional().default('https://www.instagram.com/lee.psyche/'),
+  SHOP_PINKOI_URL: z.string().optional().default('https://www.pinkoi.com/store/saganselect'),
+  SHOP_SHOPEE_URL: z.string().optional().default('https://shopee.tw/duffychang1119'),
   /**
    * GA4 量測 ID（G-XXXXXXXXXX）。留空就完全不載入追蹤碼。
    *

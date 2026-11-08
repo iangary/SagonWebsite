@@ -26,6 +26,20 @@ export async function SiteFooter() {
     { href: '/privacy', label: tNav('privacy') },
   ]
 
+  // 站外連結，設成空字串的就不顯示（見 lib/env.ts）
+  const socialLinks = [
+    { href: env.SHOP_INSTAGRAM_URL, label: 'Instagram' },
+    { href: env.SHOP_FACEBOOK_URL, label: 'Facebook' },
+  ].filter((link) => link.href)
+
+  const storeLinks = [
+    { href: env.SHOP_PINKOI_URL, label: 'Pinkoi' },
+    { href: env.SHOP_SHOPEE_URL, label: t('shopee') },
+  ].filter((link) => link.href)
+
+  const pillClass =
+    'inline-flex items-center rounded-full border border-cream-300 px-4 py-1.5 text-ink-700 transition-colors hover:border-taupe-500 hover:text-taupe-600'
+
   return (
     <footer className="mt-20 border-t border-cream-200 bg-cream-100">
       <div className="mx-auto grid max-w-7xl gap-10 px-6 py-14 sm:grid-cols-2 lg:grid-cols-4">
@@ -34,6 +48,40 @@ export async function SiteFooter() {
           <p className="mt-4 max-w-md text-sm leading-relaxed text-ink-700">
             {t('description')}
           </p>
+
+          {socialLinks.length > 0 && (
+            <div className="mt-6">
+              <h4 className="text-xs font-medium tracking-[0.15em] text-taupe-600 uppercase">
+                {t('followUs')}
+              </h4>
+              <ul className="mt-3 flex flex-wrap gap-2 text-sm">
+                {socialLinks.map((link) => (
+                  <li key={link.href}>
+                    <a href={link.href} target="_blank" rel="noopener noreferrer" className={pillClass}>
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {storeLinks.length > 0 && (
+            <div className="mt-6">
+              <h4 className="text-xs font-medium tracking-[0.15em] text-taupe-600 uppercase">
+                {t('otherStores')}
+              </h4>
+              <ul className="mt-3 flex flex-wrap gap-2 text-sm">
+                {storeLinks.map((link) => (
+                  <li key={link.href}>
+                    <a href={link.href} target="_blank" rel="noopener noreferrer" className={pillClass}>
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         <div>

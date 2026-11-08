@@ -128,10 +128,15 @@ describe('siteJsonLd', () => {
     expect(site.publisher).toEqual({ '@id': org['@id'] })
   })
 
-  it('沒設定社群網址時不輸出空的 sameAs', () => {
-    // 測試環境的 SHOP_*_URL 都是空字串，不能變成 sameAs: ['', '', '']
+  it('sameAs 只放有設定的網址，不會出現空字串', () => {
+    // 測試環境的 FACEBOOK、LINE 是空字串；IG、Pinkoi、蝦皮走 env.ts 的預設值
     const ld = siteJsonLd('zh-TW')
-    expect(ld['@graph'][0]).not.toHaveProperty('sameAs')
+    const sameAs = (ld['@graph'][0] as { sameAs?: string[] }).sameAs
+    expect(sameAs).toEqual([
+      'https://www.instagram.com/lee.psyche/',
+      'https://www.pinkoi.com/store/saganselect',
+      'https://shopee.tw/duffychang1119',
+    ])
   })
 
   it('沒有標誌圖檔時不輸出指向 404 的 logo', () => {

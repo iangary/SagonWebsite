@@ -178,15 +178,19 @@ export function breadcrumbJsonLd(items: { name: string; path: string }[]) {
  * 全站的品牌身分，在 [locale]/layout.tsx 輸出一次。
  *
  * sameAs 是社群經營回灌品牌搜尋的接點：Google 靠它把粉專、IG、LINE
- * official account 認回同一個實體。沒設定的就不要放空字串進去。
+ * official account 與 Pinkoi／蝦皮賣場認回同一個實體。沒設定的就不要放空字串進去。
  */
 export function siteJsonLd(locale: string) {
   const base = siteUrl()
   const name = shopName(locale)
 
-  const sameAs = [env.SHOP_FACEBOOK_URL, env.SHOP_INSTAGRAM_URL, env.SHOP_LINE_URL].filter(
-    (u): u is string => Boolean(u),
-  )
+  const sameAs = [
+    env.SHOP_FACEBOOK_URL,
+    env.SHOP_INSTAGRAM_URL,
+    env.SHOP_LINE_URL,
+    env.SHOP_PINKOI_URL,
+    env.SHOP_SHOPEE_URL,
+  ].filter((u): u is string => Boolean(u))
 
   return {
     '@context': 'https://schema.org',

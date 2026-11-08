@@ -502,6 +502,9 @@
     "serviceHours": "Horaires du service client",
     "serviceHoursValue": "Du lundi au vendredi, 10 h – 18 h (GMT+8)",
     "description": "Fondée au printemps 2023, notre boutique propose des vêtements de nuit, du linge de lit et des objets de décoration coréens de grande qualité. Fidèles à un principe de sélection qui accorde autant d’importance au classique, à l’élégance et à la qualité, nous travaillons sous licence officielle du siège de chaque marque.",
+    "followUs": "Suivez-nous",
+    "otherStores": "Également disponible sur",
+    "shopee": "Shopee",
     "copyright": "© {year} {shop}. Tous droits réservés."
   },
   "about": {
