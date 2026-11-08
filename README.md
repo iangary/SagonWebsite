@@ -9,11 +9,15 @@ Docker + Next.js 16 + PostgreSQL 18，串接**綠界 ECPay 金流、超商取貨
 
 ---
 
-## ⚠️ 關於商品素材的著作權
+## 商品資料的來源
 
-`prisma/seed-data/` 與 `public/uploads/seed/` 的商品文案與圖片是**從 sagan.com.tw 抓取的他人著作權素材**，
-只供本機開發與測試使用，**不得對外上線**。兩個目錄都已列入 `.gitignore`，
-爬蟲也需要 `SEED_SOURCE=sagan` 才會執行。正式營運前請換成自有素材。
+商品資料來自自家蝦皮賣場的「批次更新」匯出檔（賣家中心 → 商品 → 批次工具 → 批次更新，
+下載**基本資訊**、**銷售資訊**、**媒體資訊**三份 `mass_update_*_info_*.xlsx`，放在同一個資料夾）。
+`npm run import:shopee` 會讀這三份檔，把商品圖與描述內的圖片下載成 WebP 存到 `public/uploads/shopee/`，
+並產出 `prisma/seed-data/shopee.json`；`npm run seed` 再把它灌進資料庫。兩個目錄都在 `.gitignore` 內。
+
+`npm run seed` 也會清掉早期從 sagan.com.tw 爬來的開發用假資料（`sourceId` 不是 `shopee-` 開頭的商品與分類，
+以及 `public/uploads/seed/`）。後台手動建立的商品不受影響。
 
 ---
 
@@ -24,7 +28,7 @@ cp .env.example .env
 docker compose up -d db redis mailpit
 npm install
 npx prisma migrate dev
-SEED_SOURCE=sagan npm run scrape   # 抓商品（約 12 分鐘，每秒 1 request）
+npm run import:shopee -- "<蝦皮匯出檔資料夾>"   # 約 1.5 萬張圖，第一次約 20 分鐘；重跑會跳過已下載的圖
 npm run seed
 npm run dev
 ```

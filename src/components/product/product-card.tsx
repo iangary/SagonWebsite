@@ -23,7 +23,8 @@ export function ProductCard({
 
   return (
     <Link href={`/product/${product.slug}`} className="group block">
-      <div className="relative aspect-[3/4] overflow-hidden bg-cream-100">
+      {/* 正方形：商品圖全部來自蝦皮，一律 1:1；用直式框會把角落的品牌 logo 切掉 */}
+      <div className="relative aspect-square overflow-hidden bg-cream-100">
         {primary ? (
           <>
             <Image

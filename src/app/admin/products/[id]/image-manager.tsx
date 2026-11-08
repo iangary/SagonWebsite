@@ -111,7 +111,8 @@ export function ImageManager({
         <ul className="mb-6 flex flex-wrap gap-3">
           {order.map((image, index) => (
             <li key={image.id} className="w-[calc(50%-0.375rem)] sm:w-32">
-              <div className="relative aspect-[3/4] overflow-hidden bg-cream-100">
+              {/* 與前台商品卡同比例，後台看到的裁切就是顧客看到的 */}
+              <div className="relative aspect-square overflow-hidden bg-cream-100">
                 <Image
                   src={image.url}
                   alt=""

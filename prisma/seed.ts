@@ -1,54 +1,32 @@
 /**
- * 把 scripts/scrape-sagan.ts 產出的 JSON 灌進資料庫，並建立開發用的帳號與優惠券。
+ * 把 scripts/import-shopee.ts 產出的蝦皮商品資料灌進資料庫，並建立開發用的帳號與優惠券。
  *
- * 用法：npm run seed
- * 可重複執行 —— 全部以 sourceId / slug / code upsert，不會產生重複資料。
+ * 用法：
+ *   npm run import:shopee -- "<蝦皮批次更新匯出檔的資料夾>"
+ *   npm run seed
+ *
+ * 可重複執行 —— 全部以 sourceId / sku / slug / code upsert，不會產生重複資料。
+ * 重跑時以蝦皮匯出檔為準：名稱、描述、價格、庫存都會被蓋回匯出檔的值，
+ * 但 slug 建立後就不再改（對外連結與 SEO），後台自己上傳的商品圖也不會動。
  */
 
-import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
+import { readFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { PrismaClient, type Prisma } from '@prisma/client'
 import { hash } from '@node-rs/argon2'
+import type { ShopeeCategory, ShopeeExport, ShopeeImage, ShopeeProduct } from '../scripts/import-shopee'
 
 const db = new PrismaClient()
 
 const ROOT = path.resolve(import.meta.dirname, '..')
-const DATA_FILE = path.join(ROOT, 'prisma', 'seed-data', 'sagan.json')
+const DATA_FILE = path.join(ROOT, 'prisma', 'seed-data', 'shopee.json')
+const LEGACY_IMAGE_DIR = path.join(ROOT, 'public', 'uploads', 'seed')
 
-/**
- * 來源站的售完商品庫存是 0，全部照抄會導致本機沒有任何商品可以下單測試。
- * 有貨的商品一律補到這個數量，方便跑結帳與庫存預扣流程。
- */
-const DEV_MIN_STOCK = 20
-
-type ScrapedVariant = { sourceId: string; name: string; stock: number; soldOut: boolean }
-type ScrapedProduct = {
-  sourceId: string
-  sourceUrl: string
-  name: string
-  brandName: string | null
-  price: number
-  compareAtPrice: number | null
-  descriptionHtml: string
-  summary: string
-  images: string[]
-  variants: ScrapedVariant[]
-  categorySourceIds: string[]
-}
-type ScrapedCategory = {
-  sourceId: string
-  name: string
-  /** 英文站導覽用，來源站沒有這欄，由 seed-data 手動補 */
-  nameEn?: string
-  productSourceIds: string[]
-}
-type ScrapeResult = {
-  scrapedAt: string
-  source: string
-  categories: ScrapedCategory[]
-  products: ScrapedProduct[]
-}
+/** 資料庫裡的 sourceId 前綴，用來和舊的 sagan.com.tw 爬蟲資料（純數字 id）區分 */
+const PRODUCT_SOURCE_PREFIX = 'shopee-'
+const CATEGORY_SOURCE_PREFIX = 'shopee-cat-'
+const SHOPEE_IMAGE_PREFIX = '/uploads/shopee/'
 
 function slugify(input: string): string {
   return input
@@ -60,25 +38,30 @@ function slugify(input: string): string {
     .replace(/^-|-$/g, '')
 }
 
-type BrandMeta = { slug: string; description: string; descriptionEn: string; sortOrder: number }
+/** 以字元（code point）截斷 —— 一般的 slice 會把 emoji 切成半個 surrogate，Prisma 送不出去 */
+function takeChars(input: string, max: number): string {
+  return Array.from(input).slice(0, max).join('')
+}
+
+type BrandMeta ={ slug: string; description: string; descriptionEn: string; sortOrder: number }
 
 const BRAND_META: Record<string, BrandMeta> = {
-  MMOM: {
-    slug: 'mmom',
-    description: '韓國 MMOM，柔軟親膚的日常睡衣。',
-    descriptionEn: 'MMOM of Korea — soft, skin-friendly everyday sleepwear.',
-    sortOrder: 1,
-  },
   LUNALUZ: {
     slug: 'lunaluz',
     description: '韓國 LUNALUZ，優雅細緻的睡衣選品。',
     descriptionEn: 'LUNALUZ of Korea — elegant, finely made sleepwear.',
-    sortOrder: 2,
+    sortOrder: 1,
   },
   ULLALA: {
     slug: 'ullala',
     description: '韓國 ULLALA，經典舒適的睡衣套裝。',
     descriptionEn: 'ULLALA of Korea — classic, comfortable pyjama sets.',
+    sortOrder: 2,
+  },
+  MMOM: {
+    slug: 'mmom',
+    description: '韓國 MMOM，柔軟親膚的日常睡衣。',
+    descriptionEn: 'MMOM of Korea — soft, skin-friendly everyday sleepwear.',
     sortOrder: 3,
   },
   BALCONY: {
@@ -87,42 +70,78 @@ const BRAND_META: Record<string, BrandMeta> = {
     descriptionEn: 'BALCONY of Korea — quality cotton and lace craftsmanship.',
     sortOrder: 4,
   },
+  KOZNOK: {
+    slug: 'koznok',
+    description: '韓國 KOZNOK 居家睡衣。',
+    descriptionEn: 'KOZNOK of Korea — loungewear and sleepwear.',
+    sortOrder: 5,
+  },
   VIVIHOME: {
     slug: 'vivihome',
     description: '韓國 VIVIHOME，居家生活的溫柔提案。',
     descriptionEn: 'VIVIHOME of Korea — a gentler take on life at home.',
-    sortOrder: 5,
+    sortOrder: 6,
   },
   'The Warmth': {
     slug: 'the-warmth',
-    description: '韓國 The Warmth 手作圍裙。',
-    descriptionEn: 'The Warmth of Korea — handmade aprons.',
-    sortOrder: 6,
+    description: '韓國 The Warmth 手作圍裙與居家用品。',
+    descriptionEn: 'The Warmth of Korea — handmade aprons and home goods.',
+    sortOrder: 7,
   },
   FOTL: {
     slug: 'fotl',
     description: 'FOTL 香氛與手工飾品。',
     descriptionEn: 'FOTL — fragrance and handmade jewellery.',
-    sortOrder: 7,
-  },
-  棉紗之間: {
-    slug: 'mianshazhijian',
-    description: '莎岡推薦｜棉紗之間。',
-    descriptionEn: 'Sagan Picks — Cotton & Gauze.',
     sortOrder: 8,
+  },
+  'Maison de Paris': {
+    slug: 'maison-de-paris',
+    description: '韓國 Maison de Paris 寢具與家飾。',
+    descriptionEn: 'Maison de Paris of Korea — bedding and home décor.',
+    sortOrder: 9,
   },
 }
 
-async function loadScrapeResult(): Promise<ScrapeResult | null> {
+async function loadShopeeExport(): Promise<ShopeeExport | null> {
   if (!existsSync(DATA_FILE)) return null
-  return JSON.parse(await readFile(DATA_FILE, 'utf8')) as ScrapeResult
+  return JSON.parse(await readFile(DATA_FILE, 'utf8')) as ShopeeExport
 }
 
 // ---------------------------------------------------------------------------
 
-async function seedBrands(products: ScrapedProduct[]) {
+/**
+ * 清掉舊的 sagan.com.tw 爬蟲資料（他人著作權素材，只是開發期的假資料）。
+ *
+ * 只動「有 sourceId 但不是蝦皮來的」商品與分類 —— 後台手動建立的商品 sourceId 是 null，不受影響。
+ * 已成立的訂單不會壞：OrderItem 是下單當下的快照，variantId 會被設成 null。
+ */
+async function purgeLegacyCatalog() {
+  const products = await db.product.deleteMany({
+    where: { sourceId: { not: null }, NOT: { sourceId: { startsWith: PRODUCT_SOURCE_PREFIX } } },
+  })
+  const categories = await db.category.deleteMany({
+    where: { sourceId: { not: null }, NOT: { sourceId: { startsWith: CATEGORY_SOURCE_PREFIX } } },
+  })
+  if (products.count + categories.count > 0) {
+    console.log(`  清除舊爬蟲資料：商品 ${products.count} 件、分類 ${categories.count} 個`)
+  }
+}
+
+/** 舊爬蟲的圖片在 public/uploads/seed/，確定沒有任何地方再指向它才刪 */
+async function removeLegacyImages() {
+  if (!existsSync(LEGACY_IMAGE_DIR)) return
+  const [images, banners] = await Promise.all([
+    db.productImage.count({ where: { url: { startsWith: '/uploads/seed/' } } }),
+    db.banner.count({ where: { imageUrl: { startsWith: '/uploads/seed/' } } }),
+  ])
+  if (images + banners > 0) return
+  await rm(LEGACY_IMAGE_DIR, { recursive: true, force: true })
+  console.log('  已刪除 public/uploads/seed/（舊爬蟲圖片）')
+}
+
+async function seedBrands(products: ShopeeProduct[]) {
   const names = new Set(products.map((p) => p.brandName).filter((n): n is string => Boolean(n)))
-  const idBySlug = new Map<string, string>()
+  const idByName = new Map<string, string>()
 
   for (const name of names) {
     const meta: BrandMeta = BRAND_META[name] ?? {
@@ -142,145 +161,154 @@ async function seedBrands(products: ScrapedProduct[]) {
       update: fields,
       create: { slug: meta.slug, ...fields },
     })
-    idBySlug.set(name, brand.id)
+    idByName.set(name, brand.id)
   }
 
-  console.log(`  品牌 ${idBySlug.size} 個`)
-  return idBySlug
+  console.log(`  品牌 ${idByName.size} 個`)
+  return idByName
 }
 
-async function seedCategories(categories: ScrapedCategory[]) {
-  const idBySourceId = new Map<string, string>()
+async function seedCategories(categories: ShopeeCategory[]) {
+  const idByKey = new Map<string, string>()
 
   for (const [index, cat] of categories.entries()) {
-    const slug = slugify(cat.name) || `category-${cat.sourceId}`
+    const sourceId = `${CATEGORY_SOURCE_PREFIX}${cat.key}`
+    const fields = { name: cat.name, nameEn: cat.nameEn, sortOrder: index }
     const record = await db.category.upsert({
-      where: { sourceId: cat.sourceId },
-      update: { name: cat.name, nameEn: cat.nameEn ?? null, sortOrder: index },
-      create: {
-        sourceId: cat.sourceId,
-        slug,
-        name: cat.name,
-        nameEn: cat.nameEn ?? null,
-        sortOrder: index,
-      },
+      where: { sourceId },
+      update: fields,
+      create: { sourceId, slug: cat.key, ...fields },
     })
-    idBySourceId.set(cat.sourceId, record.id)
+    idByKey.set(cat.key, record.id)
   }
 
-  console.log(`  分類 ${idBySourceId.size} 個`)
-  return idBySourceId
+  console.log(`  分類 ${idByKey.size} 個`)
+  return idByKey
 }
 
-function buildVariants(product: ScrapedProduct): Prisma.ProductVariantCreateWithoutProductInput[] {
-  // 沒有規格選項的商品（單一款式）也要有一個變體，購物車才有東西可以指向
-  if (product.variants.length === 0) {
-    return [
-      {
-        sku: `SG-${product.sourceId}-0`,
-        name: '單一規格',
-        options: {},
-        price: product.price,
-        compareAtPrice: product.compareAtPrice,
-        stock: DEV_MIN_STOCK,
-        sortOrder: 0,
-      },
-    ]
-  }
+/**
+ * 同一張圖的識別碼：檔名（不含 .webp）的末 8 碼。
+ * 舊檔名是蝦皮圖片 ID 本身，新檔名是 <商品名>-<用途>-<ID 末 8 碼>，兩種取出來的值相同。
+ */
+function imageTagOf(url: string): string {
+  return decodeURIComponent(url.split('/').pop() ?? '').replace(/\.webp$/, '').slice(-8)
+}
 
-  return product.variants.map((v, i) => ({
-    sku: `SG-${product.sourceId}-${v.sourceId}`,
-    name: v.name || '單一規格',
-    options: v.name ? { 規格: v.name } : {},
-    price: product.price,
-    compareAtPrice: product.compareAtPrice,
-    stock: v.soldOut ? 0 : Math.max(v.stock, DEV_MIN_STOCK),
-    isActive: true,
-    sortOrder: i,
-  }))
+async function relinkOrderImages(tx: Prisma.TransactionClient, productId: string, images: ShopeeImage[]) {
+  const previous = await tx.productImage.findMany({
+    where: { productId, url: { startsWith: SHOPEE_IMAGE_PREFIX } },
+    select: { url: true },
+  })
+  const current = new Map(images.map((img) => [imageTagOf(img.url), img.url]))
+  for (const { url } of previous) {
+    const next = current.get(imageTagOf(url))
+    if (next && next !== url) {
+      await tx.orderItem.updateMany({ where: { imageUrl: url }, data: { imageUrl: next } })
+    }
+  }
 }
 
 async function seedProducts(
-  products: ScrapedProduct[],
+  data: ShopeeExport,
   brandIds: Map<string, string>,
   categoryIds: Map<string, string>,
 ) {
-  let created = 0
+  // 蝦皮商品 ID 越大越新；用匯入時間往回排，讓「最新上架」的順序跟蝦皮一致，重跑結果也一樣
+  const sorted = [...data.products].sort((a, b) => (BigInt(b.sourceId) > BigInt(a.sourceId) ? 1 : -1))
+  const base = new Date(data.importedAt).getTime()
+  const shopeeCategoryIds = [...categoryIds.values()]
+  const seen: string[] = []
 
-  for (const product of products) {
-    const slug = `${slugify(product.name) || 'product'}-${product.sourceId}`
-    const brandId = product.brandName ? (brandIds.get(product.brandName) ?? null) : null
+  for (const [index, product] of sorted.entries()) {
+    const sourceId = `${PRODUCT_SOURCE_PREFIX}${product.sourceId}`
+    seen.push(sourceId)
 
-    const base = {
-      slug,
+    const fields = {
       name: product.name,
       summary: product.summary || null,
       descriptionHtml: product.descriptionHtml || null,
-      brandId,
-      basePrice: product.price,
-      compareAtPrice: product.compareAtPrice,
+      brandId: product.brandName ? (brandIds.get(product.brandName) ?? null) : null,
+      basePrice: Math.min(...product.variants.map((v) => v.price)),
+      compareAtPrice: null,
       sourceUrl: product.sourceUrl,
-      status: 'ACTIVE' as const,
-      publishedAt: new Date(),
+      status: product.status,
+      publishedAt: new Date(base - index * 1000),
       seoTitle: product.name,
-      seoDescription: product.summary.slice(0, 155) || null,
+      seoDescription: takeChars(product.summary, 155) || null,
     }
 
-    // 重跑時整組換掉圖片與變體，避免殘留舊資料
-    const existing = await db.product.findUnique({
-      where: { sourceId: product.sourceId },
-      select: { id: true },
+    await db.$transaction(async (tx) => {
+      const existing = await tx.product.findUnique({ where: { sourceId }, select: { id: true } })
+      const slugBase = takeChars(slugify(product.name), 40).replace(/-+$/, '') || 'product'
+      const record = existing
+        ? await tx.product.update({ where: { id: existing.id }, data: fields })
+        : await tx.product.create({ data: { ...fields, sourceId, slug: `${slugBase}-${product.sourceId}` } })
+
+      // 匯入程式會隨商品名稱改檔名；訂單明細存的是下單當下的網址，跟著換成新檔名才不會破圖
+      if (existing) await relinkOrderImages(tx, existing.id, product.images)
+
+      // 只換掉匯入的圖，後台自己上傳的（/uploads/products/）留著
+      await tx.productImage.deleteMany({
+        where: { productId: record.id, url: { startsWith: SHOPEE_IMAGE_PREFIX } },
+      })
+      if (product.images.length > 0) {
+        await tx.productImage.createMany({
+          data: product.images.map((img, i) => ({
+            productId: record.id,
+            url: img.url,
+            alt: product.name,
+            width: img.width || null,
+            height: img.height || null,
+            sortOrder: i,
+          })),
+        })
+      }
+
+      const skus: string[] = []
+      for (const [i, v] of product.variants.entries()) {
+        const sku = `SP-${v.sourceId}`
+        skus.push(sku)
+        const variant = {
+          name: v.name,
+          options: v.options as Prisma.InputJsonValue,
+          price: v.price,
+          stock: v.stock,
+          isActive: true,
+          sortOrder: i,
+        }
+        await tx.productVariant.upsert({
+          where: { sku },
+          update: variant,
+          create: { ...variant, sku, productId: record.id },
+        })
+      }
+      // 蝦皮上已經刪掉的規格：停用而不刪，歷史訂單與購物車可能還指著它
+      await tx.productVariant.updateMany({
+        where: { productId: record.id, sku: { notIn: skus } },
+        data: { isActive: false },
+      })
+
+      await tx.productCategory.deleteMany({
+        where: { productId: record.id, categoryId: { in: shopeeCategoryIds } },
+      })
+      const categoryId = categoryIds.get(product.categoryKey)
+      if (categoryId) {
+        await tx.productCategory.create({ data: { productId: record.id, categoryId } })
+      }
     })
 
-    const record = existing
-      ? await db.product.update({ where: { id: existing.id }, data: base })
-      : await db.product.create({ data: { ...base, sourceId: product.sourceId } })
-
-    if (existing) {
-      await db.productImage.deleteMany({ where: { productId: record.id } })
-      await db.productCategory.deleteMany({ where: { productId: record.id } })
-    }
-
-    if (product.images.length > 0) {
-      await db.productImage.createMany({
-        data: product.images.map((url, i) => ({
-          productId: record.id,
-          url,
-          alt: product.name,
-          sortOrder: i,
-        })),
-      })
-    }
-
-    for (const variant of buildVariants(product)) {
-      await db.productVariant.upsert({
-        where: { sku: variant.sku },
-        update: {
-          name: variant.name,
-          options: variant.options as Prisma.InputJsonValue,
-          price: variant.price,
-          compareAtPrice: variant.compareAtPrice,
-          stock: variant.stock,
-          sortOrder: variant.sortOrder,
-        },
-        create: { ...variant, productId: record.id },
-      })
-    }
-
-    const links = product.categorySourceIds
-      .map((sid) => categoryIds.get(sid))
-      .filter((id): id is string => Boolean(id))
-    if (links.length > 0) {
-      await db.productCategory.createMany({
-        data: links.map((categoryId) => ({ productId: record.id, categoryId })),
-        skipDuplicates: true,
-      })
-    }
-
-    created++
+    if ((index + 1) % 200 === 0) console.log(`  商品 ${index + 1}/${sorted.length}`)
   }
 
-  console.log(`  商品 ${created} 件`)
+  // 之前匯入過、這次匯出檔裡沒有的（蝦皮上刪掉了）：下架而不刪
+  const gone = await db.product.updateMany({
+    where: { sourceId: { startsWith: PRODUCT_SOURCE_PREFIX, notIn: seen }, status: 'ACTIVE' },
+    data: { status: 'ARCHIVED' },
+  })
+
+  const active = sorted.filter((p) => p.status === 'ACTIVE').length
+  console.log(`  商品 ${sorted.length} 件（上架 ${active}、下架 ${sorted.length - active}）`)
+  if (gone.count > 0) console.log(`  蝦皮上已不存在而下架：${gone.count} 件`)
 }
 
 // ---------------------------------------------------------------------------
@@ -369,9 +397,10 @@ async function seedCoupons() {
 }
 
 async function seedBanners() {
-  // Hero 圖沿用第一件商品的主圖，這樣不需要另外準備素材
+  // Hero 圖沿用最新上架商品的主圖，這樣不需要另外準備素材
   const first = await db.productImage.findFirst({
-    orderBy: { product: { createdAt: 'asc' } },
+    where: { product: { status: 'ACTIVE' } },
+    orderBy: [{ product: { publishedAt: 'desc' } }, { sortOrder: 'asc' }],
     select: { url: true },
   })
   if (!first) return
@@ -399,25 +428,28 @@ async function seedBanners() {
 async function main() {
   console.log('\n=== 開始 seed ===\n')
 
-  const data = await loadScrapeResult()
+  await purgeLegacyCatalog()
+
+  const data = await loadShopeeExport()
 
   if (!data) {
-    console.log('找不到 prisma/seed-data/sagan.json，只建立帳號與優惠券。')
-    console.log('要灌入商品資料請先執行： SEED_SOURCE=sagan npm run scrape\n')
+    console.log('找不到 prisma/seed-data/shopee.json，只建立帳號與優惠券。')
+    console.log('要灌入商品資料請先執行： npm run import:shopee -- "<蝦皮匯出檔資料夾>"\n')
     await seedAccounts()
     await seedCoupons()
     console.log('\n=== 完成 ===\n')
     return
   }
 
-  console.log(`資料來源：${data.source}（抓取於 ${data.scrapedAt}）\n`)
+  console.log(`資料來源：蝦皮賣場 ${data.shopId}（匯出檔 ${data.sourceFiles.join('、')}）\n`)
 
   const brandIds = await seedBrands(data.products)
   const categoryIds = await seedCategories(data.categories)
-  await seedProducts(data.products, brandIds, categoryIds)
+  await seedProducts(data, brandIds, categoryIds)
   await seedAccounts()
   await seedCoupons()
   await seedBanners()
+  await removeLegacyImages()
 
   console.log('\n=== 完成 ===\n')
 }
