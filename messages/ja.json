@@ -32,6 +32,7 @@
   },
   "home": {
     "heroTitle": "自分を幸せにすること、それが唯一のモラル",
+    "heroAttribution": "— フランソワーズ・サガン",
     "heroSubtitle": "韓国のパジャマ・寝具・インテリア雑貨を厳選してお届けします",
     "heroCta": "ショッピングを始める",
     "featured": "おすすめ商品",
@@ -43,7 +44,24 @@
     "aboutBody": "{shop}は2023年春に創業し、韓国の上質なパジャマ・寝具・インテリア雑貨を専門に取り扱っています。厳選した韓国ブランドとは本社との正式なライセンス契約のもとでお取引しており、お届けする一つひとつの商品が、日々のいちばんくつろげるひとときに寄り添えることを願っています。",
     "aboutCta": "{shop}について",
     "brandPrev": "前のブランド",
-    "brandNext": "次のブランド"
+    "brandNext": "次のブランド",
+    "carousel": {
+      "label": "おすすめ",
+      "slide": "{total} 枚中 {index} 枚目",
+      "prev": "前のスライド",
+      "next": "次のスライド",
+      "goTo": "{index} 枚目へ",
+      "pause": "スライドショーを一時停止",
+      "play": "スライドショーを再生",
+      "storefrontAlt": "Sagan の店舗イラスト",
+      "lineTitle": "LINE 公式アカウント",
+      "lineBody": "お問い合わせ・ご注文のご連絡",
+      "lineCta": "LINE で友だち追加",
+      "lineHint": "スマートフォンでは QR コードを長押しして友だち追加できます",
+      "lineQrAlt": "LINE 公式アカウントの QR コード",
+      "deliveryTitle": "ヤマト運輸（クロネコ）",
+      "deliveryBody": "提携配送で、安心・スピーディーにお届けします"
+    }
   },
   "product": {
     "addToCart": "カートに入れる",

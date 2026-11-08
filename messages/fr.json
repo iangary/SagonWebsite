@@ -32,6 +32,7 @@
   },
   "home": {
     "heroTitle": "Le bonheur était sa seule morale",
+    "heroAttribution": "— Françoise Sagan",
     "heroSubtitle": "Pyjamas, linge de lit et décoration coréens, sélectionnés avec soin",
     "heroCta": "Découvrir la boutique",
     "featured": "Nos coups de cœur",
@@ -43,7 +44,24 @@
     "aboutBody": "{shop} a vu le jour au printemps 2023 avec une vocation : proposer des vêtements de nuit, du linge de lit et des objets de décoration coréens de grande qualité. Nous sélectionnons avec soin des marques coréennes et travaillons sous licence officielle de leur siège, afin que chaque article qui vous parvient accompagne les moments les plus détendus de votre quotidien.",
     "aboutCta": "Découvrir {shop}",
     "brandPrev": "Marques précédentes",
-    "brandNext": "Marques suivantes"
+    "brandNext": "Marques suivantes",
+    "carousel": {
+      "label": "À la une",
+      "slide": "Diapositive {index} sur {total}",
+      "prev": "Diapositive précédente",
+      "next": "Diapositive suivante",
+      "goTo": "Aller à la diapositive {index}",
+      "pause": "Mettre le diaporama en pause",
+      "play": "Lancer le diaporama",
+      "storefrontAlt": "Illustration de la boutique Sagan",
+      "lineTitle": "Compte officiel LINE",
+      "lineBody": "Service client et suivi des commandes",
+      "lineCta": "Nous ajouter sur LINE",
+      "lineHint": "Sur mobile, appuyez longuement sur le QR code pour nous ajouter",
+      "lineQrAlt": "QR code de notre compte officiel LINE",
+      "deliveryTitle": "Yamato Transport (Black Cat)",
+      "deliveryBody": "Notre transporteur partenaire : livraison sûre et rapide"
+    }
   },
   "product": {
     "addToCart": "Ajouter au panier",

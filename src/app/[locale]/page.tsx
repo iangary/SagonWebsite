@@ -1,3 +1,4 @@
+import type * as React from 'react'
 import Image from 'next/image'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { ArrowRight } from 'lucide-react'
@@ -7,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Reveal } from '@/components/ui/reveal'
 import { BrandMarquee } from '@/components/layout/brand-marquee'
 import { ScrollRail } from '@/components/home/scroll-rail'
-import { HeroVisual } from '@/components/hero/hero-visual'
+import { HeroCarousel } from '@/components/home/hero-carousel'
 import { ProductGrid } from '@/components/product/product-card'
 import {
   getFeaturedProducts,
@@ -15,11 +16,34 @@ import {
   listBrandShowcase,
   listProducts,
 } from '@/lib/catalog/queries'
-import { shopName } from '@/lib/shop-config'
+import { lineSupport, shopName } from '@/lib/shop-config'
 import { cn } from '@/lib/utils'
+import storefrontImg from '@/assets/hero/storefront.jpg'
+import portraitImg from '@/assets/hero/sagan-portrait.jpg'
+import lineQrImg from '@/assets/hero/line-qr.png'
+import giftImg from '@/assets/hero/gift.png'
+import kraftTileImg from '@/assets/hero/kraft-tile.jpg'
 
 // 商品資料變動不頻繁，用 ISR 讓首頁走 CDN 快取
 export const revalidate = 300
+
+// 插畫四邊漸隱進同色底：兩道漸層取交集，邊緣 10% 從不透明淡到透明
+const FADE_EDGES = {
+  maskImage:
+    'linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, transparent, #000 10%, #000 90%, transparent)',
+  maskComposite: 'intersect',
+  WebkitMaskImage:
+    'linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, transparent, #000 10%, #000 90%, transparent)',
+  WebkitMaskComposite: 'source-in',
+} as const
+
+// 牛皮紙底：從插畫本身上下的空白紙裁出來、交叉淡入接成的無縫紋理（不是鏡像，才不會出現萬花筒圖樣），
+// 平均色與插畫的紙一致。background-size 對齊插畫在畫面上的縮放比例，紙紋粗細才接得上：
+// 手機插畫約 48vh 高 → 0.145 倍；lg 約 720px 高 → 0.27 倍（tile 原始 2160×760）。
+const PAPER = {
+  backgroundColor: '#a5886b',
+  backgroundImage: `url(${kraftTileImg.src})`,
+} as const
 
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
@@ -39,63 +63,134 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   // 刻意不退回 hero.title，那欄一定是中文，英文站會整段變中文。
   const isDefaultLocale = locale === defaultLocale
   const heroTitle = (isDefaultLocale ? hero?.title : hero?.titleEn?.trim()) || t('heroTitle')
-  const heroSubtitle =
-    (isDefaultLocale ? hero?.subtitle : hero?.subtitleEn?.trim()) || t('heroSubtitle')
+
+  // 每張底部的 pb-16 是給輪播控制膠囊的位置；lg 的 min-h 讓四張同高。
+  const slideBase = 'pb-16 lg:min-h-[min(80vh,760px)]'
+
+  const heroSlides = [
+    // 1. 店面插畫：圖本身是平塗底色，slide 底色取同一個色，邊緣才不會露出一塊方框
+    <div
+      key="storefront"
+      className={cn(slideBase, 'flex items-center justify-center bg-[#eae6dd] px-3 pt-10 sm:px-6 lg:pt-16')}
+    >
+      <Image
+        src={storefrontImg}
+        alt={t('carousel.storefrontAlt')}
+        priority
+        sizes="(min-width: 1024px) 52rem, 100vw"
+        className="h-auto w-auto max-w-full lg:max-h-[calc(min(80vh,760px)-8rem)]"
+      />
+    </div>,
+
+    // 2. 名言：左圖右文，整張鋪插畫同一張牛皮紙的紋理（PAPER），
+    //    插畫四邊用 mask 漸隱進底色，看起來像文字直接寫在同一張紙上。
+    //    手機：插畫在上、文字在下；lg：插畫靠中線右側、文字在中線左側對齊。
+    <div
+      key="quote"
+      style={PAPER}
+      className={cn(
+        'grid items-center gap-2 pb-20 [background-size:313px_110px] sm:[background-size:390px_137px] lg:[background-size:583px_205px] lg:min-h-[min(80vh,760px)] lg:grid-cols-2 lg:gap-12 lg:pb-0',
+        'lg:pr-[max(1.5rem,calc((100vw-80rem)/2+1.5rem))]',
+      )}
+    >
+      <div className="flex justify-center px-6 lg:justify-start lg:px-0">
+        {/* 暖白字像印在牛皮紙上的白墨，也呼應插畫裡的白貓；牛皮紙底對白字只有約 3.3:1，
+            補一層很淡的棕色陰影把字從紙紋裡托出來 */}
+        <div className="w-fit max-w-full [text-shadow:0_1px_3px_rgb(58_38_20/0.45)]">
+          <h1 className="fade-up text-2xl leading-[1.5] tracking-[0.08em] text-balance text-cream-50 [animation-delay:200ms] sm:text-4xl xl:text-5xl xl:leading-[1.4]">
+            <BreakableTitle text={heroTitle} />
+          </h1>
+          <p className="fade-up mt-4 text-right text-xl tracking-[0.12em] text-cream-50 [animation-delay:450ms] sm:mt-8 sm:text-2xl">
+            {t('heroAttribution')}
+          </p>
+        </div>
+      </div>
+
+      {/* DOM 上文字在前（h1 先被讀到），畫面上用 order-first 把圖排到上方／左方 */}
+      <div className="order-first flex justify-center lg:justify-end">
+        <Image
+          src={portraitImg}
+          alt=""
+          loading="eager"
+          sizes="(min-width: 1024px) 50vw, 100vw"
+          className="h-auto max-h-[48vh] w-auto max-w-full lg:max-h-[min(80vh,760px)]"
+          style={FADE_EDGES}
+        />
+      </div>
+    </div>,
+
+    // 3. LINE 官方帳號
+    <InfoSlide
+      key="line"
+      className={slideBase}
+      eyebrow="Customer Care"
+      title={t('carousel.lineTitle')}
+      body={t('carousel.lineBody')}
+      visual={
+        <MaybeLink href={lineSupport?.url}>
+          <Image
+            src={lineQrImg}
+            alt={t('carousel.lineQrAlt')}
+            sizes="(min-width: 1024px) 18rem, (min-width: 640px) 14rem, 11rem"
+            className="size-44 bg-white p-3 shadow-sm sm:size-56 lg:size-72 lg:p-4"
+          />
+        </MaybeLink>
+      }
+    >
+      {lineSupport ? (
+        <Button asChild className="mt-7 sm:mt-8">
+          <a href={lineSupport.url} target="_blank" rel="noopener noreferrer">
+            {t('carousel.lineCta')}
+            <ArrowRight size={16} />
+          </a>
+        </Button>
+      ) : (
+        // 沒設定 SHOP_LINE_URL 時只有 QR Code 可用；在手機上掃不了自己的螢幕，提示改用長按辨識
+        <p className="mt-5 text-xs leading-relaxed tracking-wide text-taupe-600 lg:hidden">
+          {t('carousel.lineHint')}
+        </p>
+      )}
+    </InfoSlide>,
+
+    // 4. 黑貓宅配
+    <InfoSlide
+      key="delivery"
+      className={slideBase}
+      eyebrow="Delivery"
+      title={t('carousel.deliveryTitle')}
+      body={t('carousel.deliveryBody')}
+      visual={
+        <Image
+          src={giftImg}
+          alt=""
+          sizes="(min-width: 1024px) 18rem, (min-width: 640px) 14rem, 10rem"
+          className="h-auto w-40 sm:w-56 lg:w-72"
+        />
+      }
+    />,
+  ]
 
   return (
     <>
       {/*
-        Hero：左文右圖的對半版型。
-        照片完全不加霧化，讓商品本身說話；絲綢動態層只鋪在文字那一側當底紋。
-        手機上照片在上、文字在下（DOM 仍是文字在前，h1 先被讀到）。
+        Hero：四張輪播（店面 → 名言 → LINE → 宅配），沿用舊站的順序與素材。
+        每張在手機都是「圖在上、字在下」的單欄，lg 以上才左右對半；
+        底部 pb-16 留給輪播的控制膠囊。
       */}
-      <section className="grid bg-cream-100 lg:min-h-[min(80vh,760px)] lg:grid-cols-2">
-        <div
-          className={cn(
-            'relative flex items-center overflow-hidden px-6 py-10 sm:py-20 lg:py-24 lg:pr-16',
-            // 文字的左緣對齊下方 max-w-7xl 內容區的左緣（80rem 容器 + 1.5rem 內距）
-            'lg:pl-[max(1.5rem,calc((100vw-80rem)/2+1.5rem))]',
-            hero ? '' : 'lg:col-span-2',
-          )}
-        >
-          <HeroVisual />
-          <div className="relative max-w-xl">
-            <p className="fade-up flex items-center gap-4 [animation-delay:150ms]">
-              <span aria-hidden className="h-px w-10 bg-plum-600" />
-              <span className="font-display text-lg tracking-[0.12em] text-taupe-600 italic">
-                Sagan Boutique
-              </span>
-            </p>
-            <h1 className="fade-up mt-7 text-4xl leading-[1.35] tracking-[0.04em] text-balance text-ink-900 [animation-delay:300ms] sm:text-5xl sm:leading-[1.3] xl:text-6xl xl:leading-[1.25]">
-              <BreakableTitle text={heroTitle} />
-            </h1>
-            <p className="fade-up mt-6 max-w-sm text-sm leading-relaxed tracking-wide text-ink-700 [animation-delay:450ms] sm:text-base">
-              {heroSubtitle}
-            </p>
-            <div className="fade-up [animation-delay:600ms]">
-              <Button asChild size="lg" className="group mt-10 hover:tracking-[0.12em]">
-                <Link href={hero?.linkUrl ?? '/product/all'}>
-                  {t('heroCta')}
-                  <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {hero && (
-          <div className="relative order-first h-[46vh] min-h-72 lg:order-none lg:h-auto">
-            <Image
-              src={hero.imageUrl}
-              alt=""
-              fill
-              priority
-              sizes="(min-width: 1024px) 50vw, 100vw"
-              className="object-cover object-center"
-            />
-          </div>
-        )}
-      </section>
+      <HeroCarousel
+        labels={{
+          region: t('carousel.label'),
+          slides: heroSlides.map((_, i) =>
+            t('carousel.slide', { index: i + 1, total: heroSlides.length }),
+          ),
+          prev: t('carousel.prev'),
+          next: t('carousel.next'),
+          goTo: heroSlides.map((_, i) => t('carousel.goTo', { index: i + 1 })),
+          pause: t('carousel.pause'),
+          play: t('carousel.play'),
+        }}
+        slides={heroSlides}
+      />
 
       {/* 品牌跑馬燈 */}
       <BrandMarquee items={brands.map((brand) => brand.name)} />
@@ -115,7 +210,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               href={`/product/all?brand=${brand.slug}`}
               className="group relative block w-[64vw] shrink-0 snap-start overflow-hidden bg-cream-200 sm:w-[calc((100%-2rem)/3)] lg:w-[calc((100%-3rem)/4)]"
             >
-              <div className="relative aspect-[4/5]">
+              {/* 正方形：封面是蝦皮商品主圖（1:1），直式框會切掉角落的品牌 logo */}
+              <div className="relative aspect-square">
                 {brand.coverUrl && (
                   <Image
                     src={brand.coverUrl}
@@ -220,4 +316,61 @@ function BreakableTitle({ text }: { text: string }) {
       {segment}
     </span>
   ))
+}
+
+/**
+ * 輪播裡「一張圖 + 一段文字」的資訊格（LINE、宅配）。
+ * 手機：圖在上、字在下、置中；lg 以上：圖在左、字在右，兩欄在中線兩側對齊。
+ */
+function InfoSlide({
+  eyebrow,
+  title,
+  body,
+  visual,
+  children,
+  className,
+}: {
+  eyebrow: string
+  title: string
+  body: string
+  visual: React.ReactNode
+  children?: React.ReactNode
+  className?: string
+}) {
+  return (
+    <div
+      className={cn(
+        'grid content-center items-center justify-items-center gap-7 bg-cream-100 px-6 pt-10 sm:gap-10',
+        'lg:grid-cols-2 lg:gap-16 lg:pt-16',
+        className,
+      )}
+    >
+      <div className="lg:justify-self-end">{visual}</div>
+      <div className="max-w-md text-center lg:justify-self-start lg:text-left">
+        <p className="flex items-center justify-center gap-4 lg:justify-start">
+          <span aria-hidden className="h-px w-8 bg-plum-600" />
+          <span className="font-display text-base tracking-[0.12em] text-taupe-600 italic">
+            {eyebrow}
+          </span>
+        </p>
+        <h2 className="mt-4 text-2xl leading-snug tracking-[0.08em] text-balance text-ink-900 sm:text-3xl lg:text-4xl">
+          {title}
+        </h2>
+        <p className="mt-3 text-sm leading-relaxed tracking-wide text-ink-700 sm:text-base">
+          {body}
+        </p>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/** 有網址才包成外部連結，沒有就原樣回傳（避免一個點了沒反應的連結） */
+function MaybeLink({ href, children }: { href?: string; children: React.ReactNode }) {
+  if (!href) return <>{children}</>
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="block">
+      {children}
+    </a>
+  )
 }

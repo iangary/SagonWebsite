@@ -32,6 +32,7 @@
   },
   "home": {
     "heroTitle": "讓自己幸福，是他唯一的道德觀",
+    "heroAttribution": "—莎岡",
     "heroSubtitle": "嚴選韓國睡衣、寢具與家居飾品",
     "heroCta": "開始選購",
     "featured": "精選商品",
@@ -43,7 +44,24 @@
     "aboutBody": "{shop}創立於 2023 年春天，專注引進韓國高品質睡衣、寢具與家居飾品。我們嚴選韓國品牌，並與品牌總部正式授權合作，希望每一件送到您手中的商品，都能陪伴日常裡那些最放鬆的時刻。",
     "aboutCta": "認識{shop}",
     "brandPrev": "上一組品牌",
-    "brandNext": "下一組品牌"
+    "brandNext": "下一組品牌",
+    "carousel": {
+      "label": "首頁輪播",
+      "slide": "第 {index} 張，共 {total} 張",
+      "prev": "上一張",
+      "next": "下一張",
+      "goTo": "前往第 {index} 張",
+      "pause": "暫停輪播",
+      "play": "播放輪播",
+      "storefrontAlt": "莎岡選品店（Sagan）的店面插畫",
+      "lineTitle": "LINE 官方帳號",
+      "lineBody": "客服諮詢・訂單聯繫",
+      "lineCta": "加入 LINE 好友",
+      "lineHint": "用手機瀏覽時，長按 QR Code 即可加入好友",
+      "lineQrAlt": "莎岡選品店 LINE 官方帳號的 QR Code",
+      "deliveryTitle": "黑貓宅急便",
+      "deliveryBody": "宅配合作，安心配送・快速出貨"
+    }
   },
   "product": {
     "addToCart": "加入購物車",

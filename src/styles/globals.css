@@ -236,6 +236,16 @@
   }
 }
 
+/* 首頁輪播的進度條：跑完一次就換下一張（見 hero-carousel.tsx 的 onAnimationEnd） */
+@keyframes hero-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
 @keyframes marquee {
   from {
     transform: translateX(0);

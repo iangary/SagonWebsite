@@ -32,6 +32,7 @@
   },
   "home": {
     "heroTitle": "스스로를 행복하게 하는 것, 그것이 그의 유일한 도덕이다",
+    "heroAttribution": "— 프랑수아즈 사강",
     "heroSubtitle": "엄선한 한국 잠옷, 침구, 홈 데코",
     "heroCta": "쇼핑 시작하기",
     "featured": "추천 상품",
@@ -43,7 +44,24 @@
     "aboutBody": "2023년 봄에 문을 연 {shop}에서는 한국의 고품질 잠옷, 침구, 홈 데코 제품을 소개하고 있습니다. 한국 브랜드를 엄선해 각 브랜드 본사와 정식 라이선스 계약을 맺고 있으며, 고객님께 전해지는 모든 상품이 일상 속 가장 편안한 순간을 함께하기를 바랍니다.",
     "aboutCta": "{shop} 알아보기",
     "brandPrev": "이전 브랜드",
-    "brandNext": "다음 브랜드"
+    "brandNext": "다음 브랜드",
+    "carousel": {
+      "label": "추천",
+      "slide": "{total}개 중 {index}번째 슬라이드",
+      "prev": "이전 슬라이드",
+      "next": "다음 슬라이드",
+      "goTo": "{index}번째 슬라이드로 이동",
+      "pause": "슬라이드쇼 일시정지",
+      "play": "슬라이드쇼 재생",
+      "storefrontAlt": "Sagan 매장 일러스트",
+      "lineTitle": "LINE 공식 계정",
+      "lineBody": "고객 상담 · 주문 문의",
+      "lineCta": "LINE 친구 추가",
+      "lineHint": "휴대폰에서는 QR 코드를 길게 눌러 친구 추가하세요",
+      "lineQrAlt": "LINE 공식 계정 QR 코드",
+      "deliveryTitle": "야마토 운수(블랙캣)",
+      "deliveryBody": "제휴 택배로 안전하고 빠르게 배송합니다"
+    }
   },
   "product": {
     "addToCart": "장바구니 담기",

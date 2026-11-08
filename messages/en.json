@@ -32,6 +32,7 @@
   },
   "home": {
     "heroTitle": "Your own happiness is the only moral compass",
+    "heroAttribution": "— Françoise Sagan",
     "heroSubtitle": "Curated Korean sleepwear, bedding and home goods",
     "heroCta": "Shop now",
     "featured": "Featured",
@@ -43,7 +44,24 @@
     "aboutBody": "{shop} was founded in the spring of 2023 to bring high-quality Korean sleepwear, bedding and home goods to Taiwan. We curate Korean labels and work under official authorisation from each brand, so that everything we send you belongs to the most relaxed moments of your day.",
     "aboutCta": "About {shop}",
     "brandPrev": "Previous brands",
-    "brandNext": "Next brands"
+    "brandNext": "Next brands",
+    "carousel": {
+      "label": "Featured",
+      "slide": "Slide {index} of {total}",
+      "prev": "Previous slide",
+      "next": "Next slide",
+      "goTo": "Go to slide {index}",
+      "pause": "Pause slideshow",
+      "play": "Play slideshow",
+      "storefrontAlt": "Illustration of the Sagan storefront",
+      "lineTitle": "LINE Official Account",
+      "lineBody": "Customer service and order enquiries",
+      "lineCta": "Add us on LINE",
+      "lineHint": "On your phone, long-press the QR code to add us",
+      "lineQrAlt": "QR code for our LINE Official Account",
+      "deliveryTitle": "Yamato Transport (Black Cat)",
+      "deliveryBody": "Our delivery partner: safe, fast shipping"
+    }
   },
   "product": {
     "addToCart": "Add to cart",
