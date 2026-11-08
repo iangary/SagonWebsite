@@ -9,6 +9,7 @@ import { Reveal } from '@/components/ui/reveal'
 import { BrandMarquee } from '@/components/layout/brand-marquee'
 import { ScrollRail } from '@/components/home/scroll-rail'
 import { HeroCarousel } from '@/components/home/hero-carousel'
+import { ZoomableImage } from '@/components/ui/zoomable-image'
 import { ProductGrid } from '@/components/product/product-card'
 import {
   getFeaturedProducts,
@@ -22,20 +23,11 @@ import storefrontImg from '@/assets/hero/storefront.jpg'
 import portraitImg from '@/assets/hero/sagan-portrait.jpg'
 import lineQrImg from '@/assets/hero/line-qr.png'
 import giftImg from '@/assets/hero/gift.png'
+import certificateImg from '@/assets/hero/lunaluz-certificate.jpg'
 import kraftTileImg from '@/assets/hero/kraft-tile.jpg'
 
 // 商品資料變動不頻繁，用 ISR 讓首頁走 CDN 快取
 export const revalidate = 300
-
-// 插畫四邊漸隱進同色底：兩道漸層取交集，邊緣 10% 從不透明淡到透明
-const FADE_EDGES = {
-  maskImage:
-    'linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, transparent, #000 10%, #000 90%, transparent)',
-  maskComposite: 'intersect',
-  WebkitMaskImage:
-    'linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, transparent, #000 10%, #000 90%, transparent)',
-  WebkitMaskComposite: 'source-in',
-} as const
 
 // 牛皮紙底：從插畫本身上下的空白紙裁出來、交叉淡入接成的無縫紋理（不是鏡像，才不會出現萬花筒圖樣），
 // 平均色與插畫的紙一致。background-size 對齊插畫在畫面上的縮放比例，紙紋粗細才接得上：
@@ -73,7 +65,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       key="storefront"
       className={cn(slideBase, 'flex items-center justify-center bg-[#eae6dd] px-3 pt-10 sm:px-6 lg:pt-16')}
     >
-      <Image
+      <ZoomableImage
         src={storefrontImg}
         alt={t('carousel.storefrontAlt')}
         priority
@@ -83,7 +75,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     </div>,
 
     // 2. 名言：左圖右文，整張鋪插畫同一張牛皮紙的紋理（PAPER），
-    //    插畫四邊用 mask 漸隱進底色，看起來像文字直接寫在同一張紙上。
+    //    插畫和背景是同一張紙，不加漸層也接得起來，看起來像文字直接寫在同一張紙上。
     //    手機：插畫在上、文字在下；lg：插畫靠中線右側、文字在中線左側對齊。
     <div
       key="quote"
@@ -108,13 +100,14 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
       {/* DOM 上文字在前（h1 先被讀到），畫面上用 order-first 把圖排到上方／左方 */}
       <div className="order-first flex justify-center lg:justify-end">
-        <Image
+        <ZoomableImage
           src={portraitImg}
           alt=""
           loading="eager"
           sizes="(min-width: 1024px) 50vw, 100vw"
-          className="h-auto max-h-[48vh] w-auto max-w-full lg:max-h-[min(80vh,760px)]"
-          style={FADE_EDGES}
+          triggerClassName="w-full sm:w-auto"
+          // 手機滿版：插畫左右邊緣貼齊螢幕邊，和背景紙的接縫才不會出現在畫面中間
+          className="h-auto w-full sm:max-h-[48vh] sm:w-auto sm:max-w-full lg:max-h-[min(80vh,760px)]"
         />
       </div>
     </div>,
@@ -127,14 +120,13 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       title={t('carousel.lineTitle')}
       body={t('carousel.lineBody')}
       visual={
-        <MaybeLink href={lineSupport?.url}>
-          <Image
-            src={lineQrImg}
-            alt={t('carousel.lineQrAlt')}
-            sizes="(min-width: 1024px) 18rem, (min-width: 640px) 14rem, 11rem"
-            className="size-44 bg-white p-3 shadow-sm sm:size-56 lg:size-72 lg:p-4"
-          />
-        </MaybeLink>
+        <ZoomableImage
+          src={lineQrImg}
+          alt={t('carousel.lineQrAlt')}
+          sizes="(min-width: 1024px) 18rem, (min-width: 640px) 14rem, 11rem"
+          className="size-44 bg-white p-3 shadow-sm sm:size-56 lg:size-72 lg:p-4"
+          badgeClassName="-right-3 -bottom-3"
+        />
       }
     >
       {lineSupport ? (
@@ -160,7 +152,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       title={t('carousel.deliveryTitle')}
       body={t('carousel.deliveryBody')}
       visual={
-        <Image
+        <ZoomableImage
           src={giftImg}
           alt=""
           sizes="(min-width: 1024px) 18rem, (min-width: 640px) 14rem, 10rem"
@@ -168,6 +160,30 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         />
       }
     />,
+
+    // 5. LUNALUZ 台灣官方授權證書：直式 3:4，字很小，點開放大才看得清楚
+    <InfoSlide
+      key="lunaluz"
+      className={slideBase}
+      eyebrow="Authorized"
+      title={t('carousel.authTitle')}
+      body={t('carousel.authBody', { shop })}
+      visual={
+        <ZoomableImage
+          src={certificateImg}
+          alt={t('carousel.authAlt', { shop })}
+          sizes="(min-width: 1024px) 26rem, (min-width: 640px) 13rem, 10rem"
+          className="h-auto w-40 shadow-md ring-1 ring-ink-900/5 sm:w-52 lg:h-[min(60vh,560px)] lg:w-auto"
+        />
+      }
+    >
+      <Button asChild variant="outline" className="mt-6 sm:mt-8">
+        <Link href="/product/all?brand=lunaluz">
+          {t('carousel.authCta')}
+          <ArrowRight size={16} />
+        </Link>
+      </Button>
+    </InfoSlide>,
   ]
 
   return (
@@ -362,15 +378,5 @@ function InfoSlide({
         {children}
       </div>
     </div>
-  )
-}
-
-/** 有網址才包成外部連結，沒有就原樣回傳（避免一個點了沒反應的連結） */
-function MaybeLink({ href, children }: { href?: string; children: React.ReactNode }) {
-  if (!href) return <>{children}</>
-  return (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="block">
-      {children}
-    </a>
   )
 }

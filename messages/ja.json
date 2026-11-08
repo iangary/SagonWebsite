@@ -60,7 +60,11 @@
       "lineHint": "スマートフォンでは QR コードを長押しして友だち追加できます",
       "lineQrAlt": "LINE 公式アカウントの QR コード",
       "deliveryTitle": "ヤマト運輸（クロネコ）",
-      "deliveryBody": "提携配送で、安心・スピーディーにお届けします"
+      "deliveryBody": "提携配送で、安心・スピーディーにお届けします",
+      "authTitle": "LUNALUZ 台湾正規代理店",
+      "authBody": "{shop}は韓国 LUNALUZ の台湾における正規代理店です。すべて正規品をお届けします。",
+      "authCta": "LUNALUZ を見る",
+      "authAlt": "LUNALUZ KOREA が{shop}を台湾の正規代理店に認定した証明書"
     }
   },
   "product": {
@@ -645,7 +649,14 @@
     "required": "必須",
     "error": "エラーが発生しました。しばらくしてからもう一度お試しください",
     "colon": "：",
-    "titleSeparator": "｜"
+    "titleSeparator": "｜",
+    "close": "閉じる",
+    "viewImage": "画像を拡大表示",
+    "imageViewer": "画像ビューア",
+    "zoomIn": "拡大",
+    "zoomOut": "縮小",
+    "prevImage": "前の画像",
+    "nextImage": "次の画像"
   },
   "orderQuery": {
     "title": "注文状況の確認",

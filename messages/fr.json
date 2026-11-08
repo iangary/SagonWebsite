@@ -60,7 +60,11 @@
       "lineHint": "Sur mobile, appuyez longuement sur le QR code pour nous ajouter",
       "lineQrAlt": "QR code de notre compte officiel LINE",
       "deliveryTitle": "Yamato Transport (Black Cat)",
-      "deliveryBody": "Notre transporteur partenaire : livraison sûre et rapide"
+      "deliveryBody": "Notre transporteur partenaire : livraison sûre et rapide",
+      "authTitle": "Partenaire officiel LUNALUZ à Taïwan",
+      "authBody": "{shop} est le partenaire officiel agréé de LUNALUZ Korea à Taïwan : chaque pièce est authentique.",
+      "authCta": "Découvrir LUNALUZ",
+      "authAlt": "Certificat de LUNALUZ Korea désignant {shop} comme partenaire officiel agréé à Taïwan"
     }
   },
   "product": {
@@ -645,7 +649,14 @@
     "required": "Obligatoire",
     "error": "Une erreur est survenue. Veuillez réessayer plus tard.",
     "colon": " : ",
-    "titleSeparator": " | "
+    "titleSeparator": " | ",
+    "close": "Fermer",
+    "viewImage": "Agrandir l'image",
+    "imageViewer": "Visionneuse d'images",
+    "zoomIn": "Zoomer",
+    "zoomOut": "Dézoomer",
+    "prevImage": "Image précédente",
+    "nextImage": "Image suivante"
   },
   "orderQuery": {
     "title": "Suivi de commande",

@@ -175,6 +175,10 @@ export function HeroCarousel({
         onWheel={(e) => {
           if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) takeOver()
         }}
+        // 點了投影片裡的按鈕或連結（例如把圖放大）也算接手：看完關掉時應該還停在同一張
+        onClickCapture={(e) => {
+          if ((e.target as Element).closest('button, a')) takeOver()
+        }}
         className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain"
       >
         {slides.map((slide, i) => (

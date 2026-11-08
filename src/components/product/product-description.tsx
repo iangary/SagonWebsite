@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { ImageLightbox, type LightboxImage } from '@/components/ui/image-lightbox'
 
 /**
  * 收摺高度的上限。參考站 Marais 的 `.intro.collapsed` 是 550px，這裡取 34rem（544px）。
@@ -25,6 +26,7 @@ export function ProductDescription({
   const userToggled = useRef(false)
   const [collapsible, setCollapsible] = useState(false)
   const [expanded, setExpanded] = useState(true)
+  const [zoom, setZoom] = useState<{ images: LightboxImage[]; index: number } | null>(null)
 
   /*
    * 預設展開、掛載後才收摺 —— 沿用 globals.css 註解裡那套「JS 閘門」的理由：
@@ -59,7 +61,18 @@ export function ProductDescription({
       >
         <div
           ref={contentRef}
-          className="prose-product"
+          // 描述是後端過濾過的 HTML，沒辦法逐張包成按鈕，改在外層接點擊：
+          // 點到哪張就從那張開檢視器，左右可以翻完整段描述的所有圖。包在連結裡的圖照常跳連結。
+          onClick={(e) => {
+            const target = e.target as HTMLElement
+            if (target.tagName !== 'IMG' || target.closest('a')) return
+            const imgs = [...e.currentTarget.querySelectorAll('img')].filter((img) => !img.closest('a'))
+            setZoom({
+              images: imgs.map((img) => ({ src: img.currentSrc || img.src, alt: img.alt })),
+              index: imgs.indexOf(target as HTMLImageElement),
+            })
+          }}
+          className="prose-product [&_img:not(a_img)]:cursor-zoom-in"
           // 已經過 normalizeDescriptionHtml 的允許清單過濾（見 src/lib/catalog/description.ts）
           dangerouslySetInnerHTML={{ __html: html }}
         />
@@ -70,6 +83,16 @@ export function ProductDescription({
           />
         )}
       </div>
+
+      {zoom && (
+        <ImageLightbox
+          images={zoom.images}
+          index={zoom.index}
+          onIndexChange={(index) => setZoom((z) => z && { ...z, index })}
+          open
+          onOpenChange={(open) => !open && setZoom(null)}
+        />
+      )}
 
       {collapsible && (
         <Button

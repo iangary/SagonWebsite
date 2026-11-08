@@ -60,7 +60,11 @@
       "lineHint": "휴대폰에서는 QR 코드를 길게 눌러 친구 추가하세요",
       "lineQrAlt": "LINE 공식 계정 QR 코드",
       "deliveryTitle": "야마토 운수(블랙캣)",
-      "deliveryBody": "제휴 택배로 안전하고 빠르게 배송합니다"
+      "deliveryBody": "제휴 택배로 안전하고 빠르게 배송합니다",
+      "authTitle": "LUNALUZ 대만 공식 파트너",
+      "authBody": "{shop}은(는) 한국 LUNALUZ의 대만 공식 공인 파트너입니다. 모든 제품은 정품입니다.",
+      "authCta": "LUNALUZ 보러 가기",
+      "authAlt": "LUNALUZ KOREA가 {shop}을(를) 대만 공식 파트너로 인증한 증서"
     }
   },
   "product": {
@@ -645,7 +649,14 @@
     "required": "필수",
     "error": "오류가 발생했습니다. 잠시 후 다시 시도해 주세요",
     "colon": ": ",
-    "titleSeparator": " | "
+    "titleSeparator": " | ",
+    "close": "닫기",
+    "viewImage": "이미지 크게 보기",
+    "imageViewer": "이미지 뷰어",
+    "zoomIn": "확대",
+    "zoomOut": "축소",
+    "prevImage": "이전 이미지",
+    "nextImage": "다음 이미지"
   },
   "orderQuery": {
     "title": "주문 조회",

@@ -60,7 +60,11 @@
       "lineHint": "用手機瀏覽時，長按 QR Code 即可加入好友",
       "lineQrAlt": "莎岡選品店 LINE 官方帳號的 QR Code",
       "deliveryTitle": "黑貓宅急便",
-      "deliveryBody": "宅配合作，安心配送・快速出貨"
+      "deliveryBody": "宅配合作，安心配送・快速出貨",
+      "authTitle": "LUNALUZ 台灣官方授權",
+      "authBody": "{shop}是韓國 LUNALUZ 在台灣的官方授權經銷商，每一件都是正品。",
+      "authCta": "逛 LUNALUZ",
+      "authAlt": "LUNALUZ KOREA 授權{shop}為台灣官方經銷商的授權證書"
     }
   },
   "product": {
@@ -645,7 +649,14 @@
     "required": "必填",
     "error": "發生錯誤，請稍後再試",
     "colon": "：",
-    "titleSeparator": "｜"
+    "titleSeparator": "｜",
+    "close": "關閉",
+    "viewImage": "放大檢視圖片",
+    "imageViewer": "圖片檢視",
+    "zoomIn": "放大",
+    "zoomOut": "縮小",
+    "prevImage": "上一張",
+    "nextImage": "下一張"
   },
   "orderQuery": {
     "title": "訂單查詢",

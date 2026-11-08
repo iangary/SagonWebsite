@@ -5,12 +5,15 @@ import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ImageLightbox, ZoomBadge } from '@/components/ui/image-lightbox'
 
 type GalleryImage = { url: string; alt: string | null }
 
 export function ProductGallery({ images, name }: { images: GalleryImage[]; name: string }) {
   const t = useTranslations('product')
+  const tCommon = useTranslations('common')
   const [index, setIndex] = React.useState(0)
+  const [zoomOpen, setZoomOpen] = React.useState(false)
 
   if (images.length === 0) {
     return (
@@ -27,7 +30,7 @@ export function ProductGallery({ images, name }: { images: GalleryImage[]; name:
   return (
     <div className="flex flex-col gap-3 lg:flex-row-reverse lg:gap-4">
       {/* 正方形配 object-contain：蝦皮圖剛好填滿；尺寸表等非正方形的圖只會留米色邊，不會被切 */}
-      <div className="relative aspect-square flex-1 overflow-hidden bg-cream-100">
+      <div className="group/zoom relative aspect-square flex-1 overflow-hidden bg-cream-100">
         <Image
           src={current.url}
           alt={current.alt ?? name}
@@ -36,6 +39,15 @@ export function ProductGallery({ images, name }: { images: GalleryImage[]; name:
           sizes="(min-width: 1024px) 45vw, 100vw"
           className="object-contain"
         />
+        {/* 蓋滿整張圖的透明按鈕負責放大；左右箭頭排在它後面，會疊在上層照常點得到 */}
+        <button
+          type="button"
+          aria-label={`${tCommon('viewImage')}${tCommon('colon')}${current.alt ?? name}`}
+          aria-haspopup="dialog"
+          onClick={() => setZoomOpen(true)}
+          className="absolute inset-0 cursor-zoom-in focus-visible:outline-offset-[-2px]"
+        />
+        <ZoomBadge className="top-3 right-3 bottom-auto size-8" />
 
         {images.length > 1 && (
           <>
@@ -47,6 +59,15 @@ export function ProductGallery({ images, name }: { images: GalleryImage[]; name:
           </>
         )}
       </div>
+
+      {/* 檢視器和圖庫共用 index：在檢視器裡換張，關掉後主圖也停在那張 */}
+      <ImageLightbox
+        images={images.map((img) => ({ src: img.url, alt: img.alt ?? name }))}
+        index={Math.min(index, images.length - 1)}
+        onIndexChange={setIndex}
+        open={zoomOpen}
+        onOpenChange={setZoomOpen}
+      />
 
       {images.length > 1 && (
         <ul className="no-scrollbar flex gap-2 overflow-x-auto lg:w-20 lg:flex-col lg:overflow-y-auto">
