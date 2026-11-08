@@ -200,7 +200,10 @@
     "bankTransfer": "계좌이체/ATM 이체",
     "bankTransferNote": "회사 계좌로 이체",
     "bankTransferExpireNote": "주문 후 회사 계좌가 표시되며, {days}일 이내에 이체해 주세요",
-    "bankSecurityNote": "주문이 접수되면 회사 계좌와 입금 기한이 표시됩니다. 입금이 확인되면 상품 준비를 시작합니다."
+    "bankSecurityNote": "주문이 접수되면 회사 계좌와 입금 기한이 표시됩니다. 입금이 확인되면 상품 준비를 시작합니다.",
+    "prefilledNote": "지난 주문 정보를 미리 채워 두었습니다. 확인 후 바로 주문하실 수 있습니다.",
+    "saveAddress": "주소록에 저장하고 다음 결제 때 자동으로 입력",
+    "storeNeedsCollection": "이 매장은 착불 결제를 지원하지 않을 수 있습니다. 착불을 원하시면 매장을 다시 선택해 주세요."
   },
   "result": {
     "successTitle": "주문이 완료되었습니다",

@@ -6,6 +6,7 @@ import type { LogisticsSubType } from '@prisma/client'
 import { auth } from '@/lib/auth'
 import { CHECKOUT_LOGIN_HREF } from '@/lib/auth/checkout-gate'
 import { createOrderFromCart } from '@/lib/orders/create'
+import { rememberCheckoutDetails } from '@/lib/orders/checkout-prefill'
 import { normalizeTwMobile } from '@/lib/sms/provider'
 
 const CVS_SUBTYPES = ['UNIMARTC2C', 'FAMIC2C', 'HILIFEC2C', 'OKMARTC2C'] as const
@@ -43,6 +44,9 @@ const schema = z
     invoiceType: z.enum(['PERSONAL', 'COMPANY']),
     taxId: z.string().trim().optional().default(''),
     companyName: z.string().trim().optional().default(''),
+
+    // 「存到地址簿」勾選框，沒勾就不會出現在 FormData 裡
+    saveAddress: z.string().optional().default(''),
   })
   .superRefine((data, ctx) => {
     const issue = (path: string, message: string) =>
@@ -140,6 +144,25 @@ export async function submitCheckout(
   })
 
   if (!result.ok) return { ok: false, error: result.error }
+
+  // 訂單已經成立，補會員資料失敗只記 log，不能讓消費者以為下單失敗
+  const saveAddress = data.shippingMethod === 'HOME' && data.saveAddress === 'on'
+  try {
+    await rememberCheckoutDetails(session.user.id, {
+      recipientName: data.recipientName,
+      recipientPhone: phone,
+      address: saveAddress
+        ? {
+            zip: data.addressZip,
+            city: data.addressCity,
+            district: data.addressDistrict,
+            line1: data.addressLine,
+          }
+        : undefined,
+    })
+  } catch (error) {
+    console.error('[checkout] remember details failed', result.orderNo, error)
+  }
 
   return {
     ok: true,

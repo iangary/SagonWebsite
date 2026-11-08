@@ -200,7 +200,10 @@
     "bankTransfer": "匯款／ATM 轉帳",
     "bankTransferNote": "轉帳到公司帳戶",
     "bankTransferExpireNote": "下單後顯示公司帳戶，{days} 天內完成轉帳",
-    "bankSecurityNote": "訂單成立後會顯示公司帳戶與匯款期限，我們核對入帳後開始備貨。"
+    "bankSecurityNote": "訂單成立後會顯示公司帳戶與匯款期限，我們核對入帳後開始備貨。",
+    "prefilledNote": "已帶入您上次結帳的資料，確認無誤即可直接下單。",
+    "saveAddress": "存到我的地址簿，下次結帳自動帶入",
+    "storeNeedsCollection": "這間門市不一定能代收貨款，選擇貨到付款請重新選擇門市。"
   },
   "result": {
     "successTitle": "訂單已成立",

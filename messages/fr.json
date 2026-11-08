@@ -200,7 +200,10 @@
     "bankTransfer": "Virement bancaire / ATM",
     "bankTransferNote": "Virement sur le compte de la société",
     "bankTransferExpireNote": "Coordonnées bancaires affichées après la commande, virement à effectuer sous {days, plural, one {# jour} other {# jours}}",
-    "bankSecurityNote": "Une fois la commande validée, les coordonnées bancaires de la société et la date limite de virement s’affichent. Nous préparons votre commande dès que nous avons constaté la réception du virement."
+    "bankSecurityNote": "Une fois la commande validée, les coordonnées bancaires de la société et la date limite de virement s’affichent. Nous préparons votre commande dès que nous avons constaté la réception du virement.",
+    "prefilledNote": "Nous avons repris les informations de votre dernière commande. Vérifiez-les, puis validez votre commande.",
+    "saveAddress": "Enregistrer dans mon carnet d’adresses pour la prochaine fois",
+    "storeNeedsCollection": "Ce magasin n’accepte peut-être pas le paiement au retrait. Veuillez choisir à nouveau un magasin."
   },
   "result": {
     "successTitle": "Commande confirmée",

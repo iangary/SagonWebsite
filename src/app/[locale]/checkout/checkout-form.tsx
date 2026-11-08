@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input, Textarea, Select, Field } from '@/components/ui/input'
 import { calculatePricing } from '@/lib/orders/pricing'
 import { formatTWD, cn } from '@/lib/utils'
+import type { CheckoutPrefill } from '@/lib/orders/checkout-prefill'
 import { submitCheckout, type CheckoutState } from './actions'
 
 type Item = {
@@ -26,6 +27,19 @@ type CvsStore = {
   storeName: string
   address: string
   telephone: string
+  /** 選店時有沒有開「代收貨款」篩選 —— 沒有的話這間店不保證能貨到付款 */
+  collection?: boolean
+}
+
+/** 開地圖時記下有沒有帶 collection=1，選店結果回來時才知道這間店能不能代收 */
+const MAP_COLLECTION_KEY = 'ecpay:cvs-map-collection'
+
+function readMapCollection(): boolean {
+  try {
+    return sessionStorage.getItem(MAP_COLLECTION_KEY) === '1'
+  } catch {
+    return false
+  }
 }
 
 const CVS_OPTIONS = ['UNIMARTC2C', 'FAMIC2C', 'HILIFEC2C', 'OKMARTC2C'] as const
@@ -76,23 +90,15 @@ const INITIAL: CheckoutState = { ok: false }
 export function CheckoutForm({
   items,
   couponCode,
-  defaultEmail,
-  defaultAddress,
+  prefill,
   shippingFees,
   freeShippingThreshold,
   payment,
 }: {
   items: Item[]
   couponCode: string | null
-  defaultEmail: string
-  defaultAddress: {
-    recipient: string
-    phone: string
-    zip: string
-    city: string
-    district: string
-    line1: string
-  } | null
+  /** 回購會員從上一筆訂單與地址簿帶入的值，第一次買的會員大多是空的 */
+  prefill: CheckoutPrefill
   shippingFees: { CVS: number; HOME: number }
   freeShippingThreshold: number
   payment: CheckoutPaymentSettings
@@ -104,12 +110,19 @@ export function CheckoutForm({
   const tCity = useTranslations('cities')
   const [state, formAction, pending] = useActionState(submitCheckout, INITIAL)
 
-  const [shippingMethod, setShippingMethod] = React.useState<'CVS' | 'HOME'>('CVS')
-  const [cvsSubType, setCvsSubType] = React.useState('UNIMARTC2C')
+  const address = prefill.address
+  const [shippingMethod, setShippingMethod] = React.useState<'CVS' | 'HOME'>(
+    prefill.shippingMethod,
+  )
+  const [cvsSubType, setCvsSubType] = React.useState<string>(prefill.cvsSubType)
   const [homeSubType, setHomeSubType] = React.useState('TCAT')
-  const [store, setStore] = React.useState<CvsStore | null>(null)
-  const [invoiceType, setInvoiceType] = React.useState<'PERSONAL' | 'COMPANY'>('PERSONAL')
-  const [choosePayment, setChoosePayment] = React.useState<PaymentValue>('Credit')
+  const [store, setStore] = React.useState<CvsStore | null>(prefill.cvsStore)
+  const [invoiceType, setInvoiceType] = React.useState<'PERSONAL' | 'COMPANY'>(
+    prefill.invoiceType,
+  )
+  const [choosePayment, setChoosePayment] = React.useState<PaymentValue>(
+    prefill.choosePayment ?? 'Credit',
+  )
 
   // 成功後導向綠界收銀台。用 location.assign 而不是 router.push，
   // 因為目標是一支會回 HTML 表單的 route handler，不是 Next 的頁面。
@@ -137,7 +150,7 @@ export function CheckoutForm({
       const data = event.data as { type?: string; store?: CvsStore; token?: string }
       if (data?.type !== 'ecpay:cvs-store-selected' || !data.store) return
       if (!tokenMatches(data.token)) return
-      setStore(data.store)
+      setStore({ ...data.store, collection: readMapCollection() })
       setCvsSubType(data.store.subType)
     }
     window.addEventListener('message', onMessage)
@@ -151,7 +164,7 @@ export function CheckoutForm({
         const store = 'store' in parsed && parsed.store ? parsed.store : (parsed as CvsStore)
         const token = 'token' in parsed ? parsed.token : undefined
         if (store.storeId && tokenMatches(token)) {
-          setStore(store)
+          setStore({ ...store, collection: readMapCollection() })
           setCvsSubType(store.subType)
         }
         sessionStorage.removeItem('ecpay:cvs-store')
@@ -172,7 +185,13 @@ export function CheckoutForm({
       // 沒有 sessionStorage 就不帶 token，map-reply 會原樣帶回空字串
     }
     // 貨到付款要帶 collection=1 —— 不是每間門市都支援代收，綠界地圖會篩掉不能收款的店
-    const collection = choosePayment === 'COD' && codAvailable ? '&collection=1' : ''
+    const isCollection = choice === 'COD'
+    try {
+      sessionStorage.setItem(MAP_COLLECTION_KEY, isCollection ? '1' : '0')
+    } catch {
+      // 記不住就當作沒篩過，改貨到付款時會要求重選門市
+    }
+    const collection = isCollection ? '&collection=1' : ''
     const url = `/api/ecpay/logistics/map?subType=${cvsSubType}&token=${token}${collection}`
     window.open(url, 'ecpay-cvs-map', 'width=1000,height=720,menubar=no,toolbar=no')
   }
@@ -225,6 +244,11 @@ export function CheckoutForm({
         })
       : basePricing
 
+  // 沒開代收篩選選到的門市（包括上次訂單帶入的）不一定能收款 ——
+  // 改成貨到付款時要重選，不然要到綠界建物流單時才會失敗。
+  const storeUnusableForCod = Boolean(store) && choice === 'COD' && !store?.collection
+  const activeStore = storeUnusableForCod ? null : store
+
   const errors = state.fieldErrors ?? {}
 
   /** 付款方式卡片下的小字：期限與手續費都是後台可調的，不能寫死在翻譯檔裡 */
@@ -269,10 +293,10 @@ export function CheckoutForm({
         name="logisticsSubType"
         value={shippingMethod === 'CVS' ? cvsSubType : homeSubType}
       />
-      <input type="hidden" name="cvsStoreId" value={store?.storeId ?? ''} />
-      <input type="hidden" name="cvsStoreName" value={store?.storeName ?? ''} />
-      <input type="hidden" name="cvsAddress" value={store?.address ?? ''} />
-      <input type="hidden" name="cvsTelephone" value={store?.telephone ?? ''} />
+      <input type="hidden" name="cvsStoreId" value={activeStore?.storeId ?? ''} />
+      <input type="hidden" name="cvsStoreName" value={activeStore?.storeName ?? ''} />
+      <input type="hidden" name="cvsAddress" value={activeStore?.address ?? ''} />
+      <input type="hidden" name="cvsTelephone" value={activeStore?.telephone ?? ''} />
       <input type="hidden" name="couponCode" value={couponCode ?? ''} />
       <input type="hidden" name="invoiceType" value={invoiceType} />
 
@@ -280,6 +304,12 @@ export function CheckoutForm({
         {state.error && (
           <p role="alert" className="border border-sale/30 bg-sale/5 px-4 py-3 text-sm text-sale">
             {state.error}
+          </p>
+        )}
+
+        {prefill.fromPreviousOrder && (
+          <p className="border border-cream-300 bg-cream-100 px-4 py-3 text-xs leading-relaxed text-ink-700">
+            {t('prefilledNote')}
           </p>
         )}
 
@@ -296,7 +326,7 @@ export function CheckoutForm({
               <Input
                 id="recipientName"
                 name="recipientName"
-                defaultValue={defaultAddress?.recipient ?? ''}
+                defaultValue={prefill.recipientName}
                 autoComplete="name"
                 required
               />
@@ -313,7 +343,7 @@ export function CheckoutForm({
                 name="recipientPhone"
                 type="tel"
                 inputMode="numeric"
-                defaultValue={defaultAddress?.phone ?? ''}
+                defaultValue={prefill.recipientPhone}
                 placeholder="09xxxxxxxx"
                 autoComplete="tel"
                 required
@@ -331,7 +361,7 @@ export function CheckoutForm({
                   id="email"
                   name="email"
                   type="email"
-                  defaultValue={defaultEmail}
+                  defaultValue={prefill.email}
                   autoComplete="email"
                   required
                 />
@@ -381,17 +411,17 @@ export function CheckoutForm({
               </Field>
 
               <div>
-                {store ? (
+                {activeStore ? (
                   <div className="flex items-start justify-between gap-4 border border-cream-300 bg-white p-4">
                     <div className="text-sm">
                       <p className="flex items-center gap-1.5 text-ink-900">
                         <Check size={14} className="text-taupe-500" />
-                        {store.storeName}
+                        {activeStore.storeName}
                       </p>
                       <p className="mt-1 text-xs text-taupe-500">
-                        {t('storeCode', { id: store.storeId })}
+                        {t('storeCode', { id: activeStore.storeId })}
                       </p>
-                      <p className="mt-0.5 text-xs text-taupe-500">{store.address}</p>
+                      <p className="mt-0.5 text-xs text-taupe-500">{activeStore.address}</p>
                     </div>
                     <Button type="button" variant="ghost" size="sm" onClick={openStoreMap}>
                       {t('changeStore')}
@@ -402,6 +432,9 @@ export function CheckoutForm({
                     <Store size={16} />
                     {t('pickStore')}
                   </Button>
+                )}
+                {storeUnusableForCod && (
+                  <p className="mt-1.5 text-xs text-taupe-600">{t('storeNeedsCollection')}</p>
                 )}
                 {errors.cvsStoreId && <p className="mt-1.5 text-xs text-sale">{errors.cvsStoreId}</p>}
               </div>
@@ -432,7 +465,7 @@ export function CheckoutForm({
                   name="addressZip"
                   inputMode="numeric"
                   maxLength={5}
-                  defaultValue={defaultAddress?.zip ?? ''}
+                  defaultValue={address?.zip ?? ''}
                   autoComplete="postal-code"
                 />
               </Field>
@@ -445,7 +478,7 @@ export function CheckoutForm({
                 <Select
                   id="addressCity"
                   name="addressCity"
-                  defaultValue={defaultAddress?.city ?? ''}
+                  defaultValue={address?.city ?? ''}
                 >
                   <option value="">{t('selectPlaceholder')}</option>
                   {CITIES.map((city) => (
@@ -464,7 +497,7 @@ export function CheckoutForm({
                 <Input
                   id="addressDistrict"
                   name="addressDistrict"
-                  defaultValue={defaultAddress?.district ?? ''}
+                  defaultValue={address?.district ?? ''}
                 />
               </Field>
               <div className="sm:col-span-2">
@@ -477,11 +510,20 @@ export function CheckoutForm({
                   <Input
                     id="addressLine"
                     name="addressLine"
-                    defaultValue={defaultAddress?.line1 ?? ''}
+                    defaultValue={address?.line1 ?? ''}
                     autoComplete="street-address"
                   />
                 </Field>
               </div>
+              <label className="flex items-center gap-2 text-xs text-ink-700 sm:col-span-2">
+                <input
+                  type="checkbox"
+                  name="saveAddress"
+                  defaultChecked
+                  className="accent-[#2b2724]"
+                />
+                {t('saveAddress')}
+              </label>
             </div>
           )}
         </section>
@@ -555,7 +597,13 @@ export function CheckoutForm({
             {invoiceType === 'COMPANY' && (
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label={t('taxId')} htmlFor="taxId" required error={errors.taxId}>
-                  <Input id="taxId" name="taxId" inputMode="numeric" maxLength={8} />
+                  <Input
+                    id="taxId"
+                    name="taxId"
+                    inputMode="numeric"
+                    maxLength={8}
+                    defaultValue={prefill.taxId}
+                  />
                 </Field>
                 <Field
                   label={t('companyName')}
@@ -563,7 +611,12 @@ export function CheckoutForm({
                   required
                   error={errors.companyName}
                 >
-                  <Input id="companyName" name="companyName" />
+                  <Input
+                    id="companyName"
+                    name="companyName"
+                    defaultValue={prefill.companyName}
+                    autoComplete="organization"
+                  />
                 </Field>
               </div>
             )}

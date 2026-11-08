@@ -40,7 +40,7 @@ export default async function PrivacyPage({ params }: { params: Promise<{ locale
             {
               term: '訂單與配送資料',
               description:
-                '收件人姓名、聯絡電話、宅配地址或超商取貨門市、訂購品項與金額。用於履行買賣契約、安排出貨與後續售後服務。',
+                '收件人姓名、聯絡電話、宅配地址或超商取貨門市、訂購品項與金額。用於履行買賣契約、安排出貨與後續售後服務。下次結帳時，本站會以您最近一筆訂單的收件資訊、取貨門市、付款方式與發票抬頭預先填入表單；宅配地址在您勾選「存到我的地址簿」時存入會員中心的地址簿，可隨時自行刪除。',
             },
             {
               term: '發票與收據資料',
@@ -176,7 +176,7 @@ export default async function PrivacyPage({ params }: { params: Promise<{ locale
       eyebrow="Privacy"
       title="隱私權政策"
       intro="我們只蒐集完成交易與服務所必要的資料，不會把您的個人資料販售或提供給與交易無關的第三方。以下說明我們蒐集了什麼、為什麼蒐集，以及您可以如何行使自己的權利。"
-      updatedAt="2026-08-15"
+      updatedAt="2026-10-03"
       sections={sections}
     />
   )

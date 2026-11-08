@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { getCart } from '@/lib/cart'
 import { localizedName } from '@/lib/i18n/localized'
@@ -13,6 +12,7 @@ import {
   shippingFeesOf,
 } from '@/lib/shop-settings'
 import { CHECKOUT_LOGIN_REDIRECT } from '@/lib/auth/checkout-gate'
+import { getCheckoutPrefill } from '@/lib/orders/checkout-prefill'
 import { CheckoutForm } from './checkout-form'
 
 export const dynamic = 'force-dynamic'
@@ -39,13 +39,12 @@ export default async function CheckoutPage({ params }: { params: Promise<{ local
   const cart = await getCart()
   if (cart.items.length === 0) redirect('/cart')
 
-  const [t, paymentSettings, shipping, defaultAddress] = await Promise.all([
+  // 回購會員：收件人、門市、地址、付款與發票都從上一筆訂單與地址簿帶入
+  const [t, paymentSettings, shipping, prefill] = await Promise.all([
     getTranslations('checkout'),
     getPaymentSettings(),
     getShippingSettings(),
-    db.address.findFirst({
-      where: { userId: session.user.id, isDefault: true },
-    }),
+    getCheckoutPrefill(session.user.id, session.user.email),
   ])
 
   const items = cart.items.map((item) => ({
@@ -77,19 +76,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ local
       <CheckoutForm
         items={items}
         couponCode={cart.couponCode}
-        defaultEmail={session.user.email ?? ''}
-        defaultAddress={
-          defaultAddress
-            ? {
-                recipient: defaultAddress.recipient,
-                phone: defaultAddress.phone,
-                zip: defaultAddress.zip,
-                city: defaultAddress.city,
-                district: defaultAddress.district,
-                line1: defaultAddress.line1,
-              }
-            : null
-        }
+        prefill={prefill}
         shippingFees={shippingFeesOf(shipping)}
         freeShippingThreshold={shipping.freeShippingThreshold}
         payment={{

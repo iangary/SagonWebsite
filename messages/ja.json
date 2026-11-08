@@ -200,7 +200,10 @@
     "bankTransfer": "銀行振込／ATM振込",
     "bankTransferNote": "当社口座へのお振り込み",
     "bankTransferExpireNote": "ご注文後に当社口座をお知らせします。{days}日以内にお振り込みください",
-    "bankSecurityNote": "ご注文確定後に当社口座とお振り込み期限を表示します。入金を確認してから発送準備を開始します。"
+    "bankSecurityNote": "ご注文確定後に当社口座とお振り込み期限を表示します。入金を確認してから発送準備を開始します。",
+    "prefilledNote": "前回のご注文情報を入力済みです。内容をご確認のうえ、そのままご注文いただけます。",
+    "saveAddress": "アドレス帳に保存して次回も自動入力する",
+    "storeNeedsCollection": "この店舗は代金引換に対応していない場合があります。代金引換をご希望の場合は店舗を選び直してください。"
   },
   "result": {
     "successTitle": "ご注文を承りました",

@@ -200,7 +200,10 @@
     "bankTransfer": "Bank transfer",
     "bankTransferNote": "Transfer to our company account",
     "bankTransferExpireNote": "Account details shown after ordering, transfer within {days} days",
-    "bankSecurityNote": "Our account details are shown once the order is placed. We start preparing it after we've matched your transfer."
+    "bankSecurityNote": "Our account details are shown once the order is placed. We start preparing it after we've matched your transfer.",
+    "prefilledNote": "We filled in the details from your last order. Check them and you are ready to place the order.",
+    "saveAddress": "Save to my address book for next time",
+    "storeNeedsCollection": "This store may not accept cash on delivery. Please pick a store again to pay on pickup."
   },
   "result": {
     "successTitle": "Order confirmed",
