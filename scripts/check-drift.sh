@@ -49,10 +49,17 @@ required_keys() {
     const fs = require("fs");
     const src = fs.readFileSync("src/lib/env.ts", "utf8");
     const body = src.slice(src.indexOf("z.object("), src.indexOf("function load"));
-    for (const m of body.matchAll(/^\s{2}([A-Z][A-Z0-9_]+):\s*(.*)$/gm)) {
+    // 每個欄位的定義取到下一個欄位為止 —— 鏈式呼叫常拆成多行（z\n.string()\n.optional()），
+    // 只看第一行會把選填誤判成必填。註解先拿掉，免得說明文字裡的 .optional( 被算進去。
+    const keys = [...body.matchAll(/^\s{2}([A-Z][A-Z0-9_]+):/gm)];
+    keys.forEach((m, i) => {
+      const def = body
+        .slice(m.index, keys[i + 1]?.index ?? body.length)
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/\/\/.*$/gm, "");
       // 有 default / optional / intFromString 的都不算必填 —— 缺了也起得來
-      if (!/\.default\(|\.optional\(|intFromString\(/.test(m[2])) console.log(m[1]);
-    }
+      if (!/\.default\(|\.optional\(|intFromString\(/.test(def)) console.log(m[1]);
+    });
   ' | sort -u
 }
 
