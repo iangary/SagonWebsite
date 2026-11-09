@@ -129,11 +129,13 @@ describe('siteJsonLd', () => {
   })
 
   it('sameAs 只放有設定的網址，不會出現空字串', () => {
-    // 測試環境的 FACEBOOK、LINE 是空字串；IG、Pinkoi、蝦皮走 env.ts 的預設值
+    // 測試環境的 FACEBOOK 是空字串；IG、LINE、Pinkoi、蝦皮走 env.ts 的預設值
+    // （LINE 留空也會退回預設，見 SHOP_LINE_URL）
     const ld = siteJsonLd('zh-TW')
     const sameAs = (ld['@graph'][0] as { sameAs?: string[] }).sameAs
     expect(sameAs).toEqual([
       'https://www.instagram.com/lee.psyche/',
+      'https://lin.ee/r35pLlX',
       'https://www.pinkoi.com/store/saganselect',
       'https://shopee.tw/duffychang1119',
     ])

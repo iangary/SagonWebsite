@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>換網域到 sagan.com.tw</title>
+<style>
+  :root {
+    --bg: #fbfaf8; --surface: #ffffff; --surface-2: #f4f2ee; --border: #e2ddd4;
+    --text: #1f1b16; --text-dim: #6b6459; --accent: #8a5a2b; --accent-soft: #f0e6d8;
+    --warn: #9a6700; --warn-bg: #fdf6e3; --danger: #b3261e; --danger-bg: #fdeceb;
+    --ok: #1a7f4b; --ok-bg: #e8f5ed; --info: #2f5f8a; --info-bg: #e9f1f8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #16140f; --surface: #1e1b16; --surface-2: #262219; --border: #3a342a;
+      --text: #ece7de; --text-dim: #a09a8e; --accent: #d9a86c; --accent-soft: #2f2820;
+      --warn: #e5c07b; --warn-bg: #332b18; --danger: #ff8a80; --danger-bg: #3a1f1c;
+      --ok: #6ee7a8; --ok-bg: #17311f; --info: #8ec1ee; --info-bg: #1b2a38;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #16140f; --surface: #1e1b16; --surface-2: #262219; --border: #3a342a;
+    --text: #ece7de; --text-dim: #a09a8e; --accent: #d9a86c; --accent-soft: #2f2820;
+    --warn: #e5c07b; --warn-bg: #332b18; --danger: #ff8a80; --danger-bg: #3a1f1c;
+    --ok: #6ee7a8; --ok-bg: #17311f; --info: #8ec1ee; --info-bg: #1b2a38;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.7 -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  }
+  main { max-width: 880px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.7rem; line-height: 1.3; margin: 0 0 4px; }
+  h2 { font-size: 1.25rem; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.05rem; margin: 0 0 4px; }
+  p { margin: 8px 0; }
+  .meta { color: var(--text-dim); font-size: .9rem; margin: 0 0 24px; }
+  code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-size: .88em; word-break: break-all; }
+  .callout { border-radius: 10px; padding: 14px 16px; margin: 16px 0; border: 1px solid var(--border); }
+  .callout.warn { background: var(--warn-bg); border-color: transparent; }
+  .callout.info { background: var(--info-bg); border-color: transparent; }
+  .callout.danger { background: var(--danger-bg); border-color: transparent; }
+  .callout > b:first-child { display: block; margin-bottom: 4px; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 20px 0; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+  .stat .n { font-size: 1.45rem; font-weight: 700; color: var(--accent); line-height: 1.2; }
+  .stat .l { font-size: .85rem; color: var(--text-dim); }
+
+  .phase { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin: 16px 0; overflow: hidden; }
+  .phase > header { padding: 12px 16px; background: var(--surface-2); display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; }
+  .phase > header h3 { margin: 0; }
+  .phase > header .when { color: var(--text-dim); font-size: .9rem; }
+  .task { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 12px 16px; border-top: 1px solid var(--border); }
+  .task .t { font-weight: 600; }
+  .task .d { grid-column: 1 / -1; color: var(--text-dim); font-size: .92rem; }
+  .task .tags { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; align-items: flex-start; }
+  .tag { font-size: .78rem; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+  .who-me { background: var(--accent-soft); color: var(--accent); }
+  .who-you { background: var(--info-bg); color: var(--info); }
+  .dur { background: var(--surface-2); color: var(--text-dim); }
+  .safe { background: var(--ok-bg); color: var(--ok); }
+  .risk { background: var(--danger-bg); color: var(--danger); }
+
+  table { width: 100%; border-collapse: collapse; font-size: .93rem; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--surface-2); font-weight: 600; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+  ol.decide { padding-left: 1.3em; }
+  ol.decide li { margin: 10px 0; }
+  ol.decide .d { color: var(--text-dim); font-size: .92rem; display: block; }
+
+  .flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 12px 0; font-size: .9rem; }
+  .flow span { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; }
+  .flow i { color: var(--text-dim); font-style: normal; }
+  @media (max-width: 520px) {
+    .task { grid-template-columns: 1fr; }
+    .task .tags { justify-content: flex-start; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>換網域到 www.sagan.com.tw</h1>
+  <p class="meta">莎岡選品店 · 流程、時程，以及哪些現在就能先做 · 2026-11-09</p>
+
+  <div class="callout warn">
+    <b>先講最重要的發現：sagan.com.tw 現在就是莎岡選品店的「舊站」</b>
+    查了一下，<code>www.sagan.com.tw</code> 目前開出來是開店平台上的莎岡選品店，裡面有 73 個商品、8 個分類，DNS 由 Cloudflare 管理，而且沒有設定收信（沒有 MX 記錄，所以搬過來不會影響任何信箱）。
+    <p>所以這次不只是換網址，而是<b>「新站接手舊站的網址」</b>：</p>
+    <ul>
+      <li>✅ <b>不用註冊網域，也不用等 TWNIC 審核</b>：DNS 在 Cloudflare，改完大約 5 分鐘就生效。</li>
+      <li>⚠️ <b>DNS 一改，舊站就下線</b>：舊平台上的會員、進行中的訂單、Google 上的舊商品連結都要先想好怎麼處理。</li>
+      <li>✅ <b>可以回退</b>：舊平台還沒停約之前，把 DNS 改回去，舊站 5 分鐘內就會回來。</li>
+    </ul>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="n">半天～1 天</div><div class="l">實際動手的總工時（可分好幾天做）</div></div>
+    <div class="stat"><div class="n">約 1 小時</div><div class="l">切換當天要花的時間</div></div>
+    <div class="stat"><div class="n">5～15 分</div><div class="l">切換時網站打不開的時間</div></div>
+    <div class="stat"><div class="n">8 項</div><div class="l">現在就能先做，不影響目前的網站</div></div>
+  </div>
+
+  <p>整體順序：</p>
+  <div class="flow">
+    <span>① 先做的準備</span><i>→</i>
+    <span>② 你決定切換日</span><i>→</i>
+    <span>③ 切換當天 1 小時</span><i>→</i>
+    <span>④ 切完一週內收尾</span>
+  </div>
+  <p style="color:var(--text-dim);font-size:.92rem">最難估時間的不是技術，是第 ① 階段的「舊平台的會員和訂單要不要搬過來」。不搬，最快 2～3 天就能切；要搬，就看資料量和舊平台能匯出什麼。</p>
+
+  <h2>① 現在就能先做（不影響任何正在跑的網站）</h2>
+
+  <div class="phase">
+    <header><h3>準備階段</h3><span class="when">新站、舊站照常營業，這些可以並行</span></header>
+
+    <div class="task">
+      <div class="t">1. 把 Cloudflare 目前的 DNS 設定截圖存起來</div>
+      <div class="tags"><span class="tag who-you">你</span><span class="tag dur">5 分</span><span class="tag safe">零風險</span></div>
+      <div class="d">這就是回退的依據。另外看一下 Cloudflare 的「Rules → Redirect Rules／Page Rules」有沒有設定，目前 <code>sagan.com.tw</code> 會 302 導到 www，可能就是那邊設的。切換之後要關掉，免得跟新站自己的導向打架。</div>
+    </div>
+
+    <div class="task">
+      <div class="t">2. 先備好新站的設定檔（Caddyfile、環境變數）</div>
+      <div class="tags"><span class="tag who-me">我</span><span class="tag dur">30～60 分</span><span class="tag safe">只改本機</span></div>
+      <div class="d">主網址設成 <code>www.sagan.com.tw</code>；<code>sagan.com.tw</code>、<code>chenkuanyi.com.tw</code>、<code>www.chenkuanyi.com.tw</code> 一律 301 導過去。<code>APP_URL</code>／<code>AUTH_URL</code> 都改成 <code>https://www.sagan.com.tw</code>。改好先放著，切換當天才上傳。<br>
+      附帶一件事：主機上的 <code>/srv/sagon/.env</code>（裡面有 <code>SITE_DOMAIN</code>）在本機<b>沒有正本</b>，要先從主機拉回來，才能照 CLAUDE.md 的規矩改。</div>
+    </div>
+
+    <div class="task">
+      <div class="t">3. 做舊網址 → 新網址的 301 對照表</div>
+      <div class="tags"><span class="tag who-me">我做草稿 1～2 小時</span><span class="tag who-you">你核對 30 分</span><span class="tag safe">零風險</span></div>
+      <div class="d">舊站的商品網址長這樣：<code>/product/detail/2432120</code>，分類是 <code>/category/187774</code>，新站對不上，切過去會全部 404，Google 排名和別人分享的連結都會斷掉。我從舊站的 sitemap 把 73 個商品、8 個分類對應到新站的 slug，對不到的你再幫我指定。<code>/about</code>、<code>/faq</code>、<code>/contact</code> 新站剛好也有，不用另外處理。</div>
+    </div>
+
+    <div class="task">
+      <div class="t">4. Google、LINE 登入後台加上新網址</div>
+      <div class="tags"><span class="tag who-you">你</span><span class="tag dur">15 分</span><span class="tag safe">新舊可並存</span></div>
+      <div class="d">兩邊都允許填多個 redirect URI，現在先<b>加上</b>（舊的先別刪）：<br>
+      <code>https://www.sagan.com.tw/api/auth/callback/google</code><br>
+      <code>https://www.sagan.com.tw/api/auth/callback/line</code><br>
+      Google 那邊的「已授權的 JavaScript 來源」也加上 <code>https://www.sagan.com.tw</code>。</div>
+    </div>
+
+    <div class="task">
+      <div class="t">5. 寄信網域：在 Resend 加入 mail.sagan.com.tw</div>
+      <div class="tags"><span class="tag who-you">你</span><span class="tag dur">20 分 + 等驗證</span><span class="tag safe">零風險</span></div>
+      <div class="d">在 Resend 新增網域，把它給的 DKIM、SPF 記錄加到 Cloudflare，再自己加一筆 DMARC（<code>_dmarc.mail.sagan.com.tw</code>，先設 <code>p=none</code>）。<b>在驗證通過之前，繼續用現在的 <code>mail.chenkuanyi.com.tw</code> 寄信</b>，所以這件事不用跟切換綁在同一天。</div>
+    </div>
+
+    <div class="task">
+      <div class="t">6. Google Search Console 驗證 sagan.com.tw</div>
+      <div class="tags"><span class="tag who-you">你</span><span class="tag dur">10 分</span><span class="tag safe">零風險</span></div>
+      <div class="d">用 DNS TXT 記錄做「網域資源」驗證。舊站可能已經驗證過了，可以先看一下；驗證過的話，切換後就能直接看到 404 和排名的變化。</div>
+    </div>
+
+    <div class="task">
+      <div class="t">7. 決定舊平台的會員、訂單、合約怎麼處理</div>
+      <div class="tags"><span class="tag who-you">你決定</span><span class="tag dur">看資料量</span><span class="tag risk">最大的變數</span></div>
+      <div class="d">見下方「需要你決定的事」第 1 點。這件事決定了第 ① 階段要花 2 天還是 2 週。</div>
+    </div>
+
+    <div class="task">
+      <div class="t">8. 確認新站的上線清單都做完了</div>
+      <div class="tags"><span class="tag who-me">我列</span><span class="tag who-you">你補</span><span class="tag dur">看剩幾項</span></div>
+      <div class="d">換到 sagan.com.tw 之後，客人就是真的會來下單了。<code>docs/deploy.md</code> §7.7 那張表（綠界正式金鑰、SMTP、三竹簡訊、清掉測試優惠券、換掉爬蟲來的商品素材……）要在切換前全部打勾。</div>
+    </div>
+  </div>
+
+  <h2>② 切換當天（約 1 小時，挑離峰時段）</h2>
+
+  <div class="phase">
+    <header><h3>切換</h3><span class="when">建議平日早上或深夜；照順序做</span></header>
+
+    <div class="task">
+      <div class="t">1. 舊站掛公告或暫停接單</div>
+      <div class="tags"><span class="tag who-you">你</span><span class="tag dur">5 分</span></div>
+      <div class="d">避免有人在切換那幾分鐘內，到舊站下單付款。</div>
+    </div>
+    <div class="task">
+      <div class="t">2. 上傳新的設定檔並重啟網站</div>
+      <div class="tags"><span class="tag who-me">我</span><span class="tag dur">5 分</span></div>
+      <div class="d">照 CLAUDE.md 的送檔流程：主機先備份 <code>.bak-MMDD-HHMM</code>，再 <code>scp</code>、<code>chmod 600</code>、<code>--force-recreate web</code>。這時候 chenkuanyi.com.tw 還會照常運作。</div>
+    </div>
+    <div class="task">
+      <div class="t">3. Cloudflare 改 DNS</div>
+      <div class="tags"><span class="tag who-you">你</span><span class="tag dur">5 分</span><span class="tag risk">舊站從這裡開始下線</span></div>
+      <div class="d"><code>sagan.com.tw</code> 和 <code>www</code> 都改成 A 記錄，指向 <code>103.1.221.67</code>，<b>雲朵要點成灰色（DNS only）</b>，不然憑證簽不到。www 原本是 CNAME 指到 CloudFront，要先刪掉再新增 A 記錄。順便關掉第 ① 階段第 1 點找到的 Cloudflare 導向規則。</div>
+    </div>
+    <div class="task">
+      <div class="t">4. 等 DNS 生效，Caddy 自動簽 HTTPS 憑證</div>
+      <div class="tags"><span class="tag who-me">我盯著</span><span class="tag dur">5～15 分</span></div>
+      <div class="d">網站打不開的時間就在這一段。我會一直看 log，確認憑證簽下來。</div>
+    </div>
+    <div class="task">
+      <div class="t">5. 綠界後台的 callback 網址改成新網域</div>
+      <div class="tags"><span class="tag who-you">你</span><span class="tag dur">10 分</span></div>
+      <div class="d">漏掉的話，客人付了錢，訂單還是停在未付款，而且不會有任何錯誤訊息。黑貓後台如果有填網址，也要一起改。</div>
+    </div>
+    <div class="task">
+      <div class="t">6. 全面測一次</div>
+      <div class="tags"><span class="tag who-me">我跑 smoke.sh</span><span class="tag who-you">你下一筆真單</span><span class="tag dur">20 分</span></div>
+      <div class="d">要測：首頁、商品頁、舊網址有沒有正確 301、Google 登入、LINE 登入、下單付款、收到訂單通知信、chenkuanyi.com.tw 有沒有導到新站。</div>
+    </div>
+  </div>
+
+  <div class="callout info">
+    <b>出事怎麼回退（5 分鐘內）</b>
+    Cloudflare 照第 ① 階段第 1 點的截圖改回原本的 DNS，舊站就會回來。主機上的設定檔用 <code>.bak-MMDD-HHMM</code> 還原，chenkuanyi.com.tw 就恢復原狀。<b>所以舊平台的合約，請等新站穩定跑一陣子再停。</b>
+  </div>
+
+  <div class="callout danger">
+    <b>切換後必然會發生、但不算壞掉的事</b>
+    新站的會員登入狀態是綁網域的，用 chenkuanyi.com.tw 登入的人會被登出，要重新登入一次。舊平台的會員帳號不會自動出現在新站，除非決定要搬（見下方第 1 點）。
+  </div>
+
+  <h2>③ 切完一週內</h2>
+
+  <div class="table-wrap">
+  <table>
+    <tr><th>事項</th><th>誰</th><th>時間</th></tr>
+    <tr><td>Search Console 送出新的 sitemap：<code>https://www.sagan.com.tw/sitemap.xml</code></td><td>你</td><td>5 分</td></tr>
+    <tr><td>看 Caddy 的 log 和 Search Console 有哪些 404，補上漏掉的舊網址對照</td><td>我</td><td>每天 10 分，持續一週</td></tr>
+    <tr><td>UptimeRobot 改成監看 <code>https://www.sagan.com.tw/api/health</code></td><td>你</td><td>5 分</td></tr>
+    <tr><td>Resend 新網域驗證過了之後，<code>MAIL_FROM</code> 換成 <code>mail.sagan.com.tw</code></td><td>我</td><td>10 分</td></tr>
+    <tr><td>更新 <code>deploy.md</code>、<code>CLAUDE.md</code>、<code>smoke.sh</code> 等文件裡的網域</td><td>我</td><td>30 分</td></tr>
+    <tr><td>穩定後，刪掉 Google／LINE 後台的舊 redirect URI</td><td>你</td><td>5 分</td></tr>
+    <tr><td>舊平台資料備份後再停約；chenkuanyi.com.tw 記得續約（要靠它 301）</td><td>你</td><td>—</td></tr>
+  </table>
+  </div>
+
+  <h2>需要你決定的事</h2>
+  <ol class="decide">
+    <li><b>舊平台的會員和訂單要不要搬到新站？</b>
+      <span class="d">這是整個時程最大的變數。不搬：舊會員到新站重新註冊，舊訂單留在舊平台查詢就好，最快 2～3 天可以切。要搬：要先看舊平台能匯出哪些欄位（密碼通常匯不出來，會員需要重設密碼），大概要多 3～7 天。另外，舊站上還沒出貨的訂單，要在舊平台處理完。</span></li>
+    <li><b>切換日期和時段</b>
+      <span class="d">第 ① 階段的第 7、8 點完成之後就能切。建議選平日的離峰時段，而且你要在場，才能改 Cloudflare 和綠界後台、下測試單。</span></li>
+    <li><b>Cloudflare 的橘色雲（CDN／代理）要不要開？</b>
+      <span class="d">切換當天一定要先關（灰色），讓憑證簽得下來。之後要開也可以，但 SSL 模式必須設成「Full (strict)」，不然會無限導向。不開也完全沒問題，比較單純。</span></li>
+    <li><b>Shopee 串接</b>
+      <span class="d">還在另一個分支開發中，裡面的 Redirect URL 和推播 callback 是寫 chenkuanyi.com.tw。要上線的話，到 Shopee 後台直接填 sagan.com.tw 就好，那份文件我到時候一起改。</span></li>
+  </ol>
+
+  <h2>時間總表</h2>
+  <div class="table-wrap">
+  <table>
+    <tr><th>階段</th><th>你要花的時間</th><th>我要花的時間</th><th>日曆上的時間</th></tr>
+    <tr><td>① 準備（不搬會員）</td><td>約 1.5 小時</td><td>約 2～3 小時</td><td>2～3 天（多半在等你有空、等 Resend 驗證）</td></tr>
+    <tr><td>① 準備（要搬會員）</td><td>多 2～4 小時</td><td>多半天～1 天</td><td>多 3～7 天</td></tr>
+    <tr><td>② 切換當天</td><td>約 40 分</td><td>約 1 小時</td><td>1 小時，停機 5～15 分</td></tr>
+    <tr><td>③ 收尾</td><td>約 20 分</td><td>約 1.5 小時</td><td>一週內陸續做完</td></tr>
+  </table>
+  </div>
+  <p style="color:var(--text-dim);font-size:.9rem;margin-top:16px">Google 搜尋結果全部換成新網址，通常要 2～6 週。只要 301 對照做好，排名不會掉。</p>
+</main>
+</body>
+</html>

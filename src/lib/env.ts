@@ -133,11 +133,15 @@ export const envSchema = z.object({
    * LINE 官方帳號的加好友連結（`https://lin.ee/xxxx` 或 `https://line.me/R/ti/p/@xxxx`）。
    * 退款與退換貨一律走 LINE 客服，這一格就是那些按鈕連去的地方。
    *
-   * 留空時前台會退回顯示客服信箱 —— 寧可少一個管道，也不要給客人一顆點了沒反應的按鈕。
+   * 預設就是首頁 QR Code（src/assets/hero/line-qr.png）解出來的那個網址，兩者要一致；
+   * 換帳號時兩個一起換。留空（`SHOP_LINE_URL=`）也走預設，不會變成沒有 LINE 連結。
    * 注意這與 AUTH_LINE_ID／AUTH_LINE_SECRET 是不同的東西：那組是 LINE Login channel，
    * 這是 Messaging API 的官方帳號。
    */
-  SHOP_LINE_URL: z.string().optional().default(''),
+  SHOP_LINE_URL: z
+    .string()
+    .optional()
+    .transform((v) => v || 'https://lin.ee/r35pLlX'),
   /** LINE 官方帳號的顯示 ID（例如 @sagon）。只用於畫面上告訴客人要加誰。 */
   SHOP_LINE_ID: z.string().optional().default(''),
   /**

@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>金流物流實測指南</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* 版面：一欄式測試手冊，左側編號＋可勾選的步驟；色票沿用網站的米白、墨色、玫瑰褐。 */
+:root {
+  --bg: #FAF8F5; --surface: #FFFFFF; --sunk: #F2EDE6; --line: #E3DACE;
+  --fg: #2B2724; --fg-2: #4A423C; --muted: #786759;
+  --accent: #A05A4E; --accent-tint: #F4E3DE;
+  --ok: #3F6E4C; --ok-tint: #E3EEE5; --bad: #A23B2C; --bad-tint: #FBE7E3; --warn-tint: #FBF1DC; --warn: #7A5A12;
+  --code-bg: #2B2724; --code-fg: #F2EDE6;
+  --serif: 'Noto Serif TC', 'Songti TC', Georgia, serif;
+  --sans: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', Arial, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1E1B19; --surface: #26221F; --sunk: #2E2A27; --line: #3E3833;
+    --fg: #EDE6DD; --fg-2: #D3C9BE; --muted: #A99C90;
+    --accent: #E0A497; --accent-tint: #3B2A26;
+    --ok: #8CC39B; --ok-tint: #22322A; --bad: #F0A094; --bad-tint: #3A2420; --warn-tint: #352D1A; --warn: #E3C77A;
+    --code-bg: #151311; --code-fg: #EDE6DD; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1E1B19; --surface: #26221F; --sunk: #2E2A27; --line: #3E3833;
+  --fg: #EDE6DD; --fg-2: #D3C9BE; --muted: #A99C90;
+  --accent: #E0A497; --accent-tint: #3B2A26;
+  --ok: #8CC39B; --ok-tint: #22322A; --bad: #F0A094; --bad-tint: #3A2420; --warn-tint: #352D1A; --warn: #E3C77A;
+  --code-bg: #151311; --code-fg: #EDE6DD; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.75 var(--sans);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 64px;
+}
+.wrap { max-width: 880px; margin: 0 auto; }
+header.top { padding-block: 48px 24px; border-bottom: 1px solid var(--line); }
+.eyebrow { margin: 0; font-size: 13px; letter-spacing: .16em; color: var(--accent); font-weight: 500; }
+h1 { margin: 6px 0 10px; font: 700 clamp(30px, 5vw, 42px)/1.2 var(--serif); text-wrap: balance; }
+.sub { margin: 0; color: var(--fg-2); max-width: 62ch; }
+.progress-line { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 18px; font-size: 14px; color: var(--muted); }
+.meter { flex: 1; min-width: 160px; height: 6px; background: var(--sunk); border-radius: 3px; overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+h2 { margin: 56px 0 6px; font: 700 26px/1.3 var(--serif); text-wrap: balance; }
+h2 .tag { font: 600 13px var(--mono); color: var(--accent); vertical-align: middle; margin-right: 10px; }
+h3 { margin: 32px 0 8px; font-size: 19px; font-weight: 700; }
+p { margin: 8px 0; }
+.lede { color: var(--fg-2); margin-top: 0; }
+a { color: var(--accent); }
+code { font-family: var(--mono); font-size: .9em; background: var(--sunk); padding: 1px 6px; border-radius: 4px; overflow-wrap: anywhere; }
+
+/* 先知道的三件事 */
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 24px; }
+.fact { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; min-width: 0; }
+.fact b { display: block; margin-bottom: 4px; }
+.fact p { margin: 0; font-size: 15px; color: var(--fg-2); }
+.fact.hot { background: var(--accent-tint); border-color: transparent; }
+
+/* 環境狀態表 */
+.table-scroll { overflow-x: auto; margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { width: 100%; border-collapse: collapse; font-size: 15px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+th { font-size: 13px; color: var(--muted); font-weight: 500; background: var(--sunk); }
+.st { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 9px; border-radius: 10px; white-space: nowrap; }
+.st-ok { background: var(--ok-tint); color: var(--ok); }
+.st-bad { background: var(--bad-tint); color: var(--bad); }
+.st-unk { background: var(--warn-tint); color: var(--warn); }
+
+/* 三層 */
+.tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-top: 14px; }
+.tier { border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; background: var(--surface); min-width: 0; }
+.tier .k { font: 600 13px var(--mono); color: var(--accent); }
+.tier h3 { margin: 4px 0 6px; font-size: 18px; }
+.tier p { margin: 0; font-size: 15px; color: var(--fg-2); }
+.tier .cost { margin-top: 10px; font-size: 13px; color: var(--muted); }
+
+/* 指令 */
+.cmd { display: flex; align-items: stretch; margin: 10px 0; border-radius: 8px; overflow: hidden; background: var(--code-bg); min-width: 0; }
+.cmd pre { margin: 0; padding: 12px 14px; flex: 1; min-width: 0; overflow-x: auto; color: var(--code-fg); font: 14px/1.6 var(--mono); }
+.cmd button { flex: none; border: 0; border-left: 1px solid #4A423C; background: transparent; color: var(--code-fg); font: 500 13px var(--sans); padding: 0 14px; cursor: pointer; min-width: 64px; }
+.cmd button:hover { background: #3A3430; }
+
+/* 測試案例 */
+.case { margin-top: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.case-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; padding: 14px 18px; background: var(--sunk); }
+.case-h .id { font: 600 14px var(--mono); color: var(--accent); }
+.case-h h3 { margin: 0; font-size: 18px; }
+.case-h .when { margin-left: auto; font-size: 13px; color: var(--muted); }
+.case-body { padding: 6px 18px 16px; }
+.steps { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; }
+.steps li { display: grid; grid-template-columns: 26px 1fr; gap: 10px; padding: 10px 0; border-bottom: 1px dashed var(--line); }
+.steps li:last-child { border-bottom: 0; }
+.steps input { width: 18px; height: 18px; margin: 4px 0 0; accent-color: var(--accent); cursor: pointer; }
+.steps label { cursor: pointer; min-width: 0; }
+.steps .do { display: block; }
+.steps .exp { display: block; font-size: 14.5px; color: var(--fg-2); }
+.steps .exp::before { content: "預期："; color: var(--ok); font-weight: 700; }
+.steps li:has(input:checked) .do { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--line); }
+.note { margin: 12px 0 0; padding: 10px 14px; border-radius: 8px; font-size: 14.5px; background: var(--warn-tint); color: var(--fg); }
+.note.bad { background: var(--bad-tint); }
+.note b { color: var(--warn); }
+.note.bad b { color: var(--bad); }
+
+/* 參考資料 */
+.ref { display: grid; grid-template-columns: minmax(130px, 200px) 1fr; gap: 0; margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.ref dt, .ref dd { margin: 0; padding: 10px 14px; border-bottom: 1px solid var(--line); min-width: 0; }
+.ref dt { color: var(--muted); font-size: 14px; background: var(--sunk); }
+.ref dd { overflow-wrap: anywhere; }
+.ref dt:nth-last-of-type(1), .ref dd:last-child { border-bottom: 0; }
+ol.plain { padding-left: 1.3em; }
+ol.plain li { margin: 6px 0; }
+.toolbar { display: flex; gap: 8px; margin-top: 14px; }
+.btn { font: 500 14px var(--sans); color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+.btn:hover { background: var(--sunk); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+@media (max-width: 560px) {
+  .ref { grid-template-columns: 1fr; }
+  .ref dt { border-bottom: 0; padding-bottom: 2px; }
+  .case-h .when { margin-left: 0; width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .meter i { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <p class="eyebrow">莎岡選品店 · 綠界 stage ＋ 黑貓測試站</p>
+  <h1>金流與物流實測指南</h1>
+  <p class="sub">網站已經上線在 <code>https://chenkuanyi.com.tw</code>，而且接的是綠界與黑貓的<b>正式</b>帳號。所以先在本機用測試站把流程跑熟，最後才到正式站用真卡、真包裹寄給自己。每一步都可以勾選，勾選狀態只存在你這台電腦的瀏覽器裡。</p>
+  <div class="progress-line"><span id="progressText">已完成 0 / 0 步</span><div class="meter" aria-hidden="true"><i id="meter"></i></div></div>
+</header>
+
+<section>
+  <h2>開始前先知道的三件事</h2>
+  <div class="facts">
+    <div class="fact hot"><b>付款成功，系統就自動建物流單</b><p>不用按按鈕。信用卡、超商代碼付款完成（或貨到付款下單）的幾秒後，背景程式就會向綠界或黑貓建單，訂單自動變「備貨中」。</p></div>
+    <div class="fact hot"><b>在正式站下單＝真的收錢、真的寄貨</b><p>chenkuanyi.com.tw 用的是正式金鑰。測試卡在那裡刷不過；用真卡刷就是真的扣款，要退要等隔天綠界關帳後才能退刷。</p></div>
+    <div class="fact"><b>本機要讓綠界打得回來</b><p>付款結果是綠界從外面打進來的通知。本機的 <code>APP_URL</code> 是 localhost，要測完整流程得先開 tunnel（第 2 層）。</p></div>
+    <div class="fact"><b>每筆宅配單都是一張真的託運單</b><p>黑貓建單不能取消也不能防重複。宅配只開一筆來測，其他測試一律選超商取貨。叫車一天只能一次。</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>你的電腦現在的狀態</h2>
+  <p class="lede">2026-11-09 檢查的結果。</p>
+  <div class="table-scroll"><table>
+    <thead><tr><th>項目</th><th>狀態</th><th>說明</th></tr></thead>
+    <tbody>
+      <tr><td>正式站</td><td><span class="st st-ok">運作中</span></td><td><code>https://chenkuanyi.com.tw</code> 首頁 200、<code>/api/health</code> 回報資料庫正常</td></tr>
+      <tr><td>正式站的金流物流</td><td><span class="st st-unk">正式帳號</span></td><td>本機正本 <code>docs/sagon-deploy/.env.production</code> 是 <code>ECPAY_ENV=production</code>、<code>TCAT_ENV=production</code>，10/03 的檢查也在主機上確認過。今天沒有權限直接連主機再看一次</td></tr>
+      <tr><td>本機綠界商店代號</td><td><span class="st st-bad">要處理</span></td><td>本機 <code>.env</code> 的 <code>ECPAY_MERCHANT_ID</code> 是正式站的代號，旁邊的 HashKey／HashIV 卻是測試帳號的。這個組合在綠界測試站刷不過，見下方「第 0 步」</td></tr>
+      <tr><td>綠界環境（本機）</td><td><span class="st st-ok">OK</span></td><td><code>ECPAY_ENV=stage</code>，金流與物流都走測試站</td></tr>
+      <tr><td>黑貓環境（本機）</td><td><span class="st st-ok">OK</span></td><td><code>TCAT_ENV=stage</code></td></tr>
+      <tr><td>物流商店（本機）</td><td><span class="st st-ok">OK</span></td><td>C2C 官方測試帳號 2000933，金鑰也是對應的那組</td></tr>
+      <tr><td>Docker 服務</td><td><span class="st st-ok">OK</span></td><td>web、worker、db、redis、mailpit 都在跑；worker 今天已重啟，套用新的資料表欄位</td></tr>
+      <tr><td>公開網址</td><td><span class="st st-bad">要處理</span></td><td><code>APP_URL</code> 是 localhost，綠界的付款通知與物流貨態打不進來</td></tr>
+      <tr><td>收據字軌</td><td><span class="st st-unk">未確認</span></td><td>沒在綠界 stage 後台設定字軌的話，電子收據會開立失敗（不影響金流物流測試）</td></tr>
+      <tr><td>貨到付款、匯款、ATM</td><td><span class="st st-unk">看設定</span></td><td>預設都是關的，要測就先到後台「商店設定」打開</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>三層測試，由快到慢</h2>
+  <div class="tiers">
+    <div class="tier"><span class="k">第 1 層</span><h3>本機模擬</h3><p>不用公開網址。用腳本模擬綠界的付款通知，確認訂單、庫存、自動建單、寄信都正確。</p><p class="cost">約 15 分鐘 · 不花錢</p></div>
+    <div class="tier"><span class="k">第 2 層</span><h3>stage 真實串接</h3><p>開 tunnel，真的刷測試卡、真的選門市、真的建綠界與黑貓的測試單。</p><p class="cost">約半天 · 不花錢，宅配可能派車</p></div>
+    <div class="tier"><span class="k">第 3 層</span><h3>正式站實測</h3><p>在 chenkuanyi.com.tw 用真卡下一筆小額訂單寄給自己，走完寄件、取貨、退刷。</p><p class="cost">約兩天（含等關帳） · 運費與手續費是真的</p></div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="tag">第 0 步</span>修正本機的綠界商店代號</h2>
+  <p class="lede">只影響本機，正式站不受影響。不改的話，第 1 層的 A2 與第 2 層的金流測試都會在綠界頁面失敗。</p>
+  <ol class="plain">
+    <li>打開 repo 根目錄的 <code>.env</code>，把 <code>ECPAY_MERCHANT_ID</code> 改成 <code>.env.example</code> 裡的官方測試代號 <code>3002607</code>（HashKey／HashIV 已經是對應的那組，不用動）。</li>
+    <li>重啟網站與背景程式：
+      <div class="cmd"><pre>docker restart sagon-web-1 sagon-worker-1</pre><button type="button" data-copy>複製</button></div></li>
+  </ol>
+  <p class="note"><b>為什麼會這樣</b>　商店代號、HashKey、HashIV 是一組的，要嘛全用測試的，要嘛全用正式的。正式的那一組只放在 <code>docs/sagon-deploy/.env.production</code>，不要搬進本機的 <code>.env</code>。</p>
+</section>
+
+<section>
+  <h2><span class="tag">第 1 層</span>本機模擬</h2>
+  <p class="lede">目的：先確定我們這端的處理邏輯沒問題，再花時間串外部。</p>
+
+  <div class="case">
+    <div class="case-h"><span class="id">A1</span><h3>模擬信用卡付款成功</h3><span class="when">超商取貨・信用卡</span></div>
+    <div class="case-body"><ol class="steps">
+      <li><input type="checkbox" id="a1-1"><label for="a1-1"><span class="do">開 <code>http://localhost:3000</code>，加一件商品進購物車，結帳選「超商取貨」＋「信用卡」，選好門市後送出。</span><span class="exp">導到綠界測試站的付款頁。</span></label></li>
+      <li><input type="checkbox" id="a1-2"><label for="a1-2"><span class="do">直接關掉綠界付款頁，到後台「訂單」記下這張的訂單編號（SGM 開頭）。</span><span class="exp">訂單是「待付款」。</span></label></li>
+      <li><input type="checkbox" id="a1-3"><label for="a1-3"><span class="do">在 repo 根目錄執行下面的指令，把訂單編號換進去。</span><span class="exp">指令顯示綠界回應 <code>1|OK</code>。</span></label></li>
+    </ol>
+    <div class="cmd"><pre>npx tsx --env-file-if-exists=.env --conditions=react-server scripts/simulate-ecpay-callback.ts payment-return SGM訂單編號</pre><button type="button" data-copy>複製</button></div>
+    <ol class="steps">
+      <li><input type="checkbox" id="a1-4"><label for="a1-4"><span class="do">重新整理後台訂單頁。</span><span class="exp">先變「已付款」，幾秒後自動變「備貨中」，物流區有綠界物流編號（訂單編號＋L）。</span></label></li>
+      <li><input type="checkbox" id="a1-5"><label for="a1-5"><span class="do">按「列印一段標」。</span><span class="exp">新視窗開出綠界測試站的一段標，門市、收件人都正確。</span></label></li>
+      <li><input type="checkbox" id="a1-6"><label for="a1-6"><span class="do">後台「Webhook」與 Mailpit（<code>http://localhost:8025</code>）。</span><span class="exp">Webhook 有一筆「付款結果」已處理、簽章有效；Mailpit 收到付款成功信。</span></label></li>
+      <li><input type="checkbox" id="a1-7"><label for="a1-7"><span class="do">再跑一次同一個指令。</span><span class="exp">不會重複扣庫存、不會建第二張物流單（重送要冪等）。</span></label></li>
+    </ol>
+    <p class="note"><b>注意</b>　這是用我們自己的金鑰簽一份假通知，沒有真的刷卡。正式環境會拒絕模擬付款，這支腳本只能在測試環境跑。</p>
+    </div>
+  </div>
+
+  <div class="case">
+    <div class="case-h"><span class="id">A2</span><h3>漏收通知的補救：向綠界查詢付款</h3><span class="when">真的刷測試卡，但通知打不回來</span></div>
+    <div class="case-body"><ol class="steps">
+      <li><input type="checkbox" id="a2-1"><label for="a2-1"><span class="do">再下一筆超商取貨＋信用卡訂單，這次在綠界頁面用測試卡（見最下方參考資料）真的付完。</span><span class="exp">瀏覽器導回本站結果頁。</span></label></li>
+      <li><input type="checkbox" id="a2-2"><label for="a2-2"><span class="do">看後台訂單。</span><span class="exp">還是「待付款」：因為 APP_URL 是 localhost，綠界的背景通知送不進來。這正好模擬「通知遺失」。</span></label></li>
+      <li><input type="checkbox" id="a2-3"><label for="a2-3"><span class="do">打開這張訂單，按「向綠界查詢付款」。</span><span class="exp">變「已付款」，接著自動建物流單變「備貨中」。不按的話，背景每 15 分鐘的對帳也會補上。</span></label></li>
+    </ol></div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="tag">第 2 層</span>準備：開一條公開網址</h2>
+  <p class="lede">讓綠界的付款通知、取號通知、物流貨態打得進你的電腦。</p>
+  <ol class="plain">
+    <li>啟動 tunnel：
+      <div class="cmd"><pre>docker compose --profile tunnel up -d cloudflared</pre><button type="button" data-copy>複製</button></div></li>
+    <li>從 log 找出 <code>https://xxxx.trycloudflare.com</code> 這行：
+      <div class="cmd"><pre>docker compose logs cloudflared</pre><button type="button" data-copy>複製</button></div></li>
+    <li>把這個網址填進 repo 根目錄 <code>.env</code> 的 <code>APP_URL</code> 與 <code>NEXT_PUBLIC_APP_URL</code>（先記下原本的值，測完要改回來），然後重啟網站與背景程式：
+      <div class="cmd"><pre>docker restart sagon-web-1 sagon-worker-1</pre><button type="button" data-copy>複製</button></div></li>
+    <li>瀏覽器開 <code>https://xxxx.trycloudflare.com/api/health</code>，回 200 就成功。之後的測試<b>都從這個網址操作</b>，不要再用 localhost。</li>
+  </ol>
+  <p class="note"><b>注意</b>　trycloudflare 的網址每次重啟都會換，換了就要重填 <code>.env</code> 並重啟。測到一半 tunnel 斷掉，那段時間的通知都會遺失（可用 A2 的方法補）。</p>
+  <p>測試時開一個終端機看背景程式的動作，建單失敗、寄信失敗都會在這裡出現：</p>
+  <div class="cmd"><pre>docker logs -f sagon-worker-1</pre><button type="button" data-copy>複製</button></div>
+</section>
+
+<section>
+  <h2><span class="tag">第 2 層</span>金流</h2>
+
+  <div class="case">
+    <div class="case-h"><span class="id">B1</span><h3>信用卡</h3><span class="when">超商取貨・7-ELEVEN</span></div>
+    <div class="case-body"><ol class="steps">
+      <li><input type="checkbox" id="b1-1"><label for="b1-1"><span class="do">下單，配送選超商取貨（7-11），付款選信用卡，用測試卡付完（含 3D 驗證頁）。</span><span class="exp">導回結果頁，顯示付款成功。</span></label></li>
+      <li><input type="checkbox" id="b1-2"><label for="b1-2"><span class="do">後台訂單，不要按任何按鈕，等 10 秒重新整理。</span><span class="exp">自己變成「已付款」再變「備貨中」，綠界交易編號有值。</span></label></li>
+      <li><input type="checkbox" id="b1-3"><label for="b1-3"><span class="do">後台「Webhook」、Mailpit。</span><span class="exp">有一筆付款結果事件，已處理；收到付款成功信，金額、品項、門市正確。</span></label></li>
+    </ol></div>
+  </div>
+
+  <div class="case">
+    <div class="case-h"><span class="id">B2</span><h3>超商代碼繳費</h3><span class="when">超商取貨・全家</span></div>
+    <div class="case-body"><ol class="steps">
+      <li><input type="checkbox" id="b2-1"><label for="b2-1"><span class="do">下單，配送選全家，付款選超商代碼。</span><span class="exp">結果頁顯示繳費代碼與期限；訂單「待付款」；Mailpit 收到取號通知信。</span></label></li>
+      <li><input type="checkbox" id="b2-2"><label for="b2-2"><span class="do">登入綠界 stage 廠商後台，找到這筆交易，用「模擬付款」完成繳費。</span><span class="exp">訂單變「已付款」，接著自動建物流單變「備貨中」。</span></label></li>
+    </ol></div>
+  </div>
+
+  <div class="case">
+    <div class="case-h"><span class="id">B3</span><h3>ATM、匯款、貨到付款（有開才測）</h3><span class="when">先到後台「商店設定」打開</span></div>
+    <div class="case-body"><ol class="steps">
+      <li><input type="checkbox" id="b3-1"><label for="b3-1"><span class="do">ATM：下單取得虛擬帳號，再到綠界 stage 後台模擬付款。</span><span class="exp">結果頁有銀行代碼、帳號、期限；模擬付款後訂單變「已付款」。</span></label></li>
+      <li><input type="checkbox" id="b3-2"><label for="b3-2"><span class="do">匯款：下單後到訂單頁按「標記匯款已入帳」。</span><span class="exp">下單時寄出含帳號的信；按下後變「已付款」並自動建物流單。系統不會自己知道有沒有匯款。</span></label></li>
+      <li><input type="checkbox" id="b3-3"><label for="b3-3"><span class="do">貨到付款：下單選貨到付款。</span><span class="exp">訂單一成立就是「備貨中」，物流單自動建立且帶代收金額；收款狀態是「貨到付款待收」。</span></label></li>
+    </ol></div>
+  </div>
+
+  <div class="case">
+    <div class="case-h"><span class="id">B4</span><h3>信用卡退款</h3><span class="when">用 B1 那筆</span></div>
+    <div class="case-body"><ol class="steps">
+      <li><input type="checkbox" id="b4-1"><label for="b4-1"><span class="do">打開 B1 的訂單，右側「建立退款單」，填原因。</span><span class="exp">退款頁出現一筆「待審核」。</span></label></li>
+      <li><input type="checkbox" id="b4-2"><label for="b4-2"><span class="do">在退款頁審核同意。</span><span class="exp">當場線上退刷成功；訂單變「已退款」；Mailpit 收到退款通知信。</span></label></li>
+      <li><input type="checkbox" id="b4-3"><label for="b4-3"><span class="do">到商品頁看這個規格的庫存。</span><span class="exp">庫存沒有自動加回去（這是刻意的）。</span></label></li>
+    </ol>
+    <p class="note"><b>注意</b>　信用卡退刷要等綠界那邊的交易進入可退款狀態，剛刷完立刻退可能被拒，會停在「退刷失敗」。隔一段時間再試，並把錯誤訊息記下來。</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="tag">第 2 層</span>物流</h2>
+
+  <div class="case">
+    <div class="case-h"><span class="id">L1</span><h3>電子地圖選門市</h3><span class="when">7-11 與全家各一次，桌機與手機各一次</span></div>
+    <div class="case-body"><ol class="steps">
+      <li><input type="checkbox" id="l1-1"><label for="l1-1"><span class="do">桌機結帳頁選超商取貨 → 選店。</span><span class="exp">跳出綠界地圖，選完後結帳頁自動帶入門市代號、名稱、地址。</span></label></li>
+      <li><input type="checkbox" id="l1-2"><label for="l1-2"><span class="do">再選一次，換一間門市。</span><span class="exp">覆蓋成新門市，不會留著舊的。</span></label></li>
+      <li><input type="checkbox" id="l1-3"><label for="l1-3"><span class="do">手機走同一流程。</span><span class="exp">整頁跳到地圖，選完回到結帳頁，已經填的欄位還在。</span></label></li>
+    </ol></div>
+  </div>
+
+  <div class="case">
+    <div class="case-h"><span class="id">L2</span><h3>超商物流單與一段標</h3><span class="when">用 B1（7-11）與 B2（全家）</span></div>
+    <div class="case-body"><ol class="steps">
+      <li><input type="checkbox" id="l2-1"><label for="l2-1"><span class="do">兩張訂單各按「列印一段標」。</span><span class="exp">兩家超商的標籤格式不同，都要能開、資料都正確。</span></label></li>
+      <li><input type="checkbox" id="l2-2"><label for="l2-2"><span class="do">看「建立物流單」按鈕。</span><span class="exp">顯示「已建立物流單」且不能按，不會產生第二張。</span></label></li>
+      <li><input type="checkbox" id="l2-3"><label for="l2-3"><span class="do">貨態：到綠界 stage 廠商後台的物流訂單查詢，看這兩張的狀態。</span><span class="exp">測試站的包裹不會真的運送，貨態通常停在已建單。後續「已出貨 → 已完成」的寄信與退款期限，可以在後台用「手動變更狀態」走一遍確認。</span></label></li>
+    </ol></div>
+  </div>
+
+  <div class="case">
+    <div class="case-h"><span class="id">L3</span><h3>黑貓宅配：託運單與貨態</h3><span class="when">只開一筆</span></div>
+    <div class="case-body">
+    <p class="note bad"><b>先確認</b>　<code>.env</code> 的寄件地址是真的出貨地址、<code>TCAT_SENDER_ZIP</code> 是用 <code>scripts/tcat-parse-address.ts</code> 查到的黑貓郵碼後六碼。這筆會在黑貓測試站開出真的託運單。</p>
+    <ol class="steps">
+      <li><input type="checkbox" id="l3-1"><label for="l3-1"><span class="do">下一筆宅配＋信用卡訂單並付款。</span><span class="exp">自動建黑貓託運單，訂單變「備貨中」，物流區有 12 碼托運單號。</span></label></li>
+      <li><input type="checkbox" id="l3-2"><label for="l3-2"><span class="do">按「列印託運單」，並另存一份 PDF。</span><span class="exp">PDF 開得起來，版面跟黑貓的 A4 二模樣本一樣；<code>storage/labels/</code> 裡有這個檔案。</span></label></li>
+      <li><input type="checkbox" id="l3-3"><label for="l3-3"><span class="do">按「立即查詢貨態」，或執行下面的指令跑一次輪詢。</span><span class="exp">還沒集貨時回「無貨態明細」屬正常；有其他錯誤會顯示在訂單頁。同一單 2 小時只能查一次。</span></label></li>
+    </ol>
+    <div class="cmd"><pre>npx tsx --env-file-if-exists=.env --conditions=react-server scripts/enqueue-job.ts poll-tcat-status</pre><button type="button" data-copy>複製</button></div>
+    <p class="note"><b>如果建單失敗</b>　看訂單頁的錯誤訊息：黑貓明確退件（例如 E009 授權錯誤）就修正設定後重建；逾時或斷線<b>不要重按</b>，先到黑貓系統確認有沒有成立。</p>
+    </div>
+  </div>
+
+  <div class="case">
+    <div class="case-h"><span class="id">L4</span><h3>呼叫黑貓收貨</h3><span class="when">選做 · 一天只有一次機會</span></div>
+    <div class="case-body"><ol class="steps">
+      <li><input type="checkbox" id="l4-1"><label for="l4-1"><span class="do">訂單列表右上「呼叫黑貓收貨」，勾選 L3 那張，送出。</span><span class="exp">顯示黑貓的回覆（例如司機幾點後前往取件）；那張從待交寄清單消失。</span></label></li>
+      <li><input type="checkbox" id="l4-2"><label for="l4-2"><span class="do">重新整理叫車頁。</span><span class="exp">顯示今天已叫過車，不能再叫第二次。</span></label></li>
+    </ol>
+    <p class="note bad"><b>會叫真人來</b>　測試站也可能真的派司機。沒有包裹要交就先不要測這一項，或事先跟黑貓業務確認測試站會不會派車。</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="tag">第 3 層</span>正式站實測（chenkuanyi.com.tw）</h2>
+  <p class="lede">真的扣款、真的寄件。先把第 1、2 層跑過，確定流程沒問題再做。全部寄給你自己。</p>
+
+  <div class="case">
+    <div class="case-h"><span class="id">P0</span><h3>準備一個測試商品</h3><span class="when">測完要下架</span></div>
+    <div class="case-body"><ol class="steps">
+      <li><input type="checkbox" id="p0-1"><label for="p0-1"><span class="do">正式站後台「新增商品」，名稱寫「內部測試（請勿購買）」，售價設低（例如 NT$50），庫存 3，上架。</span><span class="exp">前台找得到這個商品，能加入購物車。</span></label></li>
+      <li><input type="checkbox" id="p0-2"><label for="p0-2"><span class="do">開一個 <code>docker logs</code> 視窗或請另一個 session 在主機上看 worker 的紀錄，測試時盯著。</span><span class="exp">建單、寄信、開收據的錯誤會在這裡第一時間出現。</span></label></li>
+    </ol></div>
+  </div>
+
+  <div class="case">
+    <div class="case-h"><span class="id">P1</span><h3>真卡付款＋超商寄給自己</h3><span class="when">第一天</span></div>
+    <div class="case-body"><ol class="steps">
+      <li><input type="checkbox" id="p1-1"><label for="p1-1"><span class="do">用自己的帳號在正式站買測試商品，選超商取貨（挑你方便取件的 7-11），信用卡付款。</span><span class="exp">導到綠界<b>正式</b>付款頁（網址是 <code>payment.ecpay.com.tw</code>，不是 stage），刷卡後回到成功頁。</span></label></li>
+      <li><input type="checkbox" id="p1-2"><label for="p1-2"><span class="do">後台看這張訂單，不要按任何按鈕。</span><span class="exp">幾秒內自己變「備貨中」，物流區有綠界物流編號；後台「Webhook」有一筆付款結果已處理。</span></label></li>
+      <li><input type="checkbox" id="p1-3"><label for="p1-3"><span class="do">檢查你的真實信箱（含垃圾信匣）。</span><span class="exp">收到付款成功信，寄件者是 <code>no-reply@mail.chenkuanyi.com.tw</code>，沒有被當成垃圾信。</span></label></li>
+      <li><input type="checkbox" id="p1-4"><label for="p1-4"><span class="do">看訂單頁的電子收據區。</span><span class="exp">正式站有開自動開立，應顯示「已開立」。顯示失敗就看失敗原因，最常見是綠界收據後台還沒設定字軌。</span></label></li>
+      <li><input type="checkbox" id="p1-5"><label for="p1-5"><span class="do">按「列印一段標」，貼在包裹上，拿去 7-11 寄。</span><span class="exp">店員收件成功。</span></label></li>
+      <li><input type="checkbox" id="p1-6"><label for="p1-6"><span class="do">接下來 1–3 天，每天看一次後台訂單的物流區。</span><span class="exp">綠界自動回報，依序出現運送中、已到店；訂單自動變「已出貨」。</span></label></li>
+      <li><input type="checkbox" id="p1-7"><label for="p1-7"><span class="do">到門市取件。</span><span class="exp">當天或隔天，訂單自動變「已完成」。</span></label></li>
+    </ol></div>
+  </div>
+
+  <div class="case">
+    <div class="case-h"><span class="id">P2</span><h3>退刷</h3><span class="when">付款隔天以後</span></div>
+    <div class="case-body"><ol class="steps">
+      <li><input type="checkbox" id="p2-1"><label for="p2-1"><span class="do">P1 那張訂單，右側「建立退款單」，到退款頁審核同意。</span><span class="exp">當場退刷成功，訂單變「已退款」，你收到退款通知信；幾天後信用卡帳單出現退款。</span></label></li>
+      <li><input type="checkbox" id="p2-2"><label for="p2-2"><span class="do">若出現「退刷失敗」，記下錯誤訊息。</span><span class="exp">多半是綠界還沒關帳（刷卡當晚才關帳），隔天再試。</span></label></li>
+    </ol></div>
+  </div>
+
+  <div class="case">
+    <div class="case-h"><span class="id">P3</span><h3>超商代碼繳費</h3><span class="when">選做</span></div>
+    <div class="case-body"><ol class="steps">
+      <li><input type="checkbox" id="p3-1"><label for="p3-1"><span class="do">再買一次測試商品，付款選超商代碼，拿代碼到超商機台繳費。</span><span class="exp">繳完幾分鐘內訂單自動變「已付款」再變「備貨中」。這筆要退只能人工匯款。</span></label></li>
+    </ol></div>
+  </div>
+
+  <div class="case">
+    <div class="case-h"><span class="id">P4</span><h3>黑貓宅配寄給自己</h3><span class="when">挑一天本來就有包裹要交給黑貓</span></div>
+    <div class="case-body">
+    <p class="note bad"><b>先確認</b>　正式站的託運單會產生真實運費，叫車一天只能一次。把這筆跟當天的真實出貨一起交給司機。</p>
+    <ol class="steps">
+      <li><input type="checkbox" id="p4-1"><label for="p4-1"><span class="do">買測試商品，選宅配寄到你自己的地址，信用卡付款。</span><span class="exp">自動建黑貓託運單，訂單變「備貨中」，有 12 碼托運單號。</span></label></li>
+      <li><input type="checkbox" id="p4-2"><label for="p4-2"><span class="do">按「列印託運單」，貼上包裹。</span><span class="exp">PDF 正常開啟、可以列印。</span></label></li>
+      <li><input type="checkbox" id="p4-3"><label for="p4-3"><span class="do">「呼叫黑貓收貨」勾選這張與當天其他包裹，送出。</span><span class="exp">顯示黑貓的回覆；司機當天依路線來收。</span></label></li>
+      <li><input type="checkbox" id="p4-4"><label for="p4-4"><span class="do">之後幾天看訂單物流區。</span><span class="exp">每 30 分鐘自動更新貨態；你收到包裹後訂單自動變「已完成」。</span></label></li>
+    </ol></div>
+  </div>
+
+  <div class="case">
+    <div class="case-h"><span class="id">P5</span><h3>正式站收尾</h3><span class="when">測完當天</span></div>
+    <div class="case-body"><ol class="steps">
+      <li><input type="checkbox" id="p5-1"><label for="p5-1"><span class="do">把「內部測試」商品下架（狀態改已封存）。</span><span class="exp">前台找不到這個商品。</span></label></li>
+      <li><input type="checkbox" id="p5-2"><label for="p5-2"><span class="do">確認所有測試訂單都已退款或你已收到貨；沒付款的測試訂單會自己逾期取消。</span><span class="exp">總覽的「待出貨」不含測試單。</span></label></li>
+    </ol></div>
+  </div>
+  <p>更完整的上線測試（含正式金鑰檢查與失敗回退）見 <code>docs/go-live-test-plan.html</code>。</p>
+</section>
+
+<section>
+  <h2>測完收尾（本機）</h2>
+  <ol class="plain">
+    <li>把 <code>.env</code> 的 <code>APP_URL</code>、<code>NEXT_PUBLIC_APP_URL</code> 改回原本的值，執行 <code>docker restart sagon-web-1 sagon-worker-1</code>。</li>
+    <li>關掉 tunnel：<code>docker compose stop cloudflared</code>。</li>
+    <li>測試訂單留在本機資料庫沒關係，正式站的資料庫是另一個。</li>
+    <li>本機 <code>.env</code> 的 <code>ECPAY_MERCHANT_ID</code> 保持 <code>3002607</code>，不要改回正式代號。</li>
+    <li>黑貓託運單 PDF 的備份留著，24 小時後就不能再向黑貓下載。</li>
+  </ol>
+</section>
+
+<section>
+  <h2>出錯時怎麼辦</h2>
+  <ol class="plain">
+    <li><b>先停，不要重試、不要重按按鈕。</b>重按黑貓建單會多一張真的託運單。</li>
+    <li>截圖當下畫面，記下訂單編號與時間。</li>
+    <li>蒐集證據：<code>docker logs sagon-worker-1</code> 的錯誤訊息、後台「Webhook」那筆事件的原始內容、訂單頁的紅字。</li>
+    <li>把「做了什麼 → 預期 → 實際 → 證據」記下來，再決定要修還是繼續。外部服務暫時掛掉造成的失敗，可以用 <code>scripts/enqueue-job.ts</code> 補跑。</li>
+  </ol>
+</section>
+
+<section>
+  <h2>參考資料</h2>
+  <dl class="ref">
+    <dt>正式站</dt><dd><code>https://chenkuanyi.com.tw</code>，後台 <code>/admin</code></dd>
+    <dt>綠界測試信用卡</dt><dd><code>4311-9522-2222-2222</code>，有效期限填任何未來的月年，背面三碼 <code>222</code>。<b>只能在本機的測試站用</b>，正式站刷不過</dd>
+    <dt>綠界 stage 廠商後台</dt><dd><code>https://vendor-stage.ecpay.com.tw</code>（模擬付款、物流訂單查詢、收據字軌）</dd>
+    <dt>收信匣（Mailpit）</dt><dd><code>http://localhost:8025</code>，系統寄出的信都在這裡，不會真的寄出去</dd>
+    <dt>後台</dt><dd><code>/admin</code>，用 seed 管理員帳號登入（帳號密碼在 <code>.env</code> 的 <code>SEED_ADMIN_*</code>）</dd>
+    <dt>完整手動測試腳本</dt><dd><code>docs/manual-test-stage.md</code>（含電子收據與真實 SMTP）</dd>
+    <dt>上線前正式站測試</dt><dd><code>docs/go-live-test-plan.html</code></dd>
+  </dl>
+  <div class="toolbar"><button type="button" class="btn" id="resetBtn">清除所有勾選</button></div>
+</section>
+
+<footer>依 repo 的程式與 <code>docs/manual-test-stage.md</code> 整理，2026-11-09。</footer>
+</div>
+
+<script>
+(function () {
+  var KEY = 'sagon-test-guide-v1'
+  var boxes = [].slice.call(document.querySelectorAll('.steps input[type=checkbox]'))
+  var state = {}
+  try { state = JSON.parse(localStorage.getItem(KEY) || '{}') || {} } catch (e) { state = {} }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)) } catch (e) {} }
+  function render() {
+    var done = boxes.filter(function (b) { return b.checked }).length
+    document.getElementById('progressText').textContent = '已完成 ' + done + ' / ' + boxes.length + ' 步'
+    document.getElementById('meter').style.width = (boxes.length ? done / boxes.length * 100 : 0) + '%'
+  }
+  boxes.forEach(function (b) {
+    b.checked = !!state[b.id]
+    b.addEventListener('change', function () { state[b.id] = b.checked; save(); render() })
+  })
+  document.getElementById('resetBtn').addEventListener('click', function () {
+    boxes.forEach(function (b) { b.checked = false }); state = {}; save(); render()
+  })
+  document.querySelectorAll('[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var pre = btn.previousElementSibling
+      var text = pre.textContent
+      function done(ok) { btn.textContent = ok ? '已複製' : '請手動選取'; setTimeout(function () { btn.textContent = '複製' }, 1500) }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done(true) }, function () { selectText(pre); done(false) })
+      } else { selectText(pre); done(false) }
+    })
+  })
+  function selectText(el) { var r = document.createRange(); r.selectNodeContents(el); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r) }
+  render()
+})()
+</script>
+</body>
+</html>

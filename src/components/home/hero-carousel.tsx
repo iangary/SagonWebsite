@@ -6,6 +6,10 @@ import { cn } from '@/lib/utils'
 
 const AUTOPLAY_MS = 6500
 const REDUCED_MOTION = '(prefers-reduced-motion: reduce)'
+/** 看完一次「往下捲換 banner」之後記住，下次來就不再攔滾輪 */
+const WHEEL_INTRO_KEY = 'sagan:hero-wheel-intro-done'
+/** 滾輪事件停多久算一個手勢結束（觸控板的慣性捲動會持續送事件一陣子） */
+const GESTURE_IDLE_MS = 220
 
 function subscribeReducedMotion(onChange: () => void) {
   const mq = window.matchMedia(REDUCED_MOTION)
@@ -27,6 +31,8 @@ function subscribeReducedMotion(onChange: () => void) {
  * 暫停時機：滑鼠移入、手指按住、鍵盤焦點在裡面、分頁切走或捲出畫面。
  * 使用者自己滑過或點過之後就不再自動換張（搶走正在看的那張比不會自己動更惱人），
  * 進度條改為整段填滿表示「停在這張」。prefers-reduced-motion 時一律不自動播。
+ *
+ * 第一次來的訪客在頁面頂端往下捲滾輪，會先一張張換完 banner 才捲頁面（見下方滾輪的 effect）。
  *
  * 箭頭只在有滑鼠的大螢幕出現（md 以上且非 pointer-coarse），浮在左右兩側、
  * 滑鼠移入輪播才顯形；手機與平板用手指滑，底部只留進度條與暫停鍵（WCAG 2.2.2）。
@@ -124,6 +130,83 @@ export function HeroCarousel({
 
   // 使用者親手操作過就停掉自動播放
   const takeOver = () => setStopped(true)
+
+  // 滾輪事件在 effect 裡註冊一次，要讀到最新的「目前第幾張」得透過 ref
+  const activeRef = React.useRef(active)
+  React.useEffect(() => {
+    activeRef.current = active
+  }, [active])
+
+  /*
+   * 第一次來的訪客：頁面在最頂端時往下捲，先一張張換 banner，看完最後一張才往下捲頁面。
+   * 看完一次就記在 localStorage，之後再來就是一般的捲動，不再攔。
+   *
+   * 一個滾動手勢只換一張：滑鼠快速轉好幾格、或觸控板一滑帶出幾十個事件加上慣性，
+   * 都要等事件停下 GESTURE_IDLE_MS 才算一次手勢結束，否則一滑就直接跳到最後一張。
+   * 已經在最後一張時，「帶著你換到最後一張」的那個手勢也一併吃掉，
+   * 要下一次往下捲才放行給頁面，不然最後一張一閃就捲走了。
+   * 往上捲則是倒回上一張（在第一張時不攔）。
+   * 只處理滾輪／觸控板；手機的手指往上滑不攔，照常捲頁面，左右滑換張。
+   */
+  React.useEffect(() => {
+    if (total < 2) return
+    try {
+      if (window.localStorage.getItem(WHEEL_INTRO_KEY) === '1') return
+    } catch {
+      // 無痕模式等讀不到 localStorage 時，就當成第一次來
+    }
+
+    let gesture = false // 這個手勢已經換過一張了
+    let idle = 0
+    let pending = 0 // 觸控板的小位移累積到門檻才算數
+    let target = activeRef.current
+    let busyUntil = 0
+
+    const release = () => {
+      window.removeEventListener('wheel', onWheel, { capture: true })
+      try {
+        window.localStorage.setItem(WHEEL_INTRO_KEY, '1')
+      } catch {}
+    }
+
+    function onWheel(e: WheelEvent) {
+      if (!e.cancelable || e.ctrlKey || e.shiftKey) return
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return
+      if (window.scrollY > 4) return // 只在頁面最頂端、banner 完整在畫面上時接手
+      const down = e.deltaY > 0
+      const now = performance.now()
+      if (now >= busyUntil) target = activeRef.current
+
+      if (!gesture) {
+        if (down && target >= total - 1) return release() // 看完了，這一下交給頁面
+        if (!down && target <= 0) return
+      }
+
+      e.preventDefault()
+      e.stopPropagation()
+      window.clearTimeout(idle)
+      idle = window.setTimeout(() => {
+        gesture = false
+        pending = 0
+      }, GESTURE_IDLE_MS)
+      if (gesture) return
+
+      pending += e.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? e.deltaY : e.deltaY * 40
+      if (Math.abs(pending) < 30) return
+      gesture = true
+      pending = 0
+      target += down ? 1 : -1
+      busyUntil = now + 700 // 平滑捲動的這段時間 activeRef 還沒跟上，以 target 為準
+      setStopped(true)
+      goTo(target)
+    }
+
+    window.addEventListener('wheel', onWheel, { passive: false, capture: true })
+    return () => {
+      window.clearTimeout(idle)
+      window.removeEventListener('wheel', onWheel, { capture: true })
+    }
+  }, [total, goTo])
 
   return (
     <section

@@ -19,6 +19,8 @@ import { ProductGrid } from '@/components/product/product-card'
 import { ProductDescription } from '@/components/product/product-description'
 import { ProductReviews } from '@/components/product/product-reviews'
 import { Badge } from '@/components/ui/badge'
+import { lineSupport } from '@/lib/shop-config'
+import { ArrowRight } from 'lucide-react'
 
 /**
  * 刻意不提供 generateStaticParams，也不設 revalidate —— 這頁走動態渲染。
@@ -207,6 +209,34 @@ export default async function ProductPage({
                 </dd>
               </div>
             </dl>
+
+            {/* 商品細節（尺寸、材質）多半要問了才放心，入口放在購買資訊正下方 */}
+            {lineSupport && (
+              <a
+                href={lineSupport.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group/line mt-6 flex items-center gap-4 border border-cream-200 bg-cream-50 px-4 py-3.5 transition-colors hover:border-line hover:bg-white"
+              >
+                <span
+                  aria-hidden
+                  className="flex size-10 shrink-0 items-center justify-center rounded-full bg-line text-[11px] font-bold tracking-wide text-white"
+                >
+                  LINE
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium text-ink-900">{t('lineAskTitle')}</span>
+                  <span className="mt-0.5 block text-xs leading-relaxed text-taupe-600">
+                    {t('lineAskBody')}
+                  </span>
+                </span>
+                <ArrowRight
+                  size={16}
+                  aria-hidden
+                  className="shrink-0 text-taupe-500 transition-transform group-hover/line:translate-x-0.5 group-hover/line:text-ink-900"
+                />
+              </a>
+            )}
           </div>
         </div>
 

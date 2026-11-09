@@ -98,7 +98,9 @@
     "paymentLabel": "결제 방법",
     "paymentValue": "신용카드, ATM 가상계좌, 편의점 결제코드",
     "freeShippingLabel": "무료배송 기준",
-    "freeShippingValue": "{amount} 이상 구매 시"
+    "freeShippingValue": "{amount} 이상 구매 시",
+    "lineAskTitle": "상품에 대해 궁금한 점이 있으신가요?",
+    "lineAskBody": "사이즈, 소재 등 자세한 내용은 LINE 공식 계정으로 편하게 문의해 주세요"
   },
   "list": {
     "sortBy": "정렬",

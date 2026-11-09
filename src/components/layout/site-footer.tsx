@@ -2,7 +2,7 @@ import { getLocale, getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/routing'
 import { env } from '@/lib/env'
 import Image from 'next/image'
-import { shopName } from '@/lib/shop-config'
+import { lineSupport, shopName } from '@/lib/shop-config'
 import logoImg from '@/assets/brand/sagan-logo.png'
 
 export async function SiteFooter() {
@@ -30,6 +30,7 @@ export async function SiteFooter() {
 
   // 站外連結，設成空字串的就不顯示（見 lib/env.ts）
   const socialLinks = [
+    { href: lineSupport?.url ?? '', label: 'LINE' },
     { href: env.SHOP_INSTAGRAM_URL, label: 'Instagram' },
     { href: env.SHOP_FACEBOOK_URL, label: 'Facebook' },
   ].filter((link) => link.href)

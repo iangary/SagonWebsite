@@ -98,7 +98,9 @@
     "paymentLabel": "お支払い方法",
     "paymentValue": "クレジットカード、ATM（バーチャル口座）振込、コンビニ番号払い",
     "freeShippingLabel": "送料無料の条件",
-    "freeShippingValue": "{amount}以上のお買い上げ"
+    "freeShippingValue": "{amount}以上のお買い上げ",
+    "lineAskTitle": "商品についてご質問はありますか？",
+    "lineAskBody": "サイズや素材などの詳細は、LINE公式アカウントからお気軽にお問い合わせください"
   },
   "list": {
     "sortBy": "並び替え",

@@ -98,7 +98,9 @@
     "paymentLabel": "Payment",
     "paymentValue": "Credit card, ATM transfer, convenience store code",
     "freeShippingLabel": "Free shipping",
-    "freeShippingValue": "On orders over {amount}"
+    "freeShippingValue": "On orders over {amount}",
+    "lineAskTitle": "Questions about this item?",
+    "lineAskBody": "Message us on our LINE Official Account for sizing, fabric and other details"
   },
   "list": {
     "sortBy": "Sort by",

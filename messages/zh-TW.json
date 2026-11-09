@@ -98,7 +98,9 @@
     "paymentLabel": "付款方式",
     "paymentValue": "信用卡、ATM 虛擬帳號、超商代碼繳費",
     "freeShippingLabel": "免運門檻",
-    "freeShippingValue": "消費滿 {amount}"
+    "freeShippingValue": "消費滿 {amount}",
+    "lineAskTitle": "對商品有疑問嗎？",
+    "lineAskBody": "加入 LINE 官方帳號，尺寸、材質等商品細節都可以直接問我們"
   },
   "list": {
     "sortBy": "排序",

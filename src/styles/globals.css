@@ -35,6 +35,8 @@
 
   --color-rose-accent: #c98b7f;
   --color-sale: #b4524a;
+  /* LINE 的品牌綠，只用在 LINE 官方帳號的入口，讓客人一眼認出來 */
+  --color-line: #06c755;
 
   /*
     第一順位是 next/font 自架的變數；沒吃到（極端情況）才退回系統字體。

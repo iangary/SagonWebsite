@@ -98,7 +98,9 @@
     "paymentLabel": "Paiement",
     "paymentValue": "Carte bancaire, virement ATM (compte virtuel), code de paiement en supérette",
     "freeShippingLabel": "Livraison offerte",
-    "freeShippingValue": "Dès {amount} d’achat"
+    "freeShippingValue": "Dès {amount} d’achat",
+    "lineAskTitle": "Une question sur cet article ?",
+    "lineAskBody": "Écrivez-nous sur notre compte officiel LINE pour la taille, la matière et tous les détails"
   },
   "list": {
     "sortBy": "Trier par",

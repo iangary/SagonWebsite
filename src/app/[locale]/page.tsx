@@ -120,13 +120,31 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       title={t('carousel.lineTitle')}
       body={t('carousel.lineBody')}
       visual={
-        <ZoomableImage
-          src={lineQrImg}
-          alt={t('carousel.lineQrAlt')}
-          sizes="(min-width: 1024px) 18rem, (min-width: 640px) 14rem, 11rem"
-          className="size-44 bg-white p-3 shadow-sm sm:size-56 lg:size-72 lg:p-4"
-          badgeClassName="-right-3 -bottom-3"
-        />
+        lineSupport ? (
+          // QR Code 本身就是加好友連結：手機掃不了自己的螢幕，直接點比放大有用
+          <a
+            href={lineSupport.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={t('carousel.lineCta')}
+            className="group/line block transition-transform duration-300 hover:-translate-y-1"
+          >
+            <Image
+              src={lineQrImg}
+              alt={t('carousel.lineQrAlt')}
+              sizes="(min-width: 1024px) 18rem, (min-width: 640px) 14rem, 11rem"
+              className="size-44 bg-white p-3 shadow-sm transition-shadow duration-300 group-hover/line:shadow-lg sm:size-56 lg:size-72 lg:p-4"
+            />
+          </a>
+        ) : (
+          <ZoomableImage
+            src={lineQrImg}
+            alt={t('carousel.lineQrAlt')}
+            sizes="(min-width: 1024px) 18rem, (min-width: 640px) 14rem, 11rem"
+            className="size-44 bg-white p-3 shadow-sm sm:size-56 lg:size-72 lg:p-4"
+            badgeClassName="-right-3 -bottom-3"
+          />
+        )
       }
     >
       {lineSupport ? (
