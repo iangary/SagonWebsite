@@ -17,11 +17,16 @@
 #         psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
 
 set -euo pipefail
+# 備份含會員資料與密碼雜湊，只給 root 讀
+umask 077
 
 STACK_DIR=${STACK_DIR:-/srv/sagon}
 COMPOSE_FILE="$STACK_DIR/docker-compose.prod.yml"
 BACKUP_DIR=${BACKUP_DIR:-$STACK_DIR/backups}
 RETENTION_DAYS=${RETENTION_DAYS:-14}
+# 商品圖整包約 1.4GB 且 webp 幾乎壓不動，跟資料庫一樣留 14 天會吃掉近 20GB（磁碟 50GB）。
+# 蝦皮匯入的圖本機都有，可重新上傳；這裡只需要擋「後台上傳的圖被誤刪」，留幾天就夠。
+UPLOADS_RETENTION_DAYS=${UPLOADS_RETENTION_DAYS:-3}
 STAMP=$(date +%F)
 
 # POSTGRES_* 放在 compose 用的 .env 裡
@@ -66,7 +71,8 @@ else
 fi
 
 # --- 清理 -----------------------------------------------------------------
-find "$BACKUP_DIR" -name '*.gz' -mtime "+$RETENTION_DAYS" -delete
+find "$BACKUP_DIR" -name 'db-*.sql.gz' -mtime "+$RETENTION_DAYS" -delete
+find "$BACKUP_DIR" -name 'uploads-*.tar.gz' -mtime "+$UPLOADS_RETENTION_DAYS" -delete
 find "$BACKUP_DIR" -name '*.partial' -mtime +1 -delete
 
 echo "[$(date -Is)] 備份完成"
