@@ -491,6 +491,63 @@ docker compose -f docker-compose.prod.yml exec db psql -U sagon -d sagon -c "del
 
 優惠券用停用而不是刪除 —— 保留紀錄，日後想用再開。
 
+### 7.9 更新商品資料（蝦皮匯出檔）
+
+商品資料與圖片都在**本機**產生（`npm run import:shopee`，見 README「商品資料的來源」），
+正式站只負責接收。兩樣東西都不在 image 裡：圖片在 `public/uploads/shopee/`、資料在
+`prisma/seed-data/shopee.json`，兩者都被 `.gitignore` 排除。
+
+> **正式站一律 `--catalog-only`。** 不加的話 seed 會把管理員密碼重設成 `SEED_ADMIN_PASSWORD`、
+> 重建 §7.8 刪掉的測試會員，而且 demo 優惠券刪過的話會重新出現。
+> （`NODE_ENV=production` 又沒設 `SEED_ADMIN_PASSWORD` 時完整模式會直接拒跑，但有設就不會擋。）
+
+**順序不能反**：圖片先上、seed 後跑。seed 一跑完資料庫就指向新檔名，檔案不在就是整站破圖。
+seed.ts 本身若有改，要先推上 `main` 等 CI 建好 image、主機 `pull` 過（§7.6），因為 seed 是用 worker image 跑的。
+
+在本機（repo 根目錄）準備好資料之後：
+
+```bash
+ssh root@103.1.221.67 'df -h / && sagon-backup'
+```
+
+先確認磁碟至少還有圖片大小的兩倍（打包檔與解開後各一份），並在動資料庫前留一份備份。
+
+```bash
+tar -cf shopee-images.tar -C public/uploads shopee
+```
+
+```bash
+scp shopee-images.tar prisma/seed-data/shopee.json root@103.1.221.67:/srv/sagon/
+```
+
+解開到 uploads volume，交給容器內的 `node`（uid 1000）—— 後台刪商品圖時要能刪得掉檔案。
+最後印出的檔案數應該等於本機 `find public/uploads/shopee -name '*.webp' | wc -l`：
+
+```bash
+ssh root@103.1.221.67 'docker run --rm -v sagon-prod_uploads:/u -v /srv/sagon:/in alpine sh -c "tar -xf /in/shopee-images.tar -C /u && chown -R 1000:1000 /u/shopee && find /u/shopee -name \"*.webp\" | wc -l" && rm /srv/sagon/shopee-images.tar'
+```
+
+用 worker image 開一次性容器跑 seed（它有 tsx、seed.ts，並從 `.env.production` 拿資料庫連線）：
+
+```bash
+ssh root@103.1.221.67 'cd /srv/sagon && mkdir -p seed-data && mv shopee.json seed-data/ && docker compose -f docker-compose.prod.yml run --rm --no-deps -v /srv/sagon/seed-data:/app/prisma/seed-data:ro worker npx tsx prisma/seed.ts --catalog-only'
+```
+
+這一步會：
+
+- 依蝦皮匯出檔更新名稱、描述、價格、庫存；slug 建立後不再改。
+- 這次匯出沒有的蝦皮商品改成下架；已不存在的規格停用。
+- 刪掉舊的 sagan.com.tw 爬蟲商品（§7.7 第 9 項）。已成立的訂單不受影響，明細是下單當下的快照。
+- 圖片改名時，一併把訂單明細裡的舊網址換成新的。
+- 首頁 Hero 若已在後台換過圖就不動。
+
+跑完照 §7.5 驗證，再看一下分類頁與商品頁。舊檔名的圖片與 `uploads/seed/` 會留在 volume 裡
+（worker 沒掛 uploads，碰不到），舊訂單可能還指著它們，不用手動清。
+
+> 每次都整包重送。圖片沒變的話其實是白送，但 tar + scp 最不容易出錯；
+> 哪天更新頻繁到嫌慢，再改用 rsync 只送差異。
+> 也注意 `sagon-backup` 每天會把整個 uploads 打包，圖片量增加後備份檔跟著變大。
+
 ## 8. 備份（必做）
 
 ```bash

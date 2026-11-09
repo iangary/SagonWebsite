@@ -3,7 +3,11 @@
  *
  * 用法：
  *   npm run import:shopee -- "<蝦皮批次更新匯出檔的資料夾>"
- *   npm run seed
+ *   npm run seed                     開發用：商品 + 管理員／測試會員 + demo 優惠券
+ *   npm run seed -- --catalog-only   正式站用：只更新品牌、分類、商品與首頁 banner
+ *
+ * 正式站一律加 --catalog-only。完整模式會把管理員密碼重設成 SEED_ADMIN_PASSWORD、
+ * 重建已刪掉的測試會員（密碼同管理員），並且建出客人猜得到的 demo 優惠券。
  *
  * 可重複執行 —— 全部以 sourceId / sku / slug / code upsert，不會產生重複資料。
  * 重跑時以蝦皮匯出檔為準：名稱、描述、價格、庫存都會被蓋回匯出檔的值，
@@ -27,6 +31,9 @@ const LEGACY_IMAGE_DIR = path.join(ROOT, 'public', 'uploads', 'seed')
 const PRODUCT_SOURCE_PREFIX = 'shopee-'
 const CATEGORY_SOURCE_PREFIX = 'shopee-cat-'
 const SHOPEE_IMAGE_PREFIX = '/uploads/shopee/'
+const LEGACY_IMAGE_PREFIX = '/uploads/seed/'
+
+const CATALOG_ONLY = process.argv.includes('--catalog-only')
 
 function slugify(input: string): string {
   return input
@@ -127,14 +134,18 @@ async function purgeLegacyCatalog() {
   }
 }
 
-/** 舊爬蟲的圖片在 public/uploads/seed/，確定沒有任何地方再指向它才刪 */
+/**
+ * 舊爬蟲的圖片在 public/uploads/seed/，確定沒有任何地方再指向它才刪。
+ * 訂單明細也算 —— 它存的是下單當下的圖片網址，刪了舊訂單的縮圖就破了。
+ */
 async function removeLegacyImages() {
   if (!existsSync(LEGACY_IMAGE_DIR)) return
-  const [images, banners] = await Promise.all([
-    db.productImage.count({ where: { url: { startsWith: '/uploads/seed/' } } }),
-    db.banner.count({ where: { imageUrl: { startsWith: '/uploads/seed/' } } }),
+  const [images, banners, orderItems] = await Promise.all([
+    db.productImage.count({ where: { url: { startsWith: LEGACY_IMAGE_PREFIX } } }),
+    db.banner.count({ where: { imageUrl: { startsWith: LEGACY_IMAGE_PREFIX } } }),
+    db.orderItem.count({ where: { imageUrl: { startsWith: LEGACY_IMAGE_PREFIX } } }),
   ])
-  if (images + banners > 0) return
+  if (images + banners + orderItems > 0) return
   await rm(LEGACY_IMAGE_DIR, { recursive: true, force: true })
   console.log('  已刪除 public/uploads/seed/（舊爬蟲圖片）')
 }
@@ -405,6 +416,17 @@ async function seedBanners() {
   })
   if (!first) return
 
+  // 後台換過圖（不再是 seed 放的商品圖）就不動，重跑 seed 不能蓋掉店家自己挑的 Hero
+  const current = await db.banner.findUnique({ where: { id: 'seed-hero' }, select: { imageUrl: true } })
+  const seedOwned =
+    !current ||
+    current.imageUrl.startsWith(SHOPEE_IMAGE_PREFIX) ||
+    current.imageUrl.startsWith(LEGACY_IMAGE_PREFIX)
+  if (!seedOwned) {
+    console.log('  首頁 Hero 已在後台換過圖，略過')
+    return
+  }
+
   await db.banner.upsert({
     where: { id: 'seed-hero' },
     update: { imageUrl: first.url },
@@ -426,13 +448,20 @@ async function seedBanners() {
 // ---------------------------------------------------------------------------
 
 async function main() {
-  console.log('\n=== 開始 seed ===\n')
+  console.log(`\n=== 開始 seed${CATALOG_ONLY ? '（只更新商品）' : ''} ===\n`)
 
-  await purgeLegacyCatalog()
+  if (!CATALOG_ONLY && process.env.NODE_ENV === 'production' && !process.env.SEED_ADMIN_PASSWORD) {
+    // 沒設就會用預設的 admin1234 —— 在正式站等於把管理員密碼公開
+    throw new Error('正式環境跑完整 seed 必須設定 SEED_ADMIN_PASSWORD；只更新商品請加 --catalog-only')
+  }
 
   const data = await loadShopeeExport()
 
   if (!data) {
+    if (CATALOG_ONLY) {
+      // 清舊商品之前先確定有新資料可以補上，否則正式站會變成空的賣場
+      throw new Error(`找不到 ${path.relative(ROOT, DATA_FILE)}，沒有商品資料可更新`)
+    }
     console.log('找不到 prisma/seed-data/shopee.json，只建立帳號與優惠券。')
     console.log('要灌入商品資料請先執行： npm run import:shopee -- "<蝦皮匯出檔資料夾>"\n')
     await seedAccounts()
@@ -443,11 +472,14 @@ async function main() {
 
   console.log(`資料來源：蝦皮賣場 ${data.shopId}（匯出檔 ${data.sourceFiles.join('、')}）\n`)
 
+  await purgeLegacyCatalog()
   const brandIds = await seedBrands(data.products)
   const categoryIds = await seedCategories(data.categories)
   await seedProducts(data, brandIds, categoryIds)
-  await seedAccounts()
-  await seedCoupons()
+  if (!CATALOG_ONLY) {
+    await seedAccounts()
+    await seedCoupons()
+  }
   await seedBanners()
   await removeLegacyImages()
 

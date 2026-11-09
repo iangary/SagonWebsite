@@ -19,6 +19,13 @@ Docker + Next.js 16 + PostgreSQL 18，串接**綠界 ECPay 金流、超商取貨
 `npm run seed` 也會清掉早期從 sagan.com.tw 爬來的開發用假資料（`sourceId` 不是 `shopee-` 開頭的商品與分類，
 以及 `public/uploads/seed/`）。後台手動建立的商品不受影響。
 
+圖片檔名依內容命名：`<商品名>-<用途>-<蝦皮圖片 ID 末 8 碼>.webp`（用途是主圖、商品圖-N、規格選項名稱、尺寸表、描述圖-NN）。
+商品在蝦皮改名後重跑匯入，檔案會就地改名，所以**匯入後一定要接著跑 seed**，資料庫與訂單明細裡的網址才會跟上。
+
+`npm run seed` 是開發用的完整模式，還會建立管理員、測試會員與 demo 優惠券；
+**正式站一律用 `npm run seed -- --catalog-only`**，只更新品牌、分類、商品與首頁 banner。
+正式站的完整步驟見 [docs/deploy.md](docs/deploy.md) §7.9。
+
 ---
 
 ## 快速開始
