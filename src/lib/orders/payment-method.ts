@@ -1,5 +1,5 @@
 import 'server-only'
-import type { Prisma } from '@prisma/client'
+import type { Payment, Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { enqueue } from '@/lib/queue'
 import { generateMerchantTradeNo } from '@/lib/ecpay/aio'
@@ -13,6 +13,8 @@ import {
 } from '@/lib/shop-settings'
 import { formatTransferDeadline } from './bank-transfer'
 import { commitOrderReservations } from './stock'
+import { lockOrderPayments } from './cancel'
+import { currentPaymentOf } from './payment'
 
 /**
  * 待付款訂單改用其他付款方式，以及貨到付款訂單的生命週期。
@@ -214,6 +216,80 @@ export async function markCodCollected(
 }
 
 /** 把訂單的庫存預扣期限延長／縮短到新的付款期限。 */
+export type CheckoutClaim =
+  /** 送這筆去綠界收銀台 */
+  | { kind: 'send'; payment: Payment; order: { id: string; orderNo: string; grandTotal: number } }
+  /** ATM／超商已經取號：不必再去綠界，代碼就在訂單頁上 */
+  | { kind: 'code-issued' }
+  /** 已付款、已取消，或不是綠界付款（貨到付款、匯款）：沒有收銀台可以去 */
+  | { kind: 'no-checkout' }
+  | { kind: 'not-found' }
+
+/**
+ * 「前往付款」要送去綠界的那筆 Payment。
+ *
+ * 綠界同一組 MerchantTradeNo 只收一次 —— 客人進了收銀台沒付款就回來、刷卡失敗再試一次，
+ * 原本那組再送就是 10300028「訂單編號重複」。所以這組送過的話，作廢它、換一組新的再送，
+ * 跟改付款方式（changePaymentMethod）是同一套「新增一筆、舊的標記作廢」。
+ * 客人如果其實在舊分頁把舊那組付掉了，回拋照樣查得到訂單（見 payment.ts 的 applySuccessfulPayment）。
+ */
+export async function claimCheckoutPayment(orderNo: string): Promise<CheckoutClaim> {
+  const order = await db.order.findUnique({
+    where: { orderNo },
+    select: { id: true, orderNo: true, grandTotal: true },
+  })
+  if (!order) return { kind: 'not-found' }
+
+  const settings = await getPaymentSettings()
+
+  return db.$transaction(async (tx) => {
+    // 先鎖再讀：連點兩下、付款通知剛好進來、消費者同時按取消，都要排隊
+    await lockOrderPayments(tx, order.id)
+    const fresh = await tx.order.findUniqueOrThrow({
+      where: { id: order.id },
+      select: { status: true, payments: { orderBy: { createdAt: 'desc' } } },
+    })
+    const current = currentPaymentOf(fresh.payments)
+
+    if (fresh.status !== 'PENDING_PAYMENT' || !current) return { kind: 'no-checkout' } as const
+    if (current.provider !== 'ECPAY' || current.choosePayment === 'COD') {
+      return { kind: 'no-checkout' } as const
+    }
+    if (current.status === 'AWAITING_TRANSFER') return { kind: 'code-issued' } as const
+    if (current.status !== 'PENDING' && current.status !== 'FAILED') {
+      return { kind: 'no-checkout' } as const
+    }
+
+    if (!current.checkoutSentAt) {
+      const payment = await tx.payment.update({
+        where: { id: current.id },
+        data: { checkoutSentAt: new Date() },
+      })
+      return { kind: 'send', payment, order } as const
+    }
+
+    await tx.payment.update({
+      where: { id: current.id },
+      data: { status: 'EXPIRED', supersededAt: new Date() },
+    })
+    const payment = await tx.payment.create({
+      data: {
+        orderId: order.id,
+        provider: 'ECPAY',
+        merchantTradeNo: generateMerchantTradeNo('SG'),
+        choosePayment: current.choosePayment,
+        amount: order.grandTotal,
+        status: 'PENDING',
+        checkoutSentAt: new Date(),
+      },
+    })
+    // 新的一組在綠界有新的付款期限，庫存預扣跟著對齊（同 changePaymentMethod）
+    const holdMinutes = holdMinutesFor(current.choosePayment as PaymentChoice, settings)
+    await extendReservations(tx, order.id, new Date(Date.now() + holdMinutes * 60 * 1000))
+    return { kind: 'send', payment, order } as const
+  })
+}
+
 async function extendReservations(
   tx: Prisma.TransactionClient,
   orderId: string,

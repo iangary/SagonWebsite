@@ -591,6 +591,9 @@ model Payment {
   supersededAt DateTime?
   /// 最後一次主動向綠界查詢付款狀態的時間（QueryTradeInfo），對帳排程用它節流
   syncedAt     DateTime?
+  /// 第一次把這組 MerchantTradeNo 送去綠界收銀台的時間。
+  /// 綠界同一組單號只收一次（10300028 訂單編號重複），有值就代表下次「前往付款」要換一組新的。
+  checkoutSentAt DateTime?
 
   paidAt    DateTime?
   createdAt DateTime  @default(now())

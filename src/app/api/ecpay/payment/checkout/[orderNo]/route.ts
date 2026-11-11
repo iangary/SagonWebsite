@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { env } from '@/lib/env'
 import { getPaymentSettings, holdMinutesFor, type PaymentChoice } from '@/lib/shop-settings'
-import { currentPaymentOf } from '@/lib/orders/payment'
+import { claimCheckoutPayment } from '@/lib/orders/payment-method'
 import { buildAioCheckoutParams, type ChoosePayment } from '@/lib/ecpay/aio'
 import { ecpayEndpoints } from '@/lib/ecpay/config'
 import { renderAutoSubmitForm } from '@/lib/ecpay/auto-submit'
@@ -14,46 +14,40 @@ export const dynamic = 'force-dynamic'
  *
  * 刻意做成一支獨立的 GET 路由而不是在 Server Action 裡直接產表單，
  * 這樣使用者從綠界按上一頁再回來時可以重新產生一張有效的表單（簽章含時間戳）。
+ * 綠界不收重複的 MerchantTradeNo，送過的那組會換新的再送（見 claimCheckoutPayment）。
  */
 export async function GET(_req: Request, { params }: { params: Promise<{ orderNo: string }> }) {
   const { orderNo } = await params
 
-  const order = await db.order.findUnique({
-    where: { orderNo },
-    include: { items: true, payments: { orderBy: { createdAt: 'desc' } } },
-  })
+  const claim = await claimCheckoutPayment(orderNo)
 
-  const payment = order ? currentPaymentOf(order.payments) : null
-
-  if (!order || !payment) {
+  if (claim.kind === 'not-found') {
     return NextResponse.json({ error: '找不到訂單' }, { status: 404 })
   }
 
-  // 已付款的訂單不要再送一次去綠界，直接看結果頁
-  if (order.status !== 'PENDING_PAYMENT') {
+  // 已付款／已取消、貨到付款、匯款，或 ATM／超商已經取號（代碼印在結果頁上）：都不必再去綠界
+  if (claim.kind !== 'send') {
     return NextResponse.redirect(
       new URL(`/checkout/result?orderNo=${orderNo}`, env.APP_URL),
       303,
     )
   }
 
-  // 貨到付款沒有收銀台可以去
-  if (payment.provider !== 'ECPAY' || payment.choosePayment === 'COD') {
-    return NextResponse.redirect(
-      new URL(`/checkout/result?orderNo=${orderNo}`, env.APP_URL),
-      303,
-    )
-  }
+  const { payment, order } = claim
+  const items = await db.orderItem.findMany({
+    where: { orderId: order.id },
+    select: { productName: true, qty: true, unitPrice: true },
+  })
 
   const settings = await getPaymentSettings()
 
   const ecpayParams = buildAioCheckoutParams({
     // 一定要用 payment 自己的單號，不能用 order.orderNo ——
-    // 消費者改過付款方式的話，生效的那筆已經是另一組 MerchantTradeNo。
+    // 改過付款方式、或之前送過收銀台的話，生效的那筆已經是另一組 MerchantTradeNo。
     merchantTradeNo: payment.merchantTradeNo,
     totalAmount: order.grandTotal,
     tradeDesc: `${env.SHOP_NAME} 訂單 ${order.orderNo}`,
-    items: order.items.map((item) => ({
+    items: items.map((item) => ({
       name: item.productName,
       qty: item.qty,
       unitPrice: item.unitPrice,
