@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest'
 import {
   categoryKeyOf,
   cleanProductName,
+  cleanVariantName,
   detectBrand,
   imageBaseName,
   imageFileName,
   parseDescription,
   renderDescription,
   summaryOf,
+  variantIsPreorder,
   type ShopeeImage,
 } from './import-shopee'
 
@@ -59,6 +61,27 @@ describe('圖片檔名', () => {
 
   it('全是符號時退回 product', () => {
     expect(imageBaseName('【現貨】｜｜')).toBe('product')
+  })
+})
+
+describe('規格的預購', () => {
+  it.each([
+    ['白 預購', '白'],
+    ['Baby Blue 現貨', 'Baby Blue'],
+    ['26233WTNSN 【現貨】', '26233WTNSN'],
+    ['26-04332【現貨】', '26-04332'],
+    ['24-08831粉紅 預購', '24-08831粉紅'],
+    ['白色M', '白色M'],
+  ])('規格名稱拿掉出貨狀態：%s → %s', (raw, expected) => {
+    expect(cleanVariantName(raw)).toBe(expected)
+  })
+
+  it('規格寫預購就開、寫現貨就不開，都沒寫才看商品標題', () => {
+    expect(variantIsPreorder('米 預購', '【現貨】睡衣')).toBe(true)
+    expect(variantIsPreorder('白色 現貨', '【預購｜LUNALUZ 台灣經銷】睡衣')).toBe(false)
+    expect(variantIsPreorder('白', '【預購｜LUNALUZ 台灣經銷】睡衣')).toBe(true)
+    expect(variantIsPreorder(null, '【預購】睡衣')).toBe(true)
+    expect(variantIsPreorder('白', '【現貨】睡衣')).toBe(false)
   })
 })
 

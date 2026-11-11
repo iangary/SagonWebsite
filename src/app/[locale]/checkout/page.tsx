@@ -85,7 +85,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ local
 
   // 有預購品項時先講清楚出貨時間：整張訂單會等全部到齊才一起出貨
   const preorderNames = cart.items
-    .filter((item) => isPreorderLine(item.variant, item.variant.product.preorderEnabled, item.qty))
+    .filter((item) => isPreorderLine(item.variant, item.qty))
     .map((item) => `${localizedName(locale, item.variant.product)}（${item.variant.name}）`)
 
   return (

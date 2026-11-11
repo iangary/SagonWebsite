@@ -122,15 +122,14 @@ export function availableStock(variant: { stock: number; reservedStock: number }
 }
 
 /**
- * 這一行會不會以預購成立：商品開放預購、而現貨不夠這個數量。
+ * 這一行會不會以預購成立：規格開放預購、而現貨不夠這個數量。
  *
  * 整行一起算，不拆「2 件現貨 + 1 件預購」—— 同一張訂單本來就等全部到齊才出貨，
  * 拆開只會讓庫存帳更難對。下單時以 create.ts 的實際預扣結果為準，這裡是畫面用的預估。
  */
 export function isPreorderLine(
-  variant: { stock: number; reservedStock: number },
-  preorderEnabled: boolean,
+  variant: { stock: number; reservedStock: number; preorderEnabled: boolean },
   qty: number,
 ): boolean {
-  return preorderEnabled && availableStock(variant) < qty
+  return variant.preorderEnabled && availableStock(variant) < qty
 }

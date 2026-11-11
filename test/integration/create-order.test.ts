@@ -531,3 +531,22 @@ describe('createOrderFromCart — 只有會員能下單', () => {
     expect(result.error).toBe('請先註冊或登入會員再結帳')
   })
 })
+
+describe('createOrderFromCart — 預購以規格為單位', () => {
+  it('同一件商品：開預購的規格缺貨照樣成立並記為預購，沒開的規格缺貨就擋下', async () => {
+    const { variants } = await createTestProduct({ stock: 0, variantCount: 2 })
+    const [cream, white] = variants
+    await db.productVariant.update({ where: { id: cream.id }, data: { preorderEnabled: true } })
+
+    await seedMemberCart([{ variantId: cream.id, qty: 2 }])
+    const result = assertOk(await createOrderFromCart(baseInput()))
+    const line = await db.orderItem.findFirstOrThrow({ where: { order: { orderNo: result.orderNo } } })
+    expect(line.isPreorder).toBe(true)
+    // 預購不佔庫存
+    expect((await freshVariant(cream.id)).reservedStock).toBe(0)
+
+    await seedMemberCart([{ variantId: white.id, qty: 1 }])
+    const blocked = assertFail(await createOrderFromCart(baseInput()))
+    expect(blocked.error).toContain('庫存不足')
+  })
+})

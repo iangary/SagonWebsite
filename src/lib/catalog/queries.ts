@@ -13,10 +13,9 @@ export const PRODUCT_CARD_SELECT = {
   nameEn: true,
   basePrice: true,
   compareAtPrice: true,
-  preorderEnabled: true,
   brand: { select: { name: true, slug: true } },
   images: { select: { url: true, alt: true, width: true, height: true }, orderBy: { sortOrder: 'asc' }, take: 2 },
-  variants: { select: { stock: true, reservedStock: true, isActive: true } },
+  variants: { select: { stock: true, reservedStock: true, isActive: true, preorderEnabled: true } },
 } satisfies Prisma.ProductSelect
 
 export type ProductCardData = Prisma.ProductGetPayload<{ select: typeof PRODUCT_CARD_SELECT }>
@@ -267,10 +266,9 @@ export function hasStock(product: {
   return product.variants.some((v) => v.isActive && v.stock - v.reservedStock > 0)
 }
 
-/** 商品是否還能買：有現貨，或開放預購（且還有上架中的規格） */
+/** 商品是否還能買：有現貨，或有上架中的規格開放預購 */
 export function isPurchasable(product: {
-  preorderEnabled: boolean
-  variants: { stock: number; reservedStock: number; isActive: boolean }[]
+  variants: { stock: number; reservedStock: number; isActive: boolean; preorderEnabled: boolean }[]
 }): boolean {
-  return hasStock(product) || (product.preorderEnabled && product.variants.some((v) => v.isActive))
+  return hasStock(product) || product.variants.some((v) => v.isActive && v.preorderEnabled)
 }

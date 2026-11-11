@@ -91,9 +91,8 @@ type ProductForJsonLd = {
   summary: string | null
   images: { url: string }[]
   brand: { name: string } | null
-  variants: { sku: string; price: number; available: number }[]
-  /** 開放預購：現貨為 0 的變體標 PreOrder 而不是 OutOfStock */
-  preorderEnabled?: boolean
+  /** preorder：這個規格開放預購，現貨為 0 時標 PreOrder 而不是 OutOfStock */
+  variants: { sku: string; price: number; available: number; preorder?: boolean }[]
 }
 
 /**
@@ -137,7 +136,7 @@ export function productJsonLd({
       availability:
         v.available > 0
           ? 'https://schema.org/InStock'
-          : product.preorderEnabled
+          : v.preorder
             ? 'https://schema.org/PreOrder'
             : 'https://schema.org/OutOfStock',
       itemCondition: 'https://schema.org/NewCondition',

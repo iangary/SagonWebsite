@@ -80,7 +80,10 @@ export type ShopeeVariant = {
   name: string
   options: Record<string, string>
   price: number
+  /** 預購規格一律 0：蝦皮上預購的「庫存」是可接單數，不是手上的現貨（見 variantIsPreorder） */
   stock: number
+  /** 開放預購 */
+  preorder: boolean
 }
 
 export type ShopeeCategory = { key: string; name: string; nameEn: string }
@@ -267,6 +270,30 @@ export function categoryKeyOf(shopeePath: string): string {
 
 /** 標題寫明已經不賣的商品 */
 const DISCONTINUED = /⛔|斷貨|售完|完售/
+
+/**
+ * 規格名稱裡的出貨狀態字樣（「白 預購」「Baby Blue 現貨」「26233WTNSN 【現貨】」）。
+ * 官網的預購是每個規格自己的開關，前台會另外標「預購」，名稱裡再寫一次就變成「白 預購 預購」。
+ */
+const STOCK_STATUS_WORD = /[\s【】[\]（）()｜|,，/-]*(預購|現貨)[\s【】[\]（）()｜|,，/-]*/g
+
+export function cleanVariantName(raw: string): string {
+  return raw.replace(STOCK_STATUS_WORD, ' ').replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * 這個規格要不要開放預購：規格名稱寫「預購」就開、寫「現貨」就不開，
+ * 都沒寫就看商品標題（【預購｜LUNALUZ 台灣經銷】…）。
+ *
+ * 開了預購的規格庫存一律匯成 0：蝦皮上預購商品的「庫存」只是可接單的數量，
+ * 照抄的話前幾張訂單會被當成現貨 —— 付款後自動建物流單、信裡也不會寫要等 10–20 天。
+ * 庫存 0 + 開放預購 = 每一張都走預購；貨到之後再到後台補上架數量。
+ */
+export function variantIsPreorder(rawVariantName: string | null, rawProductName: string): boolean {
+  if (rawVariantName && /預購/.test(rawVariantName)) return true
+  if (rawVariantName && /現貨/.test(rawVariantName)) return false
+  return /預購/.test(rawProductName)
+}
 
 // ---------------------------------------------------------------------------
 // 描述：蝦皮是純文字，圖片以獨立一行的網址出現
@@ -682,13 +709,18 @@ async function main() {
       summary: summaryOf(blocks),
       descriptionHtml: renderDescription(blocks, local, name),
       images: d.imageUrls.map((u) => local.get(u)).filter((i): i is ShopeeImage => Boolean(i)),
-      variants: d.variants.map((v) => ({
-        sourceId: v.id,
-        name: v.name ?? '單一規格',
-        options: d.variationLabel && v.name ? { [d.variationLabel]: v.name } : {},
-        price: v.price,
-        stock: v.stock,
-      })),
+      variants: d.variants.map((v) => {
+        const preorder = variantIsPreorder(v.name, d.rawName)
+        const name = (v.name && cleanVariantName(v.name)) || null
+        return {
+          sourceId: v.id,
+          name: name ?? '單一規格',
+          options: d.variationLabel && name ? { [d.variationLabel]: name } : {},
+          price: v.price,
+          stock: preorder ? 0 : v.stock,
+          preorder,
+        }
+      }),
     }
   })
 

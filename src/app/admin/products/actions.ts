@@ -74,11 +74,6 @@ const productSchema = z.object({
   compareAtPrice: z.string().trim().optional().default(''),
   seoTitle: z.string().trim().max(200).optional().default(''),
   seoDescription: z.string().trim().max(300).optional().default(''),
-  // checkbox：勾選時表單送 "on"，沒勾就整個欄位不存在
-  preorderEnabled: z
-    .literal('on')
-    .optional()
-    .transform((v) => v === 'on'),
 })
 
 export async function updateProduct(
@@ -110,7 +105,6 @@ export async function updateProduct(
         basePrice: true,
         compareAtPrice: true,
         publishedAt: true,
-        preorderEnabled: true,
       },
     })
 
@@ -141,7 +135,6 @@ export async function updateProduct(
         status: data.status,
         brandId: data.brandId || null,
         compareAtPrice,
-        preorderEnabled: data.preorderEnabled,
         seoTitle: data.seoTitle || null,
         seoDescription: data.seoDescription || null,
         // 第一次上架才記上架時間。每次存檔都蓋掉的話，改個錯字就會讓舊商品
@@ -164,7 +157,6 @@ export async function updateProduct(
         brandId: data.brandId,
         summary: data.summary,
         compareAtPrice,
-        preorderEnabled: data.preorderEnabled,
         descriptionLength: data.descriptionHtml.length,
       },
     })
@@ -182,6 +174,8 @@ const variantSchema = z.object({
   price: z.coerce.number().int().min(0).max(9_999_999),
   stock: z.coerce.number().int().min(0).max(999_999),
   isActive: z.boolean(),
+  /** 沒帶就維持原本的設定 */
+  preorderEnabled: z.boolean().optional(),
 })
 
 export async function updateVariant(input: {
@@ -189,6 +183,7 @@ export async function updateVariant(input: {
   price: number
   stock: number
   isActive: boolean
+  preorderEnabled?: boolean
 }): Promise<{ ok: boolean; error?: string }> {
   const admin = await requireAdmin()
 
@@ -198,7 +193,14 @@ export async function updateVariant(input: {
   try {
     const before = await db.productVariant.findUniqueOrThrow({
       where: { id: parsed.data.variantId },
-      select: { price: true, stock: true, isActive: true, productId: true, reservedStock: true },
+      select: {
+        price: true,
+        stock: true,
+        isActive: true,
+        preorderEnabled: true,
+        productId: true,
+        reservedStock: true,
+      },
     })
 
     // 庫存不能調到比已經被訂單佔住的還少，否則會出現負的可售量
@@ -215,6 +217,7 @@ export async function updateVariant(input: {
         price: parsed.data.price,
         stock: parsed.data.stock,
         isActive: parsed.data.isActive,
+        preorderEnabled: parsed.data.preorderEnabled ?? before.preorderEnabled,
       },
     })
 
@@ -229,7 +232,8 @@ export async function updateVariant(input: {
       after: parsed.data,
     })
 
-    revalidatePath(`/admin/products/${before.productId}`)
+    // 價格、庫存、預購都會改變前台商品頁能不能買
+    await revalidateProduct(before.productId)
     return { ok: true }
   } catch (error) {
     console.error('[admin] 更新規格失敗', error)
@@ -423,6 +427,11 @@ const addVariantSchema = z.object({
   sku: z.string().trim().max(64).optional().default(''),
   price: z.coerce.number().int().min(0).max(9_999_999),
   stock: z.coerce.number().int().min(0).max(999_999),
+  // checkbox：勾選時表單送 "on"，沒勾就整個欄位不存在
+  preorderEnabled: z
+    .literal('on')
+    .optional()
+    .transform((v) => v === 'on'),
 })
 
 export async function addVariant(
@@ -461,6 +470,7 @@ export async function addVariant(
         options: { 規格: data.name },
         price: data.price,
         stock: data.stock,
+        preorderEnabled: data.preorderEnabled,
         sortOrder: count,
       },
     })

@@ -286,6 +286,7 @@ async function seedProducts(
           options: v.options as Prisma.InputJsonValue,
           price: v.price,
           stock: v.stock,
+          preorderEnabled: v.preorder,
           isActive: true,
           sortOrder: i,
         }

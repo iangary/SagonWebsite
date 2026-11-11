@@ -227,9 +227,6 @@ model Product {
   brandId         String?
   status          ProductStatus @default(ACTIVE)
 
-  /// 開放預購：可售數量不足時仍可下單，那一行訂單記為預購（不佔庫存，到貨後出貨）。
-  preorderEnabled Boolean @default(false)
-
   /// 顯示用的起始價（= 最低變體售價），寫入時由程式同步，避免列表頁還要 join 變體
   basePrice      Int
   compareAtPrice Int?
@@ -305,6 +302,10 @@ model ProductVariant {
   weightGram Int     @default(600)
   isActive   Boolean @default(true)
   sortOrder  Int     @default(0)
+
+  /// 開放預購：可售數量不足時仍可下單，那一行訂單記為預購（不佔庫存，到貨後出貨）。
+  /// 以規格為單位 —— 同一件商品常是「白色現貨、米色預購」。
+  preorderEnabled Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

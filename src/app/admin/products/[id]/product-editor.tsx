@@ -27,6 +27,9 @@ type Variant = {
   stock: number
   reservedStock: number
   isActive: boolean
+  preorderEnabled: boolean
+  /** 這個規格已付款、還沒出貨的預購件數 */
+  pendingPreorderQty: number
 }
 
 const INITIAL: ProductFormState = { ok: false }
@@ -51,9 +54,6 @@ export function ProductEditor({
     seoTitle: string
     seoDescription: string
     slug: string
-    preorderEnabled: boolean
-    /** 已付款、還沒出貨的預購件數 */
-    pendingPreorderQty: number
   }
   brands: { id: string; name: string }[]
   allCategories: { id: string; name: string }[]
@@ -106,29 +106,6 @@ export function ProductEditor({
               <option value="ARCHIVED">已封存</option>
             </Select>
           </Field>
-
-          <div>
-            <label className="flex items-start gap-2.5 text-sm text-ink-900">
-              <input
-                type="checkbox"
-                name="preorderEnabled"
-                defaultChecked={product.preorderEnabled}
-                className="mt-0.5 size-5 accent-[#2b2724] sm:size-3.5"
-              />
-              <span>
-                開放預購
-                <span className="mt-1 block text-xs leading-relaxed text-taupe-600">
-                  現貨賣完後仍可下單，前台標示「預購」與「約 10–20 個工作天出貨」。預購的品項不扣庫存，
-                  到貨後請先出預購訂單再補上架數量。
-                </span>
-                {product.pendingPreorderQty > 0 && (
-                  <span className="mt-1 block text-xs text-sale">
-                    目前有 {product.pendingPreorderQty} 件已付款的預購待出貨
-                  </span>
-                )}
-              </span>
-            </label>
-          </div>
 
           <Field label="品牌" htmlFor="brandId">
             <Select id="brandId" name="brandId" defaultValue={product.brandId}>
@@ -339,7 +316,7 @@ function VariantSection({
         />
       )}
 
-      <DataTable headers={['SKU', '規格', '售價', '庫存', '已佔用', '可售', '啟用', '', '']}>
+      <DataTable headers={['SKU', '規格', '售價', '庫存', '已佔用', '可售', '預購', '啟用', '', '']}>
         {variants.map((variant) => (
           <VariantRow key={variant.id} variant={variant} canDelete={variants.length > 1} />
         ))}
@@ -348,6 +325,10 @@ function VariantSection({
       <p className="mt-3 text-xs text-taupe-500">
         「已佔用」是未付款訂單保留的數量，庫存不能調到低於這個數字。
         賣過的規格刪除時會自動改為停用，以保留歷史訂單的關聯。
+      </p>
+      <p className="mt-1 text-xs text-taupe-500">
+        勾選「預購」的規格，現貨賣完後仍可下單，前台標示「預購」與「約 10–20 個工作天出貨」。
+        預購的品項不扣庫存；貨到後請先出預購訂單，再補上架數量。
       </p>
     </section>
   )
@@ -396,6 +377,11 @@ function AddVariantForm({
         </Field>
       </div>
 
+      <label className="mt-3 flex items-center gap-2 text-sm text-ink-900">
+        <input type="checkbox" name="preorderEnabled" className="size-5 accent-[#2b2724] sm:size-3.5" />
+        開放預購（現貨賣完後仍可下單）
+      </label>
+
       <div className="mt-4 flex gap-2">
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? '新增中…' : '新增'}
@@ -415,14 +401,24 @@ function VariantRow({ variant, canDelete }: { variant: Variant; canDelete: boole
   const [price, setPrice] = React.useState(variant.price)
   const [stock, setStock] = React.useState(variant.stock)
   const [isActive, setIsActive] = React.useState(variant.isActive)
+  const [preorder, setPreorder] = React.useState(variant.preorderEnabled)
   const [pending, setPending] = React.useState(false)
 
   const dirty =
-    price !== variant.price || stock !== variant.stock || isActive !== variant.isActive
+    price !== variant.price ||
+    stock !== variant.stock ||
+    isActive !== variant.isActive ||
+    preorder !== variant.preorderEnabled
 
   async function save() {
     setPending(true)
-    const result = await updateVariant({ variantId: variant.id, price, stock, isActive })
+    const result = await updateVariant({
+      variantId: variant.id,
+      price,
+      stock,
+      isActive,
+      preorderEnabled: preorder,
+    })
     setPending(false)
 
     if (!result.ok) {
@@ -473,7 +469,21 @@ function VariantRow({ variant, canDelete }: { variant: Variant; canDelete: boole
         />
       </Td>
       <Td className="tabular-nums text-taupe-600">{variant.reservedStock}</Td>
-      <Td className={cn('tabular-nums', available === 0 && 'text-sale')}>{available}</Td>
+      <Td className={cn('tabular-nums', available === 0 && !preorder && 'text-sale')}>{available}</Td>
+      <Td>
+        <input
+          type="checkbox"
+          checked={preorder}
+          onChange={(e) => setPreorder(e.target.checked)}
+          aria-label="這個規格開放預購"
+          className="size-5 accent-[#2b2724] sm:size-3.5"
+        />
+        {variant.pendingPreorderQty > 0 && (
+          <div className="mt-1 whitespace-nowrap text-xs text-sale">
+            待出貨 {variant.pendingPreorderQty} 件
+          </div>
+        )}
+      </Td>
       <Td>
         <input
           type="checkbox"

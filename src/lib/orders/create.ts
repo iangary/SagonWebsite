@@ -163,12 +163,12 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
     const order = await db.$transaction(async (tx) => {
       // 先預扣庫存。任何一項失敗就把先前扣掉的還回去再中止整筆交易。
       const reserved: { variantId: string; qty: number }[] = []
-      // 現貨不夠、但商品開放預購的品項：整行記為預購，不佔庫存（等到貨才出貨）
+      // 現貨不夠、但規格開放預購的品項：整行記為預購，不佔庫存（等到貨才出貨）
       const preorderItemIds = new Set<string>()
       for (const item of cart.items) {
         const ok = await reserveStock(tx, item.variantId, item.qty)
         if (!ok) {
-          if (item.variant.product.preorderEnabled) {
+          if (item.variant.preorderEnabled) {
             preorderItemIds.add(item.id)
             continue
           }
