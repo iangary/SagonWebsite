@@ -555,6 +555,32 @@ ssh root@103.1.221.67 'cd /srv/sagon && docker compose -f docker-compose.prod.ym
 > 哪天更新頻繁到嫌慢，再改用 rsync 只送差異。
 > 也注意 `sagon-backup` 每天會把整個 uploads 打包，圖片量增加後備份檔跟著變大。
 
+### 7.10 匯入舊網站（WACA）的會員
+
+在本機把 Excel 轉成 JSON（含個資，放在已 `.gitignore` 的 `prisma/seed-data/`）並先在本機試跑：
+
+```bash
+npx tsx scripts/import-members.ts "E:/我的雲端硬碟/莎岡選品店商品資料/waca會員資料.xlsx"
+```
+
+```bash
+npx tsx scripts/import-members.ts prisma/seed-data/waca-members.json --dry-run
+```
+
+正式站：worker image 裡沒有 `scripts/`，把腳本與 JSON 一起掛進一次性容器。先 `--dry-run` 看數字，再拿掉它正式寫入：
+
+```bash
+scp scripts/import-members.ts prisma/seed-data/waca-members.json root@103.1.221.67:/srv/sagon/seed-data/
+```
+
+```bash
+ssh root@103.1.221.67 'cd /srv/sagon && docker compose -f docker-compose.prod.yml run --rm --no-deps -v /srv/sagon/seed-data:/app/import:ro worker npx tsx import/import-members.ts import/waca-members.json --dry-run'
+```
+
+可以重複執行：手機或 Email 已經是會員的只補空白欄位、不覆蓋；手機與 Email 分屬兩個會員的會跳過並列出來。
+舊會員沒有密碼，用「第一次用手機登入？」收簡訊驗證碼進站，接著會被帶去設定密碼。
+匯完把主機上的 `waca-members.json` 刪掉，個資不必留在主機上。
+
 ## 8. 備份（必做）
 
 ```bash
