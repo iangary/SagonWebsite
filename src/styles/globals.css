@@ -337,10 +337,17 @@
   .admin-table td {
     display: grid;
     grid-template-columns: 5.5rem minmax(0, 1fr);
-    gap: 0.75rem;
+    column-gap: 0.75rem;
+    row-gap: 0.125rem;
     align-items: start;
     max-width: none;
     padding: 0.375rem 0;
+  }
+
+  /* 一格裡有兩行以上（姓名 + 電話、狀態 + 付款方式）時，第二行一律留在右欄，
+     不能被自動排進左邊的標籤欄 —— 那樣電話號碼看起來就像欄位名稱 */
+  .admin-table td > * {
+    grid-column: 2;
   }
 
   /* 空表頭（圖片欄、操作欄）的標籤是空字串，留下的縮排剛好跟其他列對齊 */
