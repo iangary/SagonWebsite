@@ -48,7 +48,7 @@ function shippingDetails(settings: ShippingSettings) {
   })
 
   return [
-    rate(settings.cvsFee, '超商取貨'),
+    ...(settings.cvsEnabled ? [rate(settings.cvsFee, '超商取貨')] : []),
     rate(settings.homeFee, '宅配'),
     {
       '@type': 'OfferShippingDetails',
@@ -92,6 +92,8 @@ type ProductForJsonLd = {
   images: { url: string }[]
   brand: { name: string } | null
   variants: { sku: string; price: number; available: number }[]
+  /** 開放預購：現貨為 0 的變體標 PreOrder 而不是 OutOfStock */
+  preorderEnabled?: boolean
 }
 
 /**
@@ -133,7 +135,11 @@ export function productJsonLd({
       priceCurrency: 'TWD',
       price: v.price,
       availability:
-        v.available > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+        v.available > 0
+          ? 'https://schema.org/InStock'
+          : product.preorderEnabled
+            ? 'https://schema.org/PreOrder'
+            : 'https://schema.org/OutOfStock',
       itemCondition: 'https://schema.org/NewCondition',
       shippingDetails: shipping,
       hasMerchantReturnPolicy: returns,

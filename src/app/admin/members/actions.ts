@@ -84,3 +84,72 @@ export async function setMemberRole(input: {
         : `已移除「${label}」的管理員權限，即刻生效。`,
   }
 }
+
+const blockSchema = z.object({
+  userId: z.string().min(1),
+  blocked: z.boolean(),
+  reason: z.string().trim().max(200).optional(),
+})
+
+/**
+ * 停止／恢復會員的購買服務。
+ *
+ * 購物說明寫明「拒收、逾期未取件達一次即停止後續購買服務」，但物流的「退回」狀態
+ * 分不出是客人拒收還是店家安排的退貨，所以不自動停權，由管理員看過訂單後在這裡切換。
+ * 停權只擋結帳（結帳頁與 createOrderFromCart），不影響登入、查訂單與客服。
+ */
+export async function setPurchaseBlock(input: {
+  userId: string
+  blocked: boolean
+  reason?: string
+}): Promise<RoleActionResult> {
+  const actor = await requireAdmin()
+
+  const parsed = blockSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: '參數錯誤' }
+  const { userId, blocked } = parsed.data
+  const reason = parsed.data.reason || null
+
+  const target = await db.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      purchaseBlockedAt: true,
+      purchaseBlockReason: true,
+    },
+  })
+  if (!target) return { ok: false, error: '找不到這位會員' }
+
+  await db.user.update({
+    where: { id: target.id },
+    data: blocked
+      ? { purchaseBlockedAt: target.purchaseBlockedAt ?? new Date(), purchaseBlockReason: reason }
+      : { purchaseBlockedAt: null, purchaseBlockReason: null },
+  })
+
+  await audit({
+    userId: actor.id,
+    action: blocked ? 'user.purchase.block' : 'user.purchase.unblock',
+    entity: 'User',
+    entityId: target.id,
+    before: {
+      purchaseBlockedAt: target.purchaseBlockedAt?.toISOString() ?? null,
+      purchaseBlockReason: target.purchaseBlockReason,
+    },
+    after: { blocked, reason },
+  })
+
+  revalidatePath('/admin/members')
+  revalidatePath('/admin/orders', 'layout')
+
+  const label = target.name ?? target.email ?? target.phone ?? '這位會員'
+  return {
+    ok: true,
+    message: blocked
+      ? `已停止「${label}」的購買服務，對方之後無法結帳。`
+      : `已恢復「${label}」的購買服務。`,
+  }
+}

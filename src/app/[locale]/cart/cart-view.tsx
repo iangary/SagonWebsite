@@ -21,6 +21,10 @@ type CartItemView = {
   variantId: string
   variantName: string
   available: number
+  /** 商品開放預購：數量可以超過現貨 */
+  preorderEnabled: boolean
+  /** 以目前數量會以預購成立 */
+  isPreorder: boolean
   unitPrice: number
   productName: string
   productSlug: string
@@ -135,10 +139,19 @@ export function CartView({
                     {item.productName}
                   </Link>
                   <p className="mt-1 text-xs text-taupe-500">{item.variantName}</p>
-                  {item.available < item.qty && (
-                    <p className="mt-1 text-xs text-sale">
-                      {t('lowStockWarning', { count: item.available })}
+                  {item.isPreorder ? (
+                    <p className="mt-1 text-xs text-taupe-600">
+                      <span className="mr-1.5 border border-taupe-400 px-1.5 py-px text-[10px] tracking-[0.1em] text-ink-700">
+                        {t('preorderTag')}
+                      </span>
+                      {t('preorderNote')}
                     </p>
+                  ) : (
+                    item.available < item.qty && (
+                      <p className="mt-1 text-xs text-sale">
+                        {t('lowStockWarning', { count: item.available })}
+                      </p>
+                    )
                   )}
                 </div>
 
@@ -155,7 +168,10 @@ export function CartView({
                     <span className="w-10 text-center text-sm tabular-nums">{item.qty}</span>
                     <button
                       onClick={() => changeQty(item.id, item.qty + 1)}
-                      disabled={pending === item.id || item.qty >= item.available}
+                      disabled={
+                        pending === item.id ||
+                        item.qty >= (item.preorderEnabled ? 99 : item.available)
+                      }
                       aria-label={t('increaseQty')}
                       className="flex size-9 items-center justify-center text-ink-700 hover:bg-cream-100 disabled:text-taupe-300"
                     >

@@ -125,6 +125,8 @@ export default async function AdminOrdersPage({
         },
         shipment: { select: { status: true, shipmentNo: true, logisticsSubType: true } },
         _count: { select: { items: true } },
+        // 只要知道有沒有預購品項 —— 有的話不能照現貨的節奏出貨
+        items: { where: { isPreorder: true }, select: { id: true }, take: 1 },
       },
     }),
     db.order.count({ where }),
@@ -199,7 +201,14 @@ export default async function AdminOrdersPage({
               <div>{order.recipientName}</div>
               <div className="text-xs text-taupe-500">{order.phone}</div>
             </Td>
-            <Td className="tabular-nums text-taupe-600">{order._count.items}</Td>
+            <Td className="tabular-nums text-taupe-600">
+              {order._count.items}
+              {order.items.length > 0 && (
+                <Badge tone="muted" className="ml-2">
+                  含預購
+                </Badge>
+              )}
+            </Td>
             <Td className="tabular-nums">{formatTWD(order.grandTotal)}</Td>
             <Td>
               {order.payments[0] ? (

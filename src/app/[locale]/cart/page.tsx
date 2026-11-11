@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
-import { getCart, availableStock } from '@/lib/cart'
-import { getShippingSettings, shippingFeesOf } from '@/lib/shop-settings'
+import { getCart, availableStock, isPreorderLine } from '@/lib/cart'
+import { availableShippingMethods, getShippingSettings, shippingFeesOf } from '@/lib/shop-settings'
 import { localizedName } from '@/lib/i18n/localized'
 import { calculatePricing } from '@/lib/orders/pricing'
 import { currentPaymentInclude } from '@/lib/orders/payment'
@@ -59,7 +59,8 @@ export default async function CartPage({ params }: { params: Promise<{ locale: s
       unitPrice: i.variant.price,
       qty: i.qty,
     })),
-    shippingMethod: 'CVS',
+    // 試算用第一個開放的配送方式（超商取貨關掉時就是宅配），結帳頁可再改
+    shippingMethod: availableShippingMethods(shipping)[0] ?? 'HOME',
     shippingFees: shippingFeesOf(shipping),
     freeShippingThreshold: shipping.freeShippingThreshold,
     coupon,
@@ -71,6 +72,8 @@ export default async function CartPage({ params }: { params: Promise<{ locale: s
     variantId: item.variantId,
     variantName: item.variant.name,
     available: availableStock(item.variant),
+    preorderEnabled: item.variant.product.preorderEnabled,
+    isPreorder: isPreorderLine(item.variant, item.variant.product.preorderEnabled, item.qty),
     unitPrice: item.variant.price,
     productName: localizedName(locale, item.variant.product),
     productSlug: item.variant.product.slug,

@@ -11,7 +11,7 @@ import { callTcatPickup, PICKUP_MAX_SHIPMENTS } from '@/lib/orders/tcat-pickup'
 import { redownloadTcatLabel } from '@/lib/orders/tcat-label'
 import { refreshTcatShipmentStatus } from '@/lib/orders/tcat-status'
 import { issueReceiptForOrder, voidReceiptForOrder } from '@/lib/orders/receipt'
-import { releaseOrderReservations } from '@/lib/orders/stock'
+import { cancelUnpaidOrderNow } from '@/lib/orders/cancel'
 import { markBankTransferPaid, syncPaymentWithEcpay } from '@/lib/orders/payment'
 import { markCodCollected } from '@/lib/orders/payment-method'
 import { enqueue } from '@/lib/queue'
@@ -348,17 +348,9 @@ export async function adminCancelOrder(orderId: string): Promise<AdminActionResu
       throw new Error('只有待付款的訂單可以直接取消；已付款的訂單請先辦理退款')
     }
 
-    await db.$transaction(async (tx) => {
-      await releaseOrderReservations(tx, orderId)
-      await tx.order.update({
-        where: { id: orderId },
-        data: { status: 'CANCELLED', cancelledAt: new Date() },
-      })
-      await tx.payment.updateMany({
-        where: { orderId, status: { in: ['PENDING', 'AWAITING_TRANSFER'] } },
-        data: { status: 'EXPIRED' },
-      })
-    })
+    // 上面那次讀取到這裡之間付款可能剛好進來，cancelUnpaidOrder 會再擋一次
+    const cancelled = await cancelUnpaidOrderNow(orderId)
+    if (!cancelled) throw new Error('這張訂單剛剛已付款或已取消，請重新整理後再確認')
 
     await audit({
       userId: admin.id,

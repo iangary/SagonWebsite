@@ -1,6 +1,7 @@
 import 'server-only'
 import { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
+import { cancelUnpaidOrder } from './cancel'
 
 type Tx = Prisma.TransactionClient
 
@@ -95,6 +96,8 @@ export async function releaseOrderReservations(tx: Tx, orderId: string): Promise
 export async function releaseExpiredReservations(): Promise<{
   ordersCancelled: number
   itemsReleased: number
+  /** 這一輪真的被取消的訂單 —— worker 只寄信給這些，不能用「最近 N 分鐘取消的」去撈 */
+  cancelledOrderIds: string[]
 }> {
   const expired = await db.stockReservation.findMany({
     where: {
@@ -108,28 +111,15 @@ export async function releaseExpiredReservations(): Promise<{
   })
 
   let itemsReleased = 0
+  const cancelledOrderIds: string[] = []
 
   for (const { orderId } of expired) {
-    await db.$transaction(async (tx) => {
-      // 交易內重讀一次狀態：這段期間付款通知可能剛好進來
-      const order = await tx.order.findUnique({
-        where: { id: orderId },
-        select: { status: true },
-      })
-      if (order?.status !== 'PENDING_PAYMENT') return
-
-      itemsReleased += await releaseOrderReservations(tx, orderId)
-
-      await tx.order.update({
-        where: { id: orderId },
-        data: { status: 'CANCELLED', cancelledAt: new Date() },
-      })
-      await tx.payment.updateMany({
-        where: { orderId, status: { in: ['PENDING', 'AWAITING_TRANSFER'] } },
-        data: { status: 'EXPIRED' },
-      })
-    })
+    // 掃描到動手之間付款通知可能剛好進來，cancelUnpaidOrder 會用帶條件的 UPDATE 擋掉
+    const result = await db.$transaction((tx) => cancelUnpaidOrder(tx, orderId))
+    if (!result) continue
+    itemsReleased += result.itemsReleased
+    cancelledOrderIds.push(orderId)
   }
 
-  return { ordersCancelled: expired.length, itemsReleased }
+  return { ordersCancelled: cancelledOrderIds.length, itemsReleased, cancelledOrderIds }
 }

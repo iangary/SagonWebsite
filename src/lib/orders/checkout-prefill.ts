@@ -1,6 +1,7 @@
 import 'server-only'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
+import { isCheckoutCvsSubType, type CheckoutCvsSubType } from '@/lib/checkout-options'
 
 /**
  * 回購會員的結帳預填。
@@ -15,8 +16,8 @@ import { db } from '@/lib/db'
  * 就會把信箱真正的主人連到這個帳號；手機號碼同理會被 OTP 登入撿走。
  */
 
-const CVS_SUBTYPES = ['UNIMARTC2C', 'FAMIC2C', 'HILIFEC2C', 'OKMARTC2C'] as const
-type CvsSubType = (typeof CVS_SUBTYPES)[number]
+// 只帶入結帳還開放的通路：上次用萊爾富／OK 取貨的會員，這次改回預設的 7-11 重選門市
+type CvsSubType = CheckoutCvsSubType
 
 const PAYMENT_CHOICES = ['Credit', 'ATM', 'CVS', 'BARCODE', 'BANK', 'COD'] as const
 type PaymentChoice = (typeof PAYMENT_CHOICES)[number]
@@ -57,9 +58,7 @@ export type CheckoutPrefill = {
   companyName: string
 }
 
-function isCvsSubType(value: string): value is CvsSubType {
-  return (CVS_SUBTYPES as readonly string[]).includes(value)
-}
+const isCvsSubType = isCheckoutCvsSubType
 
 function isPaymentChoice(value: string): value is PaymentChoice {
   return (PAYMENT_CHOICES as readonly string[]).includes(value)

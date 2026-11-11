@@ -16,9 +16,16 @@ export type VariantOption = {
   price: number
   compareAtPrice: number | null
   available: number
+  /** 商品開放預購：現貨不夠時仍可加入購物車，那一行以預購成立 */
+  preorder: boolean
 }
 
 const LOW_STOCK_THRESHOLD = 5
+
+/** 有現貨，或開放預購 */
+function canBuy(variant: VariantOption): boolean {
+  return variant.available > 0 || variant.preorder
+}
 
 export function AddToCart({ variants }: { variants: VariantOption[] }) {
   const t = useTranslations('product')
@@ -34,12 +41,18 @@ export function AddToCart({ variants }: { variants: VariantOption[] }) {
   const [pending, setPending] = React.useState(false)
 
   const selected = variants.find((v) => v.id === variantId) ?? null
-  const maxQty = selected ? Math.min(selected.available, 99) : 99
-  const allSoldOut = variants.every((v) => v.available <= 0)
+  const maxQty = selected ? (selected.preorder ? 99 : Math.min(selected.available, 99)) : 99
+  const allSoldOut = variants.every((v) => !canBuy(v))
+  // 以目前數量會不會變成預購（現貨不夠）。整行一起算，與 lib/cart 的 isPreorderLine 一致
+  const willPreorder = selected
+    ? selected.preorder && qty > selected.available
+    : variants.length > 0 && variants.every((v) => v.available <= 0 && v.preorder)
 
-  // 換規格時把數量收回可買範圍內
+  // 換規格時把數量收回可買範圍內（預購商品不受現貨限制）
   React.useEffect(() => {
-    if (selected && qty > selected.available) setQty(Math.max(1, selected.available))
+    if (selected && !selected.preorder && qty > selected.available) {
+      setQty(Math.max(1, selected.available))
+    }
   }, [selected, qty])
 
   async function submit(thenCheckout: boolean) {
@@ -73,7 +86,8 @@ export function AddToCart({ variants }: { variants: VariantOption[] }) {
           </legend>
           <div className="flex flex-wrap gap-2">
             {variants.map((variant) => {
-              const soldOut = variant.available <= 0
+              const soldOut = !canBuy(variant)
+              const preorderOnly = variant.available <= 0 && variant.preorder
               const active = variant.id === variantId
               return (
                 <button
@@ -89,6 +103,11 @@ export function AddToCart({ variants }: { variants: VariantOption[] }) {
                   )}
                 >
                   {variant.name}
+                  {preorderOnly && (
+                    <span className="ml-1.5 text-[10px] tracking-[0.1em] opacity-70">
+                      {t('preorderTag')}
+                    </span>
+                  )}
                 </button>
               )
             })}
@@ -96,8 +115,19 @@ export function AddToCart({ variants }: { variants: VariantOption[] }) {
         </fieldset>
       )}
 
-      {selected && selected.available > 0 && selected.available <= LOW_STOCK_THRESHOLD && (
-        <p className="text-xs text-sale">{t('lowStock', { count: selected.available })}</p>
+      {willPreorder ? (
+        <p className="border border-cream-300 bg-cream-50 px-3 py-2 text-xs leading-relaxed text-ink-700">
+          <span className="mr-1.5 border border-taupe-400 px-1.5 py-px text-[10px] tracking-[0.1em]">
+            {t('preorderTag')}
+          </span>
+          {t('preorderNote')}
+        </p>
+      ) : (
+        selected &&
+        selected.available > 0 &&
+        selected.available <= LOW_STOCK_THRESHOLD && (
+          <p className="text-xs text-sale">{t('lowStock', { count: selected.available })}</p>
+        )
       )}
 
       <div>

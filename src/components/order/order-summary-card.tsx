@@ -68,6 +68,11 @@ export async function OrderSummaryCard({
               <p className="line-clamp-1 text-sm text-ink-900">{item.productName}</p>
               <p className="mt-0.5 text-xs text-taupe-500">
                 {item.variantName} × {item.qty}
+                {item.isPreorder && (
+                  <span className="ml-2 border border-taupe-400 px-1.5 py-px text-[10px] tracking-[0.1em] text-ink-700">
+                    {tProduct('preorderTag')}
+                  </span>
+                )}
               </p>
             </div>
             <span className="shrink-0 text-sm tabular-nums text-ink-700">

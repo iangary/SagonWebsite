@@ -74,6 +74,11 @@ const productSchema = z.object({
   compareAtPrice: z.string().trim().optional().default(''),
   seoTitle: z.string().trim().max(200).optional().default(''),
   seoDescription: z.string().trim().max(300).optional().default(''),
+  // checkbox：勾選時表單送 "on"，沒勾就整個欄位不存在
+  preorderEnabled: z
+    .literal('on')
+    .optional()
+    .transform((v) => v === 'on'),
 })
 
 export async function updateProduct(
@@ -105,6 +110,7 @@ export async function updateProduct(
         basePrice: true,
         compareAtPrice: true,
         publishedAt: true,
+        preorderEnabled: true,
       },
     })
 
@@ -135,6 +141,7 @@ export async function updateProduct(
         status: data.status,
         brandId: data.brandId || null,
         compareAtPrice,
+        preorderEnabled: data.preorderEnabled,
         seoTitle: data.seoTitle || null,
         seoDescription: data.seoDescription || null,
         // 第一次上架才記上架時間。每次存檔都蓋掉的話，改個錯字就會讓舊商品
@@ -157,6 +164,7 @@ export async function updateProduct(
         brandId: data.brandId,
         summary: data.summary,
         compareAtPrice,
+        preorderEnabled: data.preorderEnabled,
         descriptionLength: data.descriptionHtml.length,
       },
     })

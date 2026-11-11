@@ -128,7 +128,7 @@ export const envSchema = z.object({
   SHOP_NAME_EN: z.string().default('Sagan Boutique'),
   SHOP_TAX_ID: z.string().default('93124857'),
   /** 通知信頁尾的客服信箱。要是收得到信的真信箱 —— 客戶會直接回信到這裡。 */
-  SHOP_SERVICE_EMAIL: z.string().email().default('ian890711@gmail.com'),
+  SHOP_SERVICE_EMAIL: z.string().email().default('hello.sagan711@gmail.com'),
   /**
    * LINE 官方帳號的加好友連結（`https://lin.ee/xxxx` 或 `https://line.me/R/ti/p/@xxxx`）。
    * 退款與退換貨一律走 LINE 客服，這一格就是那些按鈕連去的地方。

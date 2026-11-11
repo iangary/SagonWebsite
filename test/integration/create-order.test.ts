@@ -7,7 +7,11 @@ vi.mock('next/cache', async () => (await import('./mocks')).nextCacheMockModule(
 
 import { db } from '@/lib/db'
 import { createOrderFromCart, type CreateOrderInput, type CreateOrderResult } from '@/lib/orders/create'
-import { DEFAULT_SHIPPING_SETTINGS, saveShippingSettings } from '@/lib/shop-settings'
+import {
+  DEFAULT_PAYMENT_SETTINGS,
+  DEFAULT_SHIPPING_SETTINGS,
+  saveShippingSettings,
+} from '@/lib/shop-settings'
 import {
   createTestCart,
   createTestCoupon,
@@ -104,11 +108,31 @@ async function freshVariant(id: string) {
   return db.productVariant.findUniqueOrThrow({ where: { id } })
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   resetCookieJar()
   mockAuthUser(null)
   enqueueMock.mockClear()
+  // 超商取貨預設關閉，這支測試大多用超商取貨下單 —— 先打開（關閉的情況另有測試）
+  await enableCvsShipping()
+  // ATM 與超商代碼／條碼繳費也預設關閉（只開信用卡），有測試用它們下單
+  await db.shopSetting.create({
+    data: {
+      key: 'payment',
+      value: {
+        ...DEFAULT_PAYMENT_SETTINGS,
+        methods: { ...DEFAULT_PAYMENT_SETTINGS.methods, ATM: true, CVS: true, BARCODE: true },
+      },
+    },
+  })
 })
+
+async function enableCvsShipping(enabled = true) {
+  await db.shopSetting.upsert({
+    where: { key: 'shipping' },
+    create: { key: 'shipping', value: { ...DEFAULT_SHIPPING_SETTINGS, cvsEnabled: enabled } },
+    update: { value: { ...DEFAULT_SHIPPING_SETTINGS, cvsEnabled: enabled } },
+  })
+}
 
 describe('createOrderFromCart — happy path', () => {
   it('CVS：建立完整訂單（快照/付款/物流/發票/收據/預扣）並清空購物車', async () => {
@@ -245,7 +269,10 @@ describe('createOrderFromCart — happy path', () => {
 
   it('運費與免運門檻照後台設定算，不是寫死的數字', async () => {
     const admin = await createTestUser()
-    await saveShippingSettings({ cvsFee: 80, homeFee: 150, freeShippingThreshold: 3000 }, admin.id)
+    await saveShippingSettings(
+      { cvsEnabled: true, cvsFee: 80, homeFee: 150, freeShippingThreshold: 3000 },
+      admin.id,
+    )
 
     // 2200 在預設門檻下會免運，門檻調到 3000 之後就要收運費
     const { variants } = await createTestProduct({ price: 1100, stock: 10 })
@@ -272,6 +299,20 @@ describe('createOrderFromCart — happy path', () => {
 })
 
 describe('createOrderFromCart — 前置檢查失敗', () => {
+  it('後台關掉超商取貨：直接打 API 用超商取貨下單也會被擋，且無任何寫入', async () => {
+    await enableCvsShipping(false)
+    const { variants } = await createTestProduct({ stock: 5 })
+    await seedMemberCart([{ variantId: variants[0].id, qty: 1 }])
+
+    const result = assertFail(await createOrderFromCart(baseInput()))
+    expect(result.error).toBe('超商取貨目前沒有開放，請改選宅配到府')
+    expect(await db.order.count()).toBe(0)
+    expect((await freshVariant(variants[0].id)).reservedStock).toBe(0)
+
+    // 宅配照常可以下單
+    assertOk(await createOrderFromCart(homeInput()))
+  })
+
   it('空購物車直接失敗', async () => {
     await seedMemberCart([])
 

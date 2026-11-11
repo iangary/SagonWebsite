@@ -39,6 +39,12 @@ model User {
 
   role UserRole @default(CUSTOMER)
 
+  /// 停止購買服務的時點。非 null = 不能再結帳（拒收、逾期未取件等，見 FAQ 寄送方式）。
+  /// 由後台人工切換，不自動設定 —— 綠界的「退回」狀態碼分不出是客人拒收還是店家安排的退貨。
+  purchaseBlockedAt   DateTime?
+  /// 停權原因，只給後台看
+  purchaseBlockReason String?
+
   /// 會員自己選過的介面語系（'zh-TW' / 'en'）。null = 沒選過，跟著 Accept-Language 走。
   /// 不用 enum，多一個語系就得跑一次 migration；值域由 src/i18n/config.ts 的 locales 把關。
   locale    String?
@@ -220,6 +226,9 @@ model Product {
   descriptionHtml String?       @db.Text
   brandId         String?
   status          ProductStatus @default(ACTIVE)
+
+  /// 開放預購：可售數量不足時仍可下單，那一行訂單記為預購（不佔庫存，到貨後出貨）。
+  preorderEnabled Boolean @default(false)
 
   /// 顯示用的起始價（= 最低變體售價），寫入時由程式同步，避免列表頁還要 join 變體
   basePrice      Int
@@ -494,6 +503,9 @@ model OrderItem {
   unitPrice   Int
   qty         Int
   lineTotal   Int
+
+  /// 下單當下現貨不足、以預購成立的品項。這一行沒有扣庫存，要等到貨才能出貨。
+  isPreorder Boolean @default(false)
 
   order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)

@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { env } from '@/lib/env'
 import { enqueue } from '@/lib/queue'
 import { commitOrderReservations } from './stock'
+import { lockOrderPayments } from './cancel'
 import {
   isPaymentSuccessful,
   isSimulatedPayment,
@@ -163,13 +164,22 @@ async function applySuccessfulPayment(input: SuccessfulPayment): Promise<void> {
     return
   }
 
-  await db.$transaction(async (tx) => {
-    // 交易內再讀一次，擋住兩個通知同時進來的競態
+  const lostTo = await db.$transaction(async (tx) => {
+    // 先鎖再讀：消費者取消、逾期排程、另一個付款通知都可能同時進來，
+    // 鎖到之後讀到的才是最新狀態（見 lockOrderPayments）
+    await lockOrderPayments(tx, input.orderId)
     const fresh = await tx.order.findUnique({
       where: { id: input.orderId },
       select: { status: true },
     })
-    if (fresh?.status !== 'PENDING_PAYMENT') return
+    if (fresh?.status !== 'PENDING_PAYMENT') {
+      // 綠界同一筆通知會重送：兩份同時進來時，後到的這份看到的「已付款」就是自己
+      const self = await tx.payment.findUnique({
+        where: { id: input.paymentId },
+        select: { status: true },
+      })
+      return { orderStatus: fresh?.status ?? null, alreadyPaid: self?.status === 'PAID' }
+    }
 
     await tx.payment.update({
       where: { id: input.paymentId },
@@ -203,7 +213,17 @@ async function applySuccessfulPayment(input: SuccessfulPayment): Promise<void> {
 
     // 預扣轉實扣
     await commitOrderReservations(tx, input.orderId)
+    return null
   })
+
+  // 等鎖的時候訂單被取消了（或另一個通知先入帳）：錢還是收到了，
+  // 改走上面「訂單已不在待付款」那條路開退款單，不能無聲吞掉
+  if (lostTo) {
+    if (lostTo.orderStatus && !lostTo.alreadyPaid) {
+      await applySuccessfulPayment({ ...input, orderStatus: lostTo.orderStatus })
+    }
+    return
+  }
 
   // 後續動作全部非同步，不讓綠界等
   await enqueue('create-shipment', { orderId: input.orderId })

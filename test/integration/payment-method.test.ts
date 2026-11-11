@@ -28,16 +28,23 @@ async function freshVariant(id: string) {
   return db.productVariant.findUniqueOrThrow({ where: { id } })
 }
 
-async function enableCod() {
-  const admin = await createTestUser({ role: 'ADMIN' })
-  await savePaymentSettings(
-    { ...DEFAULT_PAYMENT_SETTINGS, codEnabled: true, codFee: 0 },
-    admin.id,
-  )
+/**
+ * ATM 與超商代碼／條碼預設關閉（只開信用卡），但這支測試大量用它們驗「改付款方式」的行為 ——
+ * 以「全部打開」的設定當基準，個別測試再在上面改。
+ */
+const SETTINGS_WITH_STORE_CODES = {
+  ...DEFAULT_PAYMENT_SETTINGS,
+  methods: { ...DEFAULT_PAYMENT_SETTINGS.methods, ATM: true, CVS: true, BARCODE: true },
 }
 
-beforeEach(() => {
+async function enableCod() {
+  const admin = await createTestUser({ role: 'ADMIN' })
+  await savePaymentSettings({ ...SETTINGS_WITH_STORE_CODES, codEnabled: true, codFee: 0 }, admin.id)
+}
+
+beforeEach(async () => {
   enqueueMock.mockClear()
+  await db.shopSetting.create({ data: { key: 'payment', value: SETTINGS_WITH_STORE_CODES } })
 })
 
 describe('changePaymentMethod — 改用其他付款方式', () => {
@@ -99,7 +106,7 @@ describe('changePaymentMethod — 改用其他付款方式', () => {
   it('後台沒開放的付款方式擋下來（前端送什麼都不算）', async () => {
     const admin = await createTestUser({ role: 'ADMIN' })
     await savePaymentSettings(
-      { ...DEFAULT_PAYMENT_SETTINGS, methods: { ...DEFAULT_PAYMENT_SETTINGS.methods, ATM: false } },
+      { ...SETTINGS_WITH_STORE_CODES, methods: { ...SETTINGS_WITH_STORE_CODES.methods, ATM: false } },
       admin.id,
     )
 

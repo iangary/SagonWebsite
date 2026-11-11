@@ -1,10 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { buildExpressMapParams, CVS_SUBTYPES, type CvsSubType } from '@/lib/ecpay/logistics'
+import { buildExpressMapParams, type CvsSubType } from '@/lib/ecpay/logistics'
 import { renderAutoSubmitForm } from '@/lib/ecpay/auto-submit'
+import { CHECKOUT_CVS_SUBTYPES } from '@/lib/checkout-options'
 
 export const dynamic = 'force-dynamic'
 
-const ALLOWED = new Set<string>(CVS_SUBTYPES.map((s) => s.value))
+// 只開結帳有開放的通路；綠界簽約的另外兩家（萊爾富／OK）不給選
+const ALLOWED = new Set<string>(CHECKOUT_CVS_SUBTYPES)
 
 function isAllowed(subType: string): subType is CvsSubType {
   return ALLOWED.has(subType)

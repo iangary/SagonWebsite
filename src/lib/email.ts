@@ -37,6 +37,7 @@ export type EmailTemplate =
   | 'bank-transfer-info'
   | 'shipped'
   | 'order-cancelled'
+  | 'order-cancelled-by-customer'
   | 'cod-confirmed'
   | 'refund-requested'
   | 'refund-approved'
@@ -72,14 +73,25 @@ function escapeHtml(v: string): string {
   return v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function itemsTable(items: { productName: string; variantName: string; qty: number; lineTotal: number }[]) {
+function itemsTable(
+  items: {
+    productName: string
+    variantName: string
+    qty: number
+    lineTotal: number
+    /** 預購品項在信裡標出來，客人才知道這張單要等到貨 */
+    isPreorder?: boolean
+  }[],
+) {
   const rows = items
     .map(
       (item) => `
     <tr>
       <td style="padding:8px 0;border-bottom:1px solid #f4f0ea;">
         ${escapeHtml(item.productName)}
-        <div style="font-size:12px;color:#857263;">${escapeHtml(item.variantName)} × ${item.qty}</div>
+        <div style="font-size:12px;color:#857263;">${escapeHtml(item.variantName)} × ${item.qty}${
+          item.isPreorder ? '　（預購，約 10–20 個工作天出貨）' : ''
+        }</div>
       </td>
       <td style="padding:8px 0;border-bottom:1px solid #f4f0ea;text-align:right;white-space:nowrap;">
         ${formatTWD(item.lineTotal)}
@@ -264,6 +276,16 @@ export async function sendOrderEmail(
       body = `
         <p>${escapeHtml(order.recipientName)} 您好，您的訂單因逾期未完成付款已自動取消，庫存已釋放。</p>
         <p style="color:#857263;font-size:13px;">訂單編號：${order.orderNo}</p>
+        <p>若仍想購買，歡迎重新下單。</p>`
+      break
+    }
+
+    case 'order-cancelled-by-customer': {
+      subject = `【${env.SHOP_NAME}】訂單 ${order.orderNo} 已取消`
+      body = `
+        <p>${escapeHtml(order.recipientName)} 您好，您的訂單已依您的要求取消，不會再向您收款。</p>
+        <p style="color:#857263;font-size:13px;">訂單編號：${order.orderNo}</p>
+        <p style="font-size:13px;color:#857263;">若您在取消前已完成繳費，款項會由我們辦理退款，請留意後續通知。</p>
         <p>若仍想購買，歡迎重新下單。</p>`
       break
     }

@@ -89,6 +89,7 @@ export default async function ProductPage({
     price: v.price,
     compareAtPrice: v.compareAtPrice,
     available: availableStock(v),
+    preorder: product.preorderEnabled,
   }))
 
   // 來源站帶進來的 HTML 有 4457 個 inline style 會壓過所有 CSS，先正規化掉
@@ -190,7 +191,9 @@ export default async function ProductPage({
                   {t('shippingLabel')}
                   {tCommon('colon')}
                 </dt>
-                <dd className="inline">{t('shippingValue')}</dd>
+                <dd className="inline">
+                  {t(shipping.cvsEnabled ? 'shippingValue' : 'shippingValueHomeOnly')}
+                </dd>
               </div>
               <div>
                 <dt className="inline">

@@ -19,6 +19,12 @@ export const SHIPPING_SETTINGS_KEY = 'shipping'
 
 export const shippingSettingsSchema = z.object({
   /**
+   * 前台要不要提供超商取貨。預設關閉 —— 店家暫時只做宅配，
+   * 關掉時結帳頁、購物車試算、商品頁與常見問題都不出現超商取貨，下單 API 也會擋。
+   * 已經用超商取貨成立的舊訂單不受影響，後台照常出貨。
+   */
+  cvsEnabled: z.boolean().default(false),
+  /**
    * 超商取貨運費（元）。預設 65 是綠界超商取貨的實收價 ——
    * 設得比它低，差額就是店家自己吸收。
    */
@@ -51,6 +57,11 @@ export async function saveShippingSettings(
   await writeSetting(SHIPPING_SETTINGS_KEY, input, updatedById)
 }
 
+/** 前台能選的配送方式，順序就是結帳頁的預設優先序 */
+export function availableShippingMethods(settings: ShippingSettings): ('CVS' | 'HOME')[] {
+  return settings.cvsEnabled ? ['CVS', 'HOME'] : ['HOME']
+}
+
 /** 轉成 calculatePricing 要的 { CVS, HOME } 形狀 */
 export function shippingFeesOf(settings: ShippingSettings): { CVS: number; HOME: number } {
   return { CVS: settings.cvsFee, HOME: settings.homeFee }
@@ -66,12 +77,14 @@ export const CVS_COLLECTION_MAX = 20_000
 /**
  * 線上付款方式的預設值。ATM 虛擬帳號預設關閉 —— 已經有「匯款／ATM 轉帳」可以用，
  * 兩個都叫 ATM 放在一起客人分不清；要用再到後台打開。
+ * 超商代碼／條碼也預設關閉 —— 店家決定不提供超商繳費，要用再到後台打開。
+ * （正式站已存的設定由 migration 20261111140000_disable_store_payment_codes 一併關掉）
  */
 const ONLINE_METHOD_DEFAULTS = {
   Credit: true,
   ATM: false,
-  CVS: true,
-  BARCODE: true,
+  CVS: false,
+  BARCODE: false,
 } as const
 
 export const paymentSettingsSchema = z.object({

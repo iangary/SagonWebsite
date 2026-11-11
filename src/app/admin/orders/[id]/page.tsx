@@ -23,6 +23,7 @@ import { Badge, ORDER_STATUS_TONE } from '@/components/ui/badge'
 import { DataTable, Td } from '@/components/admin/ui'
 import { OrderActions } from './order-actions'
 import { RefundOpener } from './refund-opener'
+import { PurchaseBlockButton } from '../../members/purchase-block'
 
 /** 不能開退款單時，把原因直接寫在區塊裡，免得客服對著空白區塊猜 */
 const REFUND_BLOCKED_NOTE: Record<string, string> = {
@@ -55,7 +56,9 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
         invoice: true,
         receipt: true,
         coupon: true,
-        user: { select: { id: true, name: true, email: true } },
+        user: {
+          select: { id: true, name: true, email: true, role: true, purchaseBlockedAt: true },
+        },
         shipment: {
           include: {
             logs: { orderBy: { occurredAt: 'desc' } },
@@ -95,6 +98,8 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
         )
       : null
 
+  const hasPreorder = order.items.some((item) => item.isPreorder)
+
   const isTcat = order.shipment?.logisticsSubType === 'TCAT'
   const labelState = order.shipment && isTcat ? labelAvailability(order.shipment) : 'none'
   const labelDeadline =
@@ -121,6 +126,37 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
         </div>
         <Badge tone={ORDER_STATUS_TONE[order.status]}>{ORDER_STATUS_LABEL[order.status]}</Badge>
       </header>
+
+      {/* 購物說明：拒收、逾期未取件達一次即停止購買。物流的「退回」分不出是不是客人造成的，
+          所以只提醒、不自動停權，由管理員判斷後按下去。 */}
+      {order.shipment?.status === 'RETURNED' && order.user && order.user.role !== 'ADMIN' && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border border-rose-accent/40 bg-rose-accent/5 px-4 py-3 text-sm text-ink-700">
+          {order.user.purchaseBlockedAt ? (
+            <p>
+              包裹已退回。這位會員已於 {order.user.purchaseBlockedAt.toLocaleDateString('zh-TW')}{' '}
+              停止購買服務。
+            </p>
+          ) : (
+            <p className="leading-relaxed">
+              包裹已退回。若是客人拒收、聯絡不到或逾期未取件，依購物說明應停止這位會員的購買服務；
+              若是店家安排的退貨則不用處理。
+            </p>
+          )}
+          <PurchaseBlockButton
+            userId={order.user.id}
+            label={order.user.name ?? order.user.email ?? '這位會員'}
+            blocked={Boolean(order.user.purchaseBlockedAt)}
+            defaultReason={`訂單 ${order.orderNo} 包裹退回（拒收／未取件）`}
+          />
+        </div>
+      )}
+
+      {hasPreorder && (
+        <p className="mb-6 border border-cream-300 bg-cream-50 px-4 py-3 text-sm text-ink-700">
+          這張訂單含預購商品（下方標示「預購」）。付款後不會自動建立物流單，預購品項也沒有扣庫存 ——
+          請等商品全部到貨後，再按上方「建立物流訂單／建立黑貓託運單」一併出貨。
+        </p>
+      )}
 
       <OrderActions
         orderId={order.id}
@@ -155,7 +191,14 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
             <DataTable headers={['商品', '規格', 'SKU', '單價', '數量', '小計']}>
               {order.items.map((item) => (
                 <tr key={item.id}>
-                  <Td>{item.productName}</Td>
+                  <Td>
+                    {item.productName}
+                    {item.isPreorder && (
+                      <Badge tone="muted" className="ml-2">
+                        預購
+                      </Badge>
+                    )}
+                  </Td>
                   <Td className="text-taupe-600">{item.variantName}</Td>
                   <Td className="font-mono text-xs text-taupe-500">{item.sku}</Td>
                   <Td className="tabular-nums">{formatTWD(item.unitPrice)}</Td>

@@ -41,9 +41,19 @@ export default async function AdminProductDetail({
   if (!product) notFound()
 
   // 有銷售紀錄的商品不能真的刪除，先算出來讓 UI 能提前說明
-  const soldCount = await db.orderItem.count({
-    where: { variantId: { in: product.variants.map((v) => v.id) } },
-  })
+  const variantIds = product.variants.map((v) => v.id)
+  const [soldCount, pendingPreorder] = await Promise.all([
+    db.orderItem.count({ where: { variantId: { in: variantIds } } }),
+    // 已付款、還沒出貨的預購件數 —— 叫貨與補庫存時要先扣掉這些
+    db.orderItem.aggregate({
+      where: {
+        variantId: { in: variantIds },
+        isPreorder: true,
+        order: { status: { in: ['PAID', 'PROCESSING'] } },
+      },
+      _sum: { qty: true },
+    }),
+  ])
 
   return (
     <>
@@ -80,6 +90,8 @@ export default async function AdminProductDetail({
           seoTitle: product.seoTitle ?? '',
           seoDescription: product.seoDescription ?? '',
           slug: product.slug,
+          preorderEnabled: product.preorderEnabled,
+          pendingPreorderQty: pendingPreorder._sum.qty ?? 0,
         }}
         brands={brands}
         allCategories={categories}

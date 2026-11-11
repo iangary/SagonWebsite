@@ -12,6 +12,7 @@ import {
 } from '@/components/admin/ui'
 import { Badge } from '@/components/ui/badge'
 import { MemberRoleButton } from './member-role'
+import { PurchaseBlockButton } from './purchase-block'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: '會員' }
@@ -22,6 +23,7 @@ const ROLE_FILTERS = [
   { value: '', label: '全部' },
   { value: 'ADMIN', label: '管理員' },
   { value: 'CUSTOMER', label: '一般會員' },
+  { value: 'BLOCKED', label: '已停止購買' },
 ]
 
 export default async function AdminMembersPage({
@@ -31,10 +33,13 @@ export default async function AdminMembersPage({
 }) {
   const sp = await searchParams
   const page = Math.max(1, Number.parseInt(sp.page ?? '1', 10) || 1)
-  const roleFilter = sp.role === 'ADMIN' || sp.role === 'CUSTOMER' ? sp.role : ''
+  // 「已停止購買」跟權限篩選共用同一排 chip，所以也走 role 這個參數
+  const roleFilter =
+    sp.role === 'ADMIN' || sp.role === 'CUSTOMER' || sp.role === 'BLOCKED' ? sp.role : ''
 
   const where: Prisma.UserWhereInput = {}
-  if (roleFilter) where.role = roleFilter
+  if (roleFilter === 'BLOCKED') where.purchaseBlockedAt = { not: null }
+  else if (roleFilter) where.role = roleFilter
   if (sp.q?.trim()) {
     const q = sp.q.trim()
     where.OR = [
@@ -58,6 +63,8 @@ export default async function AdminMembersPage({
         phone: true,
         role: true,
         passwordHash: true,
+        purchaseBlockedAt: true,
+        purchaseBlockReason: true,
         createdAt: true,
         accounts: { select: { provider: true } },
         orders: {
@@ -110,6 +117,7 @@ export default async function AdminMembersPage({
           '有效訂單',
           '累積消費',
           '註冊時間',
+          '購買服務',
           '權限',
         ]}
         empty={users.length === 0}
@@ -150,6 +158,24 @@ export default async function AdminMembersPage({
               <Td className="tabular-nums">{formatTWD(spent)}</Td>
               <Td className="whitespace-nowrap text-xs text-taupe-500">
                 {user.createdAt.toLocaleDateString('zh-TW')}
+              </Td>
+              <Td>
+                {user.purchaseBlockedAt && (
+                  <p className="mb-1.5 text-xs text-sale">
+                    已停止（{user.purchaseBlockedAt.toLocaleDateString('zh-TW')}）
+                    {user.purchaseBlockReason && (
+                      <span className="block text-taupe-600">{user.purchaseBlockReason}</span>
+                    )}
+                  </p>
+                )}
+                {/* 管理員不會被停權 —— 停了也只是擋自己結帳，按鈕只會造成困惑 */}
+                {!isAdmin && (
+                  <PurchaseBlockButton
+                    userId={user.id}
+                    label={user.name ?? user.email ?? user.phone ?? '這位會員'}
+                    blocked={Boolean(user.purchaseBlockedAt)}
+                  />
+                )}
               </Td>
               <Td>
                 <MemberRoleButton

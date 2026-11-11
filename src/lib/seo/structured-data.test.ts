@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { breadcrumbJsonLd, productJsonLd, serializeJsonLd, siteJsonLd } from './structured-data'
 
-const SHIPPING = { cvsFee: 65, homeFee: 130, freeShippingThreshold: 2000 }
+const SHIPPING = { cvsEnabled: true, cvsFee: 65, homeFee: 130, freeShippingThreshold: 2000 }
 
 /**
  * 這幾條測試守的是「Google 會不會判我們造假」這件事，不是格式好不好看。
@@ -92,6 +92,18 @@ describe('productJsonLd', () => {
       value: 0,
       eligibleTransactionVolume: { minPrice: 2000 },
     })
+  })
+
+  it('超商取貨關閉時不宣稱有超商取貨運費', () => {
+    const ld = productJsonLd({
+      product: baseProduct,
+      name: '真絲睡衣套組',
+      description: '',
+      reviewStats: { average: 0, total: 0 },
+      shipping: { ...SHIPPING, cvsEnabled: false },
+    })
+    const names = ld.offers[0].shippingDetails.map((d: { name: string }) => d.name)
+    expect(names).toEqual(['宅配', '滿額免運'])
   })
 
   it('沒有品牌時不輸出空的 brand 欄位', () => {

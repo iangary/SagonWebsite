@@ -13,8 +13,9 @@ export const PRODUCT_CARD_SELECT = {
   nameEn: true,
   basePrice: true,
   compareAtPrice: true,
+  preorderEnabled: true,
   brand: { select: { name: true, slug: true } },
-  images: { select: { url: true, alt: true }, orderBy: { sortOrder: 'asc' }, take: 2 },
+  images: { select: { url: true, alt: true, width: true, height: true }, orderBy: { sortOrder: 'asc' }, take: 2 },
   variants: { select: { stock: true, reservedStock: true, isActive: true } },
 } satisfies Prisma.ProductSelect
 
@@ -259,9 +260,17 @@ export async function getHeroBanner() {
   })
 }
 
-/** 商品是否還有任何一個變體可以買 */
-export function isPurchasable(product: {
+/** 商品是否還有任何一個變體有現貨 */
+export function hasStock(product: {
   variants: { stock: number; reservedStock: number; isActive: boolean }[]
 }): boolean {
   return product.variants.some((v) => v.isActive && v.stock - v.reservedStock > 0)
+}
+
+/** 商品是否還能買：有現貨，或開放預購（且還有上架中的規格） */
+export function isPurchasable(product: {
+  preorderEnabled: boolean
+  variants: { stock: number; reservedStock: number; isActive: boolean }[]
+}): boolean {
+  return hasStock(product) || (product.preorderEnabled && product.variants.some((v) => v.isActive))
 }

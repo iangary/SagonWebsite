@@ -4,8 +4,9 @@ import { Link } from '@/i18n/routing'
 import { Reveal } from '@/components/ui/reveal'
 import { Badge } from '@/components/ui/badge'
 import { formatTWD } from '@/lib/utils'
-import { isPurchasable, type ProductCardData } from '@/lib/catalog/queries'
+import { hasStock, isPurchasable, type ProductCardData } from '@/lib/catalog/queries'
 import { localizedName } from '@/lib/i18n/localized'
+import { imageFitClass } from '@/lib/catalog/image-fit'
 
 export function ProductCard({
   product,
@@ -19,12 +20,14 @@ export function ProductCard({
   const name = localizedName(locale, product)
   const [primary, secondary] = product.images
   const available = isPurchasable(product)
+  // 現貨賣完但開放預購：標「預購」而不是「售完」
+  const preorderOnly = available && !hasStock(product)
   const onSale = product.compareAtPrice !== null && product.compareAtPrice > product.basePrice
 
   return (
     <Link href={`/product/${product.slug}`} className="group block">
-      {/* 正方形：商品圖全部來自蝦皮，一律 1:1；用直式框會把角落的品牌 logo 切掉 */}
-      <div className="relative aspect-square overflow-hidden bg-cream-100">
+      {/* 3:4 直式：蝦皮圖的外框裁掉之後，大多數是 3:4 左右的模特兒照 */}
+      <div className="relative aspect-[3/4] overflow-hidden bg-cream-100">
         {primary ? (
           <>
             <Image
@@ -33,7 +36,7 @@ export function ProductCard({
               fill
               sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 100vw"
               priority={priority}
-              className="object-cover transition-[opacity,transform] duration-500 ease-out group-hover:scale-105 group-hover:opacity-0"
+              className={`${imageFitClass(primary)} transition-[opacity,transform] duration-500 ease-out group-hover:scale-105 group-hover:opacity-0`}
             />
             {/* 第二張圖預先疊在下面，hover 時淡入，不需要等載入 */}
             {secondary && (
@@ -43,7 +46,7 @@ export function ProductCard({
                 fill
                 sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 100vw"
                 aria-hidden
-                className="object-cover opacity-0 transition-[opacity,transform] duration-500 ease-out group-hover:scale-105 group-hover:opacity-100"
+                className={`${imageFitClass(secondary)} opacity-0 transition-[opacity,transform] duration-500 ease-out group-hover:scale-105 group-hover:opacity-100`}
               />
             )}
           </>
@@ -56,6 +59,7 @@ export function ProductCard({
         <div className="absolute left-3 top-3 flex flex-col gap-1.5">
           {onSale && <Badge tone="sale">{t('sale')}</Badge>}
           {!available && <Badge tone="muted">{t('soldOut')}</Badge>}
+          {preorderOnly && <Badge tone="muted">{t('preorderTag')}</Badge>}
         </div>
       </div>
 

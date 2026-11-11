@@ -1,12 +1,15 @@
 'use server'
 
 import { z } from 'zod'
+import { getTranslations } from 'next-intl/server'
 import { resolveOrderAccess } from '@/lib/orders/access'
+import { cancelUnpaidOrderNow } from '@/lib/orders/cancel'
+import { enqueue } from '@/lib/queue'
 import { changePaymentMethod, PaymentMethodConflict } from '@/lib/orders/payment-method'
 import { isPaymentChoice } from '@/lib/shop-settings'
 
 /**
- * 消費者自己在訂單頁上唯一能動的事：改付款方式。
+ * 消費者自己在訂單頁上能動的事：改付款方式、取消還沒付款的訂單。
  *
  * 要先過 resolveOrderAccess —— 訂單編號印在出貨單上，
  * 光靠編號就能把別人的繳費代碼作廢是不行的。
@@ -63,6 +66,48 @@ export async function changePaymentAction(
     console.error('[order] 改付款方式失敗', error)
     return { ok: false, error: '系統忙碌中，請稍後再試' }
   }
+}
+
+const cancelSchema = z.object({
+  orderNo: z.string().trim().min(1),
+  contact: z.string().trim().optional().default(''),
+})
+
+/**
+ * 消費者取消自己還沒付款的訂單。
+ *
+ * 只開放 PENDING_PAYMENT —— 已付款的要退錢、貨到付款的已經在備貨，
+ * 這兩種都得經過店家，走 LINE 客服。
+ */
+export async function cancelOrderAction(
+  _prev: OrderActionState,
+  formData: FormData,
+): Promise<OrderActionState> {
+  const parsed = cancelSchema.safeParse(Object.fromEntries(formData.entries()))
+  if (!parsed.success) return { ok: false, error: '參數不完整' }
+
+  const { orderNo, contact } = parsed.data
+  const access = await resolveOrderAccess({ orderNo, contact: contact || undefined })
+  if (!access.ok) return accessError(access.error)
+
+  const t = await getTranslations('result')
+  try {
+    const cancelled = await cancelUnpaidOrderNow(access.orderId)
+    // 搶輸了：這段時間付款剛好進來，或在別的分頁已經取消過
+    if (!cancelled) return { ok: false, refresh: true, error: t('cancelOrderNotPending') }
+  } catch (error) {
+    console.error('[order] 消費者取消訂單失敗', error)
+    return { ok: false, error: '系統忙碌中，請稍後再試' }
+  }
+
+  // 信寄不出去不影響取消本身
+  await enqueue('send-email', {
+    template: 'order-cancelled-by-customer',
+    orderId: access.orderId,
+  }).catch((error) => console.error('[order] 取消通知信排程失敗', error))
+
+  // 頁面重新整理後會顯示「訂單已取消」，不另外回訊息
+  return { ok: true, refresh: true }
 }
 
 function accessError(error: 'NOT_FOUND' | 'CONTACT_REQUIRED' | 'CONTACT_MISMATCH'): OrderActionState {

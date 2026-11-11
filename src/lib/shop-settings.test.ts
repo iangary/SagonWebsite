@@ -34,7 +34,8 @@ describe('paymentSettingsSchema', () => {
     // 付款期限預設 2 天 —— 超商代碼 30 分鐘到期對消費者太短
     expect(parsed.cvsExpireDays).toBe(2)
     expect(parsed.atmExpireDays).toBe(2)
-    expect(parsed.methods).toEqual({ Credit: true, ATM: false, CVS: true, BARCODE: true })
+    // 超商代碼／條碼預設關閉：店家不提供超商繳費
+    expect(parsed.methods).toEqual({ Credit: true, ATM: false, CVS: false, BARCODE: false })
   })
 
   it('舊資料只有一部分欄位時，其餘補預設值而不是整份丟掉', () => {
@@ -55,6 +56,8 @@ describe('paymentSettingsSchema', () => {
 describe('shippingSettingsSchema', () => {
   it('空物件補出綠界／黑貓的實收價與預設免運門檻', () => {
     expect(shippingSettingsSchema.parse({})).toEqual({
+      // 超商取貨預設關閉；舊資料沒有這個欄位，等於部署後就關掉
+      cvsEnabled: false,
       cvsFee: 65,
       homeFee: 130,
       freeShippingThreshold: 2000,
@@ -148,7 +151,7 @@ describe('availablePaymentChoices', () => {
   })
 
   it('個別關掉的付款方式不會出現在選項裡', () => {
-    const s = settings({ methods: { ATM: false, BARCODE: false } })
+    const s = settings({ methods: { ATM: false, CVS: true, BARCODE: false } })
     expect(availablePaymentChoices(s, 'CVS', 1000)).toEqual(['Credit', 'CVS'])
   })
 

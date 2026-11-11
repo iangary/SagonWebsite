@@ -8,6 +8,7 @@ vi.mock('next/cache', async () => (await import('./mocks')).nextCacheMockModule(
 import { db } from '@/lib/db'
 import { createOrderFromCart, type CreateOrderInput } from '@/lib/orders/create'
 import { getCheckoutPrefill, rememberCheckoutDetails } from '@/lib/orders/checkout-prefill'
+import { DEFAULT_PAYMENT_SETTINGS } from '@/lib/shop-settings'
 import { createTestProduct, createTestUser } from '../factories'
 import { mockAuthUser, resetCookieJar } from './mocks'
 
@@ -49,9 +50,14 @@ async function seedMember(opts: { name?: string; phone?: string } = {}) {
   return user
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   resetCookieJar()
   mockAuthUser(null)
+  // 這支測試用超商取貨 + ATM 下單，兩者預設都是關閉的
+  await db.shopSetting.create({ data: { key: 'shipping', value: { cvsEnabled: true } } })
+  await db.shopSetting.create({
+    data: { key: 'payment', value: { ...DEFAULT_PAYMENT_SETTINGS, methods: { ...DEFAULT_PAYMENT_SETTINGS.methods, ATM: true } } },
+  })
 })
 
 describe('getCheckoutPrefill', () => {

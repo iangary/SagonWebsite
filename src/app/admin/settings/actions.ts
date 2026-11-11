@@ -38,6 +38,7 @@ export async function saveShippingSettingsAction(
 
   const before = await getShippingSettings()
   const parsed = shippingSettingsSchema.safeParse({
+    cvsEnabled: formData.get('cvsEnabled') === 'on',
     cvsFee: intField(formData, 'cvsFee', before.cvsFee),
     homeFee: intField(formData, 'homeFee', before.homeFee),
     freeShippingThreshold: intField(formData, 'freeShippingThreshold', before.freeShippingThreshold),

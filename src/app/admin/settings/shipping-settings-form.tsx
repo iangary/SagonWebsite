@@ -3,7 +3,7 @@
 import { useActionState } from 'react'
 import type { ShippingSettings } from '@/lib/shop-settings'
 import { saveShippingSettingsAction, type SettingsState } from './actions'
-import { FormStatus, NumberField, Section } from './fields'
+import { Check, FormStatus, NumberField, Section } from './fields'
 
 const INITIAL: SettingsState = { ok: false }
 
@@ -18,6 +18,13 @@ export function ShippingSettingsForm({ settings }: { settings: ShippingSettings 
 
   return (
     <form action={formAction} className="space-y-6">
+      <Section
+        title="配送方式"
+        note="關掉超商取貨後，結帳頁只剩宅配，商品頁與常見問題也不會再提到超商取貨。已經用超商取貨成立的訂單不受影響。"
+      >
+        <Check name="cvsEnabled" label="開放超商取貨" defaultChecked={settings.cvsEnabled} />
+      </Section>
+
       <Section
         title="運費"
         note="綠界超商取貨實收 65 元、黑貓宅配本島 130 元起。運費設得比實收價低，差額由店家吸收；滿額免運時整筆運費都由店家吸收。改動只影響之後的新訂單，已成立的訂單照下單當時的運費。"

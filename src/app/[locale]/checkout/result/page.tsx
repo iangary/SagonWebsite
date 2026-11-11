@@ -18,6 +18,7 @@ import { ShipmentTimeline } from '@/components/order/shipment-timeline'
 import { PaymentPoller } from './payment-poller'
 import { PaymentSwitcher, type SwitchableChoice } from './payment-switcher'
 import { RefundContact } from './refund-contact'
+import { OrderCanceller } from './order-canceller'
 
 export const dynamic = 'force-dynamic'
 
@@ -106,6 +107,10 @@ export default async function CheckoutResultPage({
   ]
   const canChangePayment = order.status === 'PENDING_PAYMENT' && switchChoices.length > 1
 
+  // 只有待付款可以自己取消。貨到付款一成立就是 PROCESSING（已在備貨），
+  // 已付款的要退錢 —— 這兩種都得找客服。
+  const canCancel = order.status === 'PENDING_PAYMENT'
+
   // 訪客（訂單沒綁會員，或不是本人在看）動手之前要用 Email／手機確認身分
   const needsContact = !(viewer && order.userId && viewer.id === order.userId)
 
@@ -117,7 +122,7 @@ export default async function CheckoutResultPage({
   const trackingUrl = order.shipment ? TRACKING_URL[order.shipment.logisticsSubType] : undefined
 
   const heading = isCancelled
-    ? { icon: XCircle, tone: 'text-sale', title: t('failedTitle') }
+    ? { icon: XCircle, tone: 'text-sale', title: t('cancelledTitle') }
     : isPaid
       ? { icon: CheckCircle2, tone: 'text-taupe-500', title: t('successTitle') }
       : { icon: Clock, tone: 'text-rose-accent', title: t('pendingTitle') }
@@ -149,7 +154,16 @@ export default async function CheckoutResultPage({
       {/* 付款未完成／逾期。
           刻意不顯示 payment.failReason —— 那欄存的是內部訊息（金額不符的實際數字、
           模擬付款偵測等），對客戶沒有意義，而且等於把風控規則講給攻擊者聽。 */}
-      {(paymentFailed || paymentExpired) && (
+      {/* 已取消：逾期、店家、本人取消都是同一句 —— 資料庫沒有記是誰取消的，
+          而且對客戶來說重點只有「不會再收款、想買請重新下單」 */}
+      {isCancelled && (
+        <section className="mt-10 border border-sale/30 bg-sale/5 p-6">
+          <h2 className="text-sm tracking-[0.1em] text-sale">{t('cancelledTitle')}</h2>
+          <p className="mt-3 text-sm leading-relaxed text-ink-700">{t('cancelledHint')}</p>
+        </section>
+      )}
+
+      {!isCancelled && (paymentFailed || paymentExpired) && (
         <section className="mt-10 border border-sale/30 bg-sale/5 p-6">
           <h2 className="text-sm tracking-[0.1em] text-sale">
             {paymentExpired ? t('paymentExpiredTitle') : t('paymentFailedTitle')}
@@ -258,6 +272,14 @@ export default async function CheckoutResultPage({
         />
       )}
 
+      {canCancel && (
+        <OrderCanceller
+          orderNo={order.orderNo}
+          needsContact={needsContact}
+          hasPaymentCode={awaitingTransfer}
+        />
+      )}
+
       {/* 訂單內容 */}
       <section className="mt-10 border-t border-cream-200 pt-8">
         <h2 className="text-sm tracking-[0.1em]">{t('orderItems')}</h2>
@@ -268,6 +290,11 @@ export default async function CheckoutResultPage({
                 <p className="text-ink-900">{item.productName}</p>
                 <p className="mt-0.5 text-xs text-taupe-500">
                   {item.variantName} × {item.qty}
+                  {item.isPreorder && (
+                    <span className="ml-2 border border-taupe-400 px-1.5 py-px text-[10px] tracking-[0.1em] text-ink-700">
+                      {tCheckout('preorderTag')}
+                    </span>
+                  )}
                 </p>
               </div>
               <span className="shrink-0 tabular-nums text-ink-700">

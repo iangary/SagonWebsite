@@ -25,6 +25,16 @@ const handlers: {
   [N in JobName]: (data: JobPayload[N]) => Promise<unknown>
 } = {
   'create-shipment': async ({ orderId }) => {
+    // 含預購品項的訂單要等貨到齊才出貨，付款後不自動建物流單 ——
+    // 超商寄件單有交寄期限，提早建會過期。到貨後由後台訂單頁手動「建立物流單」。
+    const preorderItem = await db.orderItem.findFirst({
+      where: { orderId, isPreorder: true },
+      select: { id: true },
+    })
+    if (preorderItem) {
+      console.info(`[worker] 訂單 ${orderId} 含預購品項，跳過自動建物流單`)
+      return { orderId, skipped: 'preorder' }
+    }
     await createShipmentForOrder(orderId)
     return { orderId }
   },
@@ -87,16 +97,10 @@ const handlers: {
       console.info(
         `[worker] 釋放逾期庫存：取消 ${result.ordersCancelled} 張訂單、還原 ${result.itemsReleased} 個品項`,
       )
-      // 通知消費者訂單已取消
-      const cancelled = await db.order.findMany({
-        where: {
-          status: 'CANCELLED',
-          cancelledAt: { gte: new Date(Date.now() - 10 * 60 * 1000) },
-        },
-        select: { id: true },
-      })
-      for (const order of cancelled) {
-        await sendOrderEmail('order-cancelled', order.id).catch((err) =>
+      // 通知消費者訂單已取消。只寄這一輪取消的 —— 用「最近 10 分鐘取消的」去撈
+      // 會把消費者自己取消、後台取消的單也寄一封「逾期未付款」過去。
+      for (const orderId of result.cancelledOrderIds) {
+        await sendOrderEmail('order-cancelled', orderId).catch((err) =>
           console.error('[worker] 取消通知信寄送失敗', err),
         )
       }

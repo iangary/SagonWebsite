@@ -51,6 +51,9 @@ export function ProductEditor({
     seoTitle: string
     seoDescription: string
     slug: string
+    preorderEnabled: boolean
+    /** 已付款、還沒出貨的預購件數 */
+    pendingPreorderQty: number
   }
   brands: { id: string; name: string }[]
   allCategories: { id: string; name: string }[]
@@ -103,6 +106,29 @@ export function ProductEditor({
               <option value="ARCHIVED">已封存</option>
             </Select>
           </Field>
+
+          <div>
+            <label className="flex items-start gap-2.5 text-sm text-ink-900">
+              <input
+                type="checkbox"
+                name="preorderEnabled"
+                defaultChecked={product.preorderEnabled}
+                className="mt-0.5 size-5 accent-[#2b2724] sm:size-3.5"
+              />
+              <span>
+                開放預購
+                <span className="mt-1 block text-xs leading-relaxed text-taupe-600">
+                  現貨賣完後仍可下單，前台標示「預購」與「約 10–20 個工作天出貨」。預購的品項不扣庫存，
+                  到貨後請先出預購訂單再補上架數量。
+                </span>
+                {product.pendingPreorderQty > 0 && (
+                  <span className="mt-1 block text-xs text-sale">
+                    目前有 {product.pendingPreorderQty} 件已付款的預購待出貨
+                  </span>
+                )}
+              </span>
+            </label>
+          </div>
 
           <Field label="品牌" htmlFor="brandId">
             <Select id="brandId" name="brandId" defaultValue={product.brandId}>

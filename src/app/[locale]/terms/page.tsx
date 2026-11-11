@@ -72,14 +72,12 @@ export default async function TermsPage({ params }: { params: Promise<{ locale: 
               term: '信用卡',
               description: `保留 ${payment.creditHoldMinutes} 分鐘。`,
             },
-            {
-              term: '超商代碼／條碼繳費',
-              description: `保留 ${payment.cvsExpireDays} 天。`,
-            },
-            {
-              term: 'ATM 虛擬帳號轉帳',
-              description: `保留 ${payment.atmExpireDays} 天。`,
-            },
+            ...(payment.methods.CVS || payment.methods.BARCODE
+              ? [{ term: '超商代碼／條碼繳費', description: `保留 ${payment.cvsExpireDays} 天。` }]
+              : []),
+            ...(payment.methods.ATM
+              ? [{ term: 'ATM 虛擬帳號轉帳', description: `保留 ${payment.atmExpireDays} 天。` }]
+              : []),
             ...(isBankTransferAvailable(payment)
               ? [{ term: '匯款到公司帳戶', description: `保留 ${payment.bankExpireDays} 天。` }]
               : []),
@@ -105,12 +103,19 @@ export default async function TermsPage({ params }: { params: Promise<{ locale: 
     {
       title: '付款方式',
       blocks: [
-        '本站透過綠界科技 ECPay 提供下列付款方式，本站不會接觸您的完整信用卡資訊：',
+        '本站提供下列付款方式。信用卡經由綠界科技 ECPay 處理，本站不會接觸您的完整信用卡資訊：',
         {
+          // 跟著後台的付款開關走，關掉的方式不列出來
           list: [
-            '信用卡（支援分期）。',
-            'ATM 虛擬帳號轉帳，下單後取得繳費帳號。',
-            '超商代碼繳費，下單後取得繳費代碼。',
+            ...(payment.methods.Credit
+              ? ['信用卡（含 Apple Pay、綠界 Pay），支援 VISA／MasterCard／JCB。']
+              : []),
+            ...(payment.methods.ATM ? ['ATM 虛擬帳號轉帳，下單後取得繳費帳號。'] : []),
+            ...(payment.methods.CVS ? ['超商代碼繳費，下單後取得繳費代碼。'] : []),
+            ...(payment.methods.BARCODE ? ['超商條碼繳費，下單後取得繳費條碼。'] : []),
+            ...(isBankTransferAvailable(payment)
+              ? ['匯款／ATM 轉帳到公司帳戶，下單後顯示匯款帳號。']
+              : []),
           ],
         },
         '請於繳費期限內完成付款。跨行轉帳如產生手續費，由您自行負擔。',
@@ -121,10 +126,14 @@ export default async function TermsPage({ params }: { params: Promise<{ locale: 
       blocks: [
         {
           terms: [
-            {
-              term: '超商取貨',
-              description: `運費 ${formatTWD(shipping.cvsFee)}，支援 7-ELEVEN、全家、萊爾富、OK 超商。`,
-            },
+            ...(shipping.cvsEnabled
+              ? [
+                  {
+                    term: '超商取貨',
+                    description: `運費 ${formatTWD(shipping.cvsFee)}，支援 7-ELEVEN、全家、萊爾富、OK 超商。`,
+                  },
+                ]
+              : []),
             {
               term: '宅配到府',
               description: `運費 ${formatTWD(shipping.homeFee)}，由黑貓宅急便配送。`,

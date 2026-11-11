@@ -6,6 +6,7 @@ import { getOrCreateCart } from '@/lib/cart'
 import { enqueue } from '@/lib/queue'
 import { generateMerchantTradeNo } from '@/lib/ecpay/aio'
 import {
+  availableShippingMethods,
   getPaymentSettings,
   getShippingSettings,
   holdMinutesFor,
@@ -15,6 +16,7 @@ import {
   type PaymentChoice,
 } from '@/lib/shop-settings'
 import { formatTransferDeadline } from './bank-transfer'
+import { isPurchaseBlocked } from './purchase-block'
 import { calculatePricing, validateCoupon } from './pricing'
 import { commitOrderReservations, reserveStock, releaseReservation } from './stock'
 
@@ -78,6 +80,11 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
   const userId = session?.user?.id
   if (!userId) return { ok: false, error: '請先註冊或登入會員再結帳' }
 
+  // 結帳頁已經不給表單，這裡擋直接打 Server Action 的
+  if (await isPurchaseBlocked(userId)) {
+    return { ok: false, error: '您的帳號已停止購買服務，如有疑問請透過官方 LINE 客服聯繫' }
+  }
+
   const cart = await getOrCreateCart()
 
   if (cart.items.length === 0) return { ok: false, error: '購物車是空的' }
@@ -113,6 +120,10 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
   }
 
   const [settings, shipping] = await Promise.all([getPaymentSettings(), getShippingSettings()])
+  // 配送方式的開關也是後台設定，結帳頁藏起來不代表沒人直接打 Server Action
+  if (!availableShippingMethods(shipping).includes(input.shippingMethod)) {
+    return { ok: false, error: '超商取貨目前沒有開放，請改選宅配到府' }
+  }
   const isCod = input.choosePayment === 'COD'
   // 匯款到公司帳戶：訂單一樣要等錢進來才出貨，但錢不經綠界，
   // 帳號在下單當下就已經知道，所以不必去收銀台、也不會有取號通知。
@@ -152,9 +163,15 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
     const order = await db.$transaction(async (tx) => {
       // 先預扣庫存。任何一項失敗就把先前扣掉的還回去再中止整筆交易。
       const reserved: { variantId: string; qty: number }[] = []
+      // 現貨不夠、但商品開放預購的品項：整行記為預購，不佔庫存（等到貨才出貨）
+      const preorderItemIds = new Set<string>()
       for (const item of cart.items) {
         const ok = await reserveStock(tx, item.variantId, item.qty)
         if (!ok) {
+          if (item.variant.product.preorderEnabled) {
+            preorderItemIds.add(item.id)
+            continue
+          }
           for (const r of reserved) await releaseReservation(tx, r.variantId, r.qty)
           throw new OutOfStockError(item.variant.product.name, item.variant.name)
         }
@@ -196,13 +213,16 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
               unitPrice: item.variant.price,
               qty: item.qty,
               lineTotal: item.variant.price * item.qty,
+              isPreorder: preorderItemIds.has(item.id),
             })),
           },
 
+          // 預購行也建一筆 qty 0 的預扣：付款期限與逾期取消都掛在預扣上，
+          // 整張都是預購的訂單沒有它就永遠不會被逾期排程取消。qty 0 的 commit／release 不動庫存。
           reservations: {
             create: cart.items.map((item) => ({
               variantId: item.variantId,
-              qty: item.qty,
+              qty: preorderItemIds.has(item.id) ? 0 : item.qty,
               expiresAt,
             })),
           },

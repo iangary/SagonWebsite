@@ -209,6 +209,15 @@ const ADMIN_ACTIONS: AdminActionCase[] = [
     },
   },
   {
+    name: 'products.uploadDescriptionImages',
+    run: () => {
+      const fd = new FormData()
+      fd.append('productId', 'product-x')
+      fd.append('images', new File(['fake'], 'evil.jpg', { type: 'image/jpeg' }))
+      return productsActions.uploadDescriptionImages(fd)
+    },
+  },
+  {
     name: 'products.deleteProductImage',
     run: () => productsActions.deleteProductImage('image-x'),
   },

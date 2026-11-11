@@ -8,10 +8,11 @@ import { CHECKOUT_LOGIN_HREF } from '@/lib/auth/checkout-gate'
 import { createOrderFromCart } from '@/lib/orders/create'
 import { rememberCheckoutDetails } from '@/lib/orders/checkout-prefill'
 import { normalizeTwMobile } from '@/lib/sms/provider'
+import { CHECKOUT_CVS_SUBTYPES, CHECKOUT_HOME_SUBTYPES } from '@/lib/checkout-options'
 
-const CVS_SUBTYPES = ['UNIMARTC2C', 'FAMIC2C', 'HILIFEC2C', 'OKMARTC2C'] as const
-/** 宅配只有黑貓（我們自己簽約的，不經綠界） */
-const HOME_SUBTYPES = ['TCAT'] as const
+/** 超商只開 7-11／全家；宅配只有黑貓（我們自己簽約的，不經綠界）。見 lib/checkout-options.ts */
+const CVS_SUBTYPES = CHECKOUT_CVS_SUBTYPES
+const HOME_SUBTYPES = CHECKOUT_HOME_SUBTYPES
 
 const schema = z
   .object({

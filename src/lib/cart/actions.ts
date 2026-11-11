@@ -35,7 +35,7 @@ export async function addToCart(variantId: string, qty = 1): Promise<CartActionR
 
   const variant = await db.productVariant.findUnique({
     where: { id: parsed.data.variantId },
-    include: { product: { select: { status: true, slug: true } } },
+    include: { product: { select: { status: true, slug: true, preorderEnabled: true } } },
   })
 
   if (!variant || !variant.isActive || variant.product.status !== 'ACTIVE') {
@@ -47,9 +47,13 @@ export async function addToCart(variantId: string, qty = 1): Promise<CartActionR
   const desired = (existing?.qty ?? 0) + parsed.data.qty
   const available = availableStock(variant)
 
-  if (available <= 0) return { ok: false, error: t('variantSoldOut') }
-  if (desired > available) {
-    return { ok: false, error: t('notEnoughStock', { count: available }) }
+  if (desired > 99) return { ok: false, error: t('invalidQty') }
+  // 開放預購的商品現貨不夠也能加，下單時那一行會記為預購
+  if (!variant.product.preorderEnabled) {
+    if (available <= 0) return { ok: false, error: t('variantSoldOut') }
+    if (desired > available) {
+      return { ok: false, error: t('notEnoughStock', { count: available }) }
+    }
   }
 
   await db.cartItem.upsert({
@@ -80,7 +84,7 @@ export async function updateCartItemQty(itemId: string, qty: number): Promise<Ca
   }
 
   const available = availableStock(item.variant)
-  if (qty > available) {
+  if (qty > available && !item.variant.product.preorderEnabled) {
     return { ok: false, error: t('notEnoughStock', { count: available }) }
   }
 

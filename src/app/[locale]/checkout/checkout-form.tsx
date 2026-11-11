@@ -10,6 +10,7 @@ import { Input, Textarea, Select, Field } from '@/components/ui/input'
 import { calculatePricing } from '@/lib/orders/pricing'
 import { formatTWD, cn } from '@/lib/utils'
 import type { CheckoutPrefill } from '@/lib/orders/checkout-prefill'
+import { CHECKOUT_CVS_SUBTYPES, CHECKOUT_HOME_SUBTYPES } from '@/lib/checkout-options'
 import { submitCheckout, type CheckoutState } from './actions'
 
 type Item = {
@@ -42,11 +43,13 @@ function readMapCollection(): boolean {
   }
 }
 
-const CVS_OPTIONS = ['UNIMARTC2C', 'FAMIC2C', 'HILIFEC2C', 'OKMARTC2C'] as const
-const HOME_OPTIONS = ['TCAT', 'POST'] as const
+// 與 Server Action 的驗證共用同一份清單，畫面上才不會出現送出去會被擋的選項
+const CVS_OPTIONS = CHECKOUT_CVS_SUBTYPES
+const HOME_OPTIONS = CHECKOUT_HOME_SUBTYPES
 
 const PAYMENT_OPTIONS = [
-  { value: 'Credit', labelKey: 'credit', noteKey: 'creditNote', icon: CreditCard },
+  // 結帳頁的標題比較長（含 Apple Pay／綠界 Pay），訂單紀錄與結果頁仍用短的 'credit'
+  { value: 'Credit', labelKey: 'creditOption', noteKey: 'creditNote', icon: CreditCard },
   { value: 'ATM', labelKey: 'atm', noteKey: 'atmNote', icon: Building },
   { value: 'CVS', labelKey: 'cvsPayment', noteKey: 'cvsPaymentNote', icon: Barcode },
   { value: 'BARCODE', labelKey: 'barcode', noteKey: 'barcodeNote', icon: ScanBarcode },
@@ -91,6 +94,7 @@ export function CheckoutForm({
   items,
   couponCode,
   prefill,
+  shippingMethods,
   shippingFees,
   freeShippingThreshold,
   payment,
@@ -99,6 +103,8 @@ export function CheckoutForm({
   couponCode: string | null
   /** 回購會員從上一筆訂單與地址簿帶入的值，第一次買的會員大多是空的 */
   prefill: CheckoutPrefill
+  /** 後台開放的配送方式（超商取貨可以整個關掉），至少一種 */
+  shippingMethods: ('CVS' | 'HOME')[]
   shippingFees: { CVS: number; HOME: number }
   freeShippingThreshold: number
   payment: CheckoutPaymentSettings
@@ -111,8 +117,11 @@ export function CheckoutForm({
   const [state, formAction, pending] = useActionState(submitCheckout, INITIAL)
 
   const address = prefill.address
+  // 上一筆訂單是超商取貨、但超商取貨現在關掉了 —— 改帶第一個開放的方式
   const [shippingMethod, setShippingMethod] = React.useState<'CVS' | 'HOME'>(
-    prefill.shippingMethod,
+    shippingMethods.includes(prefill.shippingMethod)
+      ? prefill.shippingMethod
+      : (shippingMethods[0] ?? 'HOME'),
   )
   const [cvsSubType, setCvsSubType] = React.useState<string>(prefill.cvsSubType)
   const [homeSubType, setHomeSubType] = React.useState('TCAT')
@@ -374,13 +383,15 @@ export function CheckoutForm({
         <section>
           <SectionTitle step={2} title={t('shippingMethod')} />
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <MethodCard
-              active={shippingMethod === 'CVS'}
-              onClick={() => setShippingMethod('CVS')}
-              icon={<Store size={18} strokeWidth={1.5} />}
-              title={t('cvs')}
-              note={t('shippingFeeNote', { amount: formatTWD(shippingFees.CVS) })}
-            />
+            {shippingMethods.includes('CVS') && (
+              <MethodCard
+                active={shippingMethod === 'CVS'}
+                onClick={() => setShippingMethod('CVS')}
+                icon={<Store size={18} strokeWidth={1.5} />}
+                title={t('cvs')}
+                note={t('shippingFeeNote', { amount: formatTWD(shippingFees.CVS) })}
+              />
+            )}
             <MethodCard
               active={shippingMethod === 'HOME'}
               onClick={() => setShippingMethod('HOME')}
