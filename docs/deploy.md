@@ -536,10 +536,17 @@ ssh root@103.1.221.67 'cd /srv/sagon && mkdir -p seed-data && mv shopee.json see
 這一步會：
 
 - 依蝦皮匯出檔更新名稱、描述、價格、庫存；slug 建立後不再改。
-- 這次匯出沒有的蝦皮商品改成下架；已不存在的規格停用。
+- 這次匯出沒有的蝦皮商品**刪除**（有顧客評論的改成下架，評論才不會跟著消失）；已不存在的規格停用；沒有商品的品牌刪除。
 - 刪掉舊的 sagan.com.tw 爬蟲商品（§7.7 第 9 項）。已成立的訂單不受影響，明細是下單當下的快照。
 - 圖片改名時，一併把訂單明細裡的舊網址換成新的。
 - 首頁 Hero 若已在後台換過圖就不動。
+
+最後清掉 Next.js 的圖片快取。同一張圖重新處理過（例如裁掉外框）時檔名不變，
+web 會照舊回傳快取裡的舊版，最多 4 小時（`images.minimumCacheTTL` 的預設值）：
+
+```bash
+ssh root@103.1.221.67 'cd /srv/sagon && docker compose -f docker-compose.prod.yml exec web rm -rf /app/.next/cache/images'
+```
 
 跑完照 §7.5 驗證，再看一下分類頁與商品頁。舊檔名的圖片與 `uploads/seed/` 會留在 volume 裡
 （worker 沒掛 uploads，碰不到），舊訂單可能還指著它們，不用手動清。

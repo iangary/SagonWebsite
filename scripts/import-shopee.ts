@@ -17,8 +17,12 @@
  *
  * 檔名依內容命名：<商品名>-<用途>-<識別碼>.webp，例如
  *   ullala韓國睡衣-lena-睡衣套裝-石竹粉色-26f-主圖-rmt4y3d.webp
- * 用途是 主圖／商品圖-N／規格選項名稱／尺寸表／描述圖-NN。
+ * 用途是 主圖／商品圖-N／規格選項名稱／描述圖-NN。
  * 識別碼取蝦皮圖片 ID 的末 8 碼，重跑時靠它認出同一張圖。
+ *
+ * 下載時順便整理（判斷方式見 scripts/image-frame.ts）：
+ *   - 外框（米色底 + 四角品牌 logo、或補白邊成正方形）裁掉，只留中間的照片
+ *   - 尺寸表不收：「尺寸表」欄位整欄略過，其他位置看起來像白底線稿尺寸表的也略過
  *
  * 可重複執行：已經下載過的圖片直接沿用，不會重抓；商品改名時就地改檔名。
  * 改名後資料庫裡的舊網址就失效了，匯入後一定要接著跑 npm run seed（它會一併換掉訂單明細裡的舊網址）。
@@ -34,6 +38,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { strFromU8, unzipSync } from 'fflate'
 import sharp from 'sharp'
+import { detectFrame, isSizeChart } from './image-frame'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const OUT_JSON = path.join(ROOT, 'prisma', 'seed-data', 'shopee.json')
@@ -44,6 +49,14 @@ const IMAGE_URL_PREFIX = '/uploads/shopee'
 const MAX_DIMENSION = 1600
 const WEBP_QUALITY = 82
 const DOWNLOAD_CONCURRENCY = 8
+/** 判斷外框／尺寸表用的縮圖大小，夠看出照片邊界即可 */
+const ANALYSIS_SIZE = 300
+/** 裁掉外框後四邊再內縮的比例 */
+const FRAME_INSET = 0.01
+/** 蝦皮「尺寸表」欄位的圖一律不收，官網的尺寸寫在描述文字裡 */
+const SIZE_CHART_ROLE = '尺寸表'
+/** 外框與尺寸表的處理見 scripts/image-frame.ts */
+const SKIPPED = 'skipped' as const
 const DOWNLOAD_RETRIES = 3
 
 /** 匯出檔前 6 列是欄位代碼、範本 id、中文欄名、必填說明、填寫說明，第 7 列起才是商品 */
@@ -383,6 +396,8 @@ type ImageJob = {
   file: string
   /** 蝦皮圖片 ID，用來找出舊檔名的同一張圖 */
   shopeeId: string
+  /** 主圖、商品圖-N、規格選項名稱、尺寸表、描述圖-NN */
+  role: string
   maxDimension: number
 }
 
@@ -405,7 +420,8 @@ async function findPrevious(job: ImageJob): Promise<string | null> {
   return files.find((f) => f === legacy || (f !== job.file && f.endsWith(suffix))) ?? null
 }
 
-async function downloadOne(job: ImageJob): Promise<ShopeeImage> {
+async function downloadOne(job: ImageJob): Promise<ShopeeImage | typeof SKIPPED> {
+  if (job.role === SIZE_CHART_ROLE) return SKIPPED
   const dir = path.join(IMAGE_ROOT, job.productId)
   const dest = path.join(dir, job.file)
   // 存未編碼的原始檔名：後台刪圖（deleteUploadedFile）直接拿網址對應磁碟路徑，編碼過就找不到檔案
@@ -425,9 +441,41 @@ async function downloadOne(job: ImageJob): Promise<ShopeeImage> {
     try {
       const res = await fetch(job.url, { signal: AbortSignal.timeout(60_000) })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const input = Buffer.from(await res.arrayBuffer())
-      const output = await sharp(input)
+      // 先轉正並解成原始像素，裁切、縮圖都從這份做，只在最後存 WebP 時壓縮一次
+      const decoded = await sharp(Buffer.from(await res.arrayBuffer()))
         .rotate()
+        .removeAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true })
+      const raw = { raw: { width: decoded.info.width, height: decoded.info.height, channels: decoded.info.channels } }
+      const meta = decoded.info
+      const { data, info } = await sharp(decoded.data, raw)
+        .resize(ANALYSIS_SIZE, ANALYSIS_SIZE, { fit: 'inside' })
+        .removeAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true })
+      const preview = { data, width: info.width, height: info.height }
+      if (isSizeChart(preview)) return SKIPPED
+
+      let pipeline = sharp(decoded.data, raw)
+      const frame = detectFrame(preview)
+      if (frame) {
+        // 換回原圖座標，四邊再內縮一點：分析圖的誤差，以及有些框在照片外緣還描了一圈細線
+        const k = meta.width / info.width
+        const insetX = Math.round(frame.width * k * FRAME_INSET)
+        const insetY = Math.round(frame.height * k * FRAME_INSET)
+        const fullW = meta.width
+        const fullH = meta.height
+        const left = Math.min(Math.round(frame.left * k) + insetX, fullW - 1)
+        const top = Math.min(Math.round(frame.top * k) + insetY, fullH - 1)
+        pipeline = pipeline.extract({
+          left,
+          top,
+          width: Math.min(Math.round(frame.width * k) - insetX * 2, fullW - left),
+          height: Math.min(Math.round(frame.height * k) - insetY * 2, fullH - top),
+        })
+      }
+      const output = await pipeline
         .resize({ width: job.maxDimension, height: job.maxDimension, fit: 'inside', withoutEnlargement: true })
         .webp({ quality: WEBP_QUALITY })
         .toBuffer({ resolveWithObject: true })
@@ -448,6 +496,7 @@ async function downloadOne(job: ImageJob): Promise<ShopeeImage> {
 async function downloadAll(jobs: ImageJob[]): Promise<Map<string, Map<string, ShopeeImage>>> {
   const results = new Map<string, Map<string, ShopeeImage>>()
   const failures: string[] = []
+  let skipped = 0
   let next = 0
   let done = 0
   const startedAt = Date.now()
@@ -457,6 +506,11 @@ async function downloadAll(jobs: ImageJob[]): Promise<Map<string, Map<string, Sh
       const job = jobs[next++]
       try {
         const img = await downloadOne(job)
+        if (img === SKIPPED) {
+          skipped++
+          done++
+          continue
+        }
         let perProduct = results.get(job.productId)
         if (!perProduct) results.set(job.productId, (perProduct = new Map()))
         perProduct.set(job.url, img)
@@ -471,6 +525,7 @@ async function downloadAll(jobs: ImageJob[]): Promise<Map<string, Map<string, Sh
     }
   }
   await Promise.all(Array.from({ length: DOWNLOAD_CONCURRENCY }, worker))
+  if (skipped > 0) console.log(`  略過尺寸表 ${skipped} 張`)
 
   if (failures.length > 0) {
     console.warn(`\n  ⚠️ ${failures.length} 張圖片下載失敗，已略過：`)
@@ -593,6 +648,7 @@ async function main() {
         productId: d.id,
         file: imageFileName(base, role, shopeeId),
         shopeeId,
+        role,
         maxDimension: MAX_DIMENSION,
       })
     }

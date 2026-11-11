@@ -244,8 +244,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               href={`/product/all?brand=${brand.slug}`}
               className="group relative block w-[64vw] shrink-0 snap-start overflow-hidden bg-cream-200 sm:w-[calc((100%-2rem)/3)] lg:w-[calc((100%-3rem)/4)]"
             >
-              {/* 正方形：封面是蝦皮商品主圖（1:1），直式框會切掉角落的品牌 logo */}
-              <div className="relative aspect-square">
+              {/* 3:4 直式：封面是蝦皮商品主圖，外框裁掉之後大多是 3:4 左右的模特兒照 */}
+              <div className="relative aspect-[3/4]">
                 {brand.coverUrl && (
                   <Image
                     src={brand.coverUrl}

@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { Upload, Trash2, ChevronLeft, ChevronRight, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { imageFitClass } from '@/lib/catalog/image-fit'
 import { useToast } from '@/components/ui/toast'
 import {
   uploadProductImages,
@@ -112,13 +113,13 @@ export function ImageManager({
           {order.map((image, index) => (
             <li key={image.id} className="w-[calc(50%-0.375rem)] sm:w-32">
               {/* 與前台商品卡同比例，後台看到的裁切就是顧客看到的 */}
-              <div className="relative aspect-square overflow-hidden bg-cream-100">
+              <div className="relative aspect-[3/4] overflow-hidden bg-cream-100">
                 <Image
                   src={image.url}
                   alt=""
                   fill
                   sizes="(max-width: 639px) 45vw, 128px"
-                  className="object-cover"
+                  className={imageFitClass(image)}
                 />
                 {index === 0 && (
                   <Badge tone="dark" className="absolute left-1.5 top-1.5 gap-1">

@@ -17,7 +17,7 @@ export function ProductGallery({ images, name }: { images: GalleryImage[]; name:
 
   if (images.length === 0) {
     return (
-      <div className="flex aspect-square items-center justify-center bg-cream-100 text-sm text-taupe-400">
+      <div className="flex aspect-[3/4] items-center justify-center bg-cream-100 text-sm text-taupe-400">
         {t('noImage')}
       </div>
     )
@@ -29,8 +29,8 @@ export function ProductGallery({ images, name }: { images: GalleryImage[]; name:
 
   return (
     <div className="flex flex-col gap-3 lg:flex-row-reverse lg:gap-4">
-      {/* 正方形配 object-contain：蝦皮圖剛好填滿；尺寸表等非正方形的圖只會留米色邊，不會被切 */}
-      <div className="group/zoom relative aspect-square flex-1 overflow-hidden bg-cream-100">
+      {/* 3:4 配 object-contain：裁掉外框的模特兒照剛好填滿；正方形的去背商品圖只會上下留米色邊，不會被切 */}
+      <div className="group/zoom relative aspect-[3/4] flex-1 overflow-hidden bg-cream-100">
         <Image
           src={current.url}
           alt={current.alt ?? name}

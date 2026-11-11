@@ -12,6 +12,8 @@
  * 可重複執行 —— 全部以 sourceId / sku / slug / code upsert，不會產生重複資料。
  * 重跑時以蝦皮匯出檔為準：名稱、描述、價格、庫存都會被蓋回匯出檔的值，
  * 但 slug 建立後就不再改（對外連結與 SEO），後台自己上傳的商品圖也不會動。
+ * 匯出檔裡沒有的蝦皮商品會被刪除（有顧客評論的改成下架），所以換一份只含部分商品的匯出檔
+ * 就等於把官網的商品縮成那幾件。
  */
 
 import { existsSync } from 'node:fs'
@@ -311,15 +313,24 @@ async function seedProducts(
     if ((index + 1) % 200 === 0) console.log(`  商品 ${index + 1}/${sorted.length}`)
   }
 
-  // 之前匯入過、這次匯出檔裡沒有的（蝦皮上刪掉了）：下架而不刪
-  const gone = await db.product.updateMany({
-    where: { sourceId: { startsWith: PRODUCT_SOURCE_PREFIX, notIn: seen }, status: 'ACTIVE' },
+  // 之前匯入過、這次匯出檔裡沒有的（蝦皮上刪掉了）：刪除。
+  // 已成立的訂單不受影響（OrderItem 是快照，variantId 設成 null）；
+  // 有顧客評論的改成下架 —— 刪商品會連評論一起刪掉。
+  const gone = { sourceId: { startsWith: PRODUCT_SOURCE_PREFIX, notIn: seen } }
+  const archived = await db.product.updateMany({
+    where: { ...gone, reviews: { some: {} }, status: { not: 'ARCHIVED' } },
     data: { status: 'ARCHIVED' },
   })
+  const deleted = await db.product.deleteMany({ where: { ...gone, reviews: { none: {} } } })
+
+  // 商品刪光的品牌也刪掉，否則首頁與關於頁會列出「0 件」的品牌。後台上過封面圖的品牌保留
+  const emptyBrands = await db.brand.deleteMany({ where: { products: { none: {} }, imageUrl: null } })
 
   const active = sorted.filter((p) => p.status === 'ACTIVE').length
   console.log(`  商品 ${sorted.length} 件（上架 ${active}、下架 ${sorted.length - active}）`)
-  if (gone.count > 0) console.log(`  蝦皮上已不存在而下架：${gone.count} 件`)
+  if (deleted.count > 0) console.log(`  蝦皮上已不存在而刪除：${deleted.count} 件`)
+  if (archived.count > 0) console.log(`  蝦皮上已不存在但有顧客評論，改成下架：${archived.count} 件`)
+  if (emptyBrands.count > 0) console.log(`  刪除沒有商品的品牌：${emptyBrands.count} 個`)
 }
 
 // ---------------------------------------------------------------------------
