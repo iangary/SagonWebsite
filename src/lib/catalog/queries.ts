@@ -259,16 +259,5 @@ export async function getHeroBanner() {
   })
 }
 
-/** 商品是否還有任何一個變體有現貨 */
-export function hasStock(product: {
-  variants: { stock: number; reservedStock: number; isActive: boolean }[]
-}): boolean {
-  return product.variants.some((v) => v.isActive && v.stock - v.reservedStock > 0)
-}
-
-/** 商品是否還能買：有現貨，或有上架中的規格開放預購 */
-export function isPurchasable(product: {
-  variants: { stock: number; reservedStock: number; isActive: boolean; preorderEnabled: boolean }[]
-}): boolean {
-  return hasStock(product) || product.variants.some((v) => v.isActive && v.preorderEnabled)
-}
+// 可售判斷搬到 stock.ts（client component 也要用），這裡保留舊的匯入路徑
+export { hasStock, isPurchasable } from './stock'

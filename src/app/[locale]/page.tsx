@@ -9,6 +9,7 @@ import { Reveal } from '@/components/ui/reveal'
 import { BrandMarquee } from '@/components/layout/brand-marquee'
 import { ScrollRail } from '@/components/home/scroll-rail'
 import { HeroCarousel } from '@/components/home/hero-carousel'
+import { ProductRecommender } from '@/components/home/product-recommender'
 import { ZoomableImage } from '@/components/ui/zoomable-image'
 import { ProductGrid } from '@/components/product/product-card'
 import {
@@ -17,6 +18,7 @@ import {
   listBrandShowcase,
   listProducts,
 } from '@/lib/catalog/queries'
+import { hasFitData } from '@/lib/recommend/candidates'
 import { lineSupport, shopName } from '@/lib/shop-config'
 import { cn } from '@/lib/utils'
 import storefrontImg from '@/assets/hero/storefront.jpg'
@@ -41,12 +43,13 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   const { locale } = await params
   setRequestLocale(locale)
 
-  const [t, hero, featured, brands, newest] = await Promise.all([
+  const [t, hero, featured, brands, newest, showSizePick] = await Promise.all([
     getTranslations('home'),
     getHeroBanner(),
     getFeaturedProducts(8),
     listBrandShowcase(),
     listProducts({ sort: 'newest', page: 1 }),
+    hasFitData(),
   ])
 
   const shop = shopName(locale)
@@ -225,6 +228,12 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         }}
         slides={heroSlides}
       />
+
+      {/*
+        尺寸推薦：身高、體重、胸圍 → 依適穿對照表（product_fits）推薦有現貨的商品與尺寸。
+        對照表還沒匯入時整區不顯示；匯入後最晚一個 revalidate 週期（5 分鐘）出現。
+      */}
+      {showSizePick && <ProductRecommender lineUrl={lineSupport?.url ?? null} />}
 
       {/* 品牌跑馬燈 */}
       <BrandMarquee items={brands.map((brand) => brand.name)} />

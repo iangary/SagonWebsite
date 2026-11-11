@@ -247,6 +247,7 @@ model Product {
   images     ProductImage[]
   variants   ProductVariant[]
   reviews    Review[]
+  fits       ProductFit[]
 
   @@index([status, publishedAt])
   @@index([brandId])
@@ -278,6 +279,42 @@ model ProductImage {
 
   @@index([productId, sortOrder])
   @@map("product_images")
+}
+
+/// 商品適穿範圍：這件睡衣（的某個尺寸）適合多高、多重、胸圍多少的人穿。
+/// 首頁「尺寸推薦」拿顧客輸入的身高體重胸圍來比對（src/lib/recommend/fit.ts）。
+///
+/// 掛在商品上、用 size 文字對應規格，而不是直接掛在 ProductVariant：
+///  - 規格多半是「顏色 × 尺寸」（白色M、白色L、粉色M），掛在規格上同一個尺寸要重複填好幾次；
+///  - 蝦皮重新匯入時規格會被重建，掛在規格上的資料會跟著 cascade 消失。
+/// 代價是比對時要從規格名稱認出尺寸字樣（M、L…），認不出的商品當單一尺寸處理。
+///
+/// 範圍兩端都是含邊界的整數；留空（null）代表那一端不設限。
+/// 資料由 scripts/import-fit-chart.ts 從 CSV 匯入，範本在 docs/recommend/fit-chart-template.csv。
+model ProductFit {
+  id        String @id @default(cuid())
+  productId String
+  /// 尺寸標籤，匯入時正規化成大寫：S、M、L、XL…；單一尺寸的商品一律是 FREE
+  size      String
+
+  heightMin Int?
+  heightMax Int?
+  weightMin Int?
+  weightMax Int?
+  /// 顧客的胸圍（身體量測值），不是衣服的胸寬
+  bustMin   Int?
+  bustMax   Int?
+
+  /// 備註，只給後台看，例如「腰圍鬆緊，偏大可選小一號」
+  note String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, size])
+  @@map("product_fits")
 }
 
 model ProductVariant {
