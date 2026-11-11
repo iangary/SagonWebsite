@@ -176,22 +176,35 @@ function SearchControl({
     )
   }
 
+  /*
+    手機：蓋住整條頁首列（logo、選單都遮掉），右邊那排圖示塞不下一個輸入框，
+    塞進去會往左疊到 logo 上。字級 16px —— iOS Safari 對小於 16px 的輸入框
+    一聚焦就把整頁放大，放大後 logo 跟購物車都被推出畫面。
+    平板以上維持原本的行內展開。
+  */
   return (
-    <form onSubmit={submit} className="flex items-center gap-1">
+    <form
+      onSubmit={submit}
+      role="search"
+      className="absolute inset-0 z-10 flex items-center gap-2 bg-cream-50 px-4 sm:static sm:z-auto sm:gap-1 sm:bg-transparent sm:px-0"
+    >
+      <Search size={18} strokeWidth={1.5} className="shrink-0 text-taupe-500 sm:hidden" aria-hidden />
       <input
         ref={inputRef}
         name="q"
+        // 不用 type="search"：瀏覽器會再加一顆自己的清除鈕，跟右邊的關閉鈕變成兩個 ×
+        enterKeyHint="search"
         placeholder={placeholder}
         onKeyDown={(e) => e.key === 'Escape' && onOpenChange(false)}
-        className="w-36 border-b border-cream-300 bg-transparent px-1 py-1.5 text-sm placeholder:text-taupe-400 focus:border-taupe-500 focus:outline-none sm:w-56"
+        className="min-w-0 flex-1 border-b border-cream-300 bg-transparent px-1 py-1.5 text-base placeholder:text-taupe-400 focus:border-taupe-500 focus:outline-none sm:w-56 sm:flex-none sm:text-sm"
       />
       <button
         type="button"
         onClick={() => onOpenChange(false)}
         aria-label={closeLabel}
-        className="flex size-8 items-center justify-center text-taupe-400 hover:text-ink-900"
+        className="flex size-10 shrink-0 items-center justify-center text-taupe-400 hover:text-ink-900 sm:size-8"
       >
-        <X size={16} />
+        <X size={18} className="sm:size-4" />
       </button>
     </form>
   )

@@ -64,7 +64,8 @@ export async function SiteHeader() {
         桌機是三欄：logo 靠左、導覽置中、圖示靠右。左右兩欄都 flex-1，導覽才會真的落在正中間。
         分類不再另開第二列（分類一多就被切掉），改收進 DesktopNav 的展開面板。
       */}
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:h-[4.5rem]">
+      {/* relative：手機上打開的搜尋列是 absolute，要蓋住的就是這一列 */}
+      <div className="relative mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:h-[4.5rem]">
         <div className="flex flex-1 items-center gap-4">
           <MobileNav
             links={navLinks}
