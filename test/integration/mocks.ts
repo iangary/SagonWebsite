@@ -70,6 +70,8 @@ export function authMockModule() {
       if (!user || user.role !== 'ADMIN') throw new Error('FORBIDDEN')
       return user
     }),
+    // 真的實作會再問一次資料庫；測試裡身分就是 mockAuthUser 設的那個
+    isDbAdmin: vi.fn(async () => currentAuthUser()?.role === 'ADMIN'),
     normalizeTwMobile: (value: string) => {
       const digits = value.replace(/\D/g, '')
       return /^09\d{8}$/.test(digits) ? digits : null

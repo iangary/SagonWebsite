@@ -1,7 +1,7 @@
 import type * as React from 'react'
 import Image from 'next/image'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Ruler } from 'lucide-react'
 import { Link } from '@/i18n/routing'
 import { defaultLocale } from '@/i18n/config'
 import { Button } from '@/components/ui/button'
@@ -66,15 +66,33 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     // 1. 店面插畫：圖本身是平塗底色，slide 底色取同一個色，邊緣才不會露出一塊方框
     <div
       key="storefront"
-      className={cn(slideBase, 'flex items-center justify-center bg-[#eae6dd] px-3 pt-10 sm:px-6 lg:pt-16')}
+      className={cn(
+        slideBase,
+        'flex items-center justify-center bg-[#eae6dd] px-3 sm:px-6 lg:pt-16',
+        // 按鈕擺在插畫上緣外側（Sagan 字樣正上方），手機多留一點上方空間給它
+        showSizePick ? 'pt-16' : 'pt-10',
+      )}
     >
-      <ZoomableImage
-        src={storefrontImg}
-        alt={t('carousel.storefrontAlt')}
-        priority
-        sizes="(min-width: 1024px) 52rem, 100vw"
-        className="h-auto w-auto max-w-full lg:max-h-[calc(min(80vh,760px)-8rem)]"
-      />
+      <div className="relative max-w-full">
+        {showSizePick && (
+          // 連到首頁下方的尺寸推薦區塊（ProductRecommender 的 #size-pick）。
+          // 對照表沒資料時那一區不存在，按鈕也跟著不顯示，免得點了沒反應。
+          <a
+            href="#size-pick"
+            className="absolute bottom-full left-1/2 z-10 mb-2 inline-flex h-10 -translate-x-[44%] items-center gap-2 whitespace-nowrap rounded-full bg-ink-900/90 px-5 text-sm tracking-wide text-cream-50 shadow-sm transition-colors duration-300 hover:bg-plum-700 lg:mb-3 lg:h-11 lg:px-6"
+          >
+            <Ruler size={16} aria-hidden />
+            {t('carousel.sizePickCta')}
+          </a>
+        )}
+        <ZoomableImage
+          src={storefrontImg}
+          alt={t('carousel.storefrontAlt')}
+          priority
+          sizes="(min-width: 1024px) 52rem, 100vw"
+          className="h-auto w-auto max-w-full lg:max-h-[calc(min(80vh,760px)-8rem)]"
+        />
+      </div>
     </div>,
 
     // 2. 名言：左圖右文，整張鋪插畫同一張牛皮紙的紋理（PAPER），

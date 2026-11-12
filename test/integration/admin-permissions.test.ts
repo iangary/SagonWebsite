@@ -29,6 +29,7 @@ vi.mock('@/lib/uploads', async (importOriginal) => {
 import { db } from '@/lib/db'
 import * as chatActions from '@/app/admin/chat/actions'
 import * as couponsActions from '@/app/admin/coupons/actions'
+import * as fitChartActions from '@/app/admin/fit-chart/actions'
 import * as ordersActions from '@/app/admin/orders/actions'
 import * as productsActions from '@/app/admin/products/actions'
 import * as refundsActions from '@/app/admin/refunds/actions'
@@ -76,6 +77,7 @@ const ACTION_MODULES: Record<string, Record<string, unknown>> = {
   reviews: reviewsActions,
   webhooks: webhooksActions,
   chat: chatActions,
+  fitChart: fitChartActions,
 }
 
 type AdminActionCase = { name: string; run: () => Promise<unknown> }
@@ -286,7 +288,27 @@ const ADMIN_ACTIONS: AdminActionCase[] = [
     name: 'chat.updateConversationStatus',
     run: () => chatActions.updateConversationStatus('conversation-x', 'CLOSED'),
   },
+
+  // --- src/app/admin/fit-chart/actions.ts ---
+  // 尺寸對照表上傳：寫入會整份替換商品的適穿資料，預覽也會讀出整張對照表的比對結果
+  {
+    name: 'fitChart.previewFitChartAction',
+    run: () => fitChartActions.previewFitChartAction(fitChartForm()),
+  },
+  {
+    name: 'fitChart.applyFitChartAction',
+    run: () => fitChartActions.applyFitChartAction(fitChartForm()),
+  },
 ]
+
+/** 一份「看起來完全合法」的對照表：擋下來的只能是權限，不是檔案格式 */
+function fitChartForm(): FormData {
+  const fd = new FormData()
+  const csv = ['商品代號,尺寸,身高下限(cm),身高上限(cm)', 'some-product,FREE,150,170'].join(String.fromCharCode(10))
+  fd.append('file', new File([csv], 'fit-chart.csv', { type: 'text/csv' }))
+  fd.append('fingerprint', 'x')
+  return fd
+}
 
 let customer: User
 
@@ -327,6 +349,7 @@ describe('被拒絕的呼叫不留任何痕跡', () => {
     expect(await db.category.count()).toBe(0)
     expect(await db.brand.count()).toBe(0)
     expect(await db.chatMessage.count()).toBe(0)
+    expect(await db.productFit.count()).toBe(0)
 
     expect(saveProductImagesMock).not.toHaveBeenCalled()
     expect(deleteUploadedFileMock).not.toHaveBeenCalled()
@@ -401,7 +424,7 @@ describe('破壞性動作被拒絕後資料維持原狀', () => {
 })
 
 describe('掃描清單的完整性（meta）', () => {
-  it('七個 actions 檔的每一個 export 都在 ADMIN_ACTIONS 表格裡', async () => {
+  it('每個 actions 檔的每一個 export 都在 ADMIN_ACTIONS 表格裡', async () => {
     const exported: string[] = []
     for (const [namespace, actions] of Object.entries(ACTION_MODULES)) {
       for (const [key, value] of Object.entries(actions)) {

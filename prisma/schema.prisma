@@ -290,7 +290,7 @@ model ProductImage {
 /// 代價是比對時要從規格名稱認出尺寸字樣（M、L…），認不出的商品當單一尺寸處理。
 ///
 /// 範圍兩端都是含邊界的整數；留空（null）代表那一端不設限。
-/// 資料由 scripts/import-fit-chart.ts 從 CSV 匯入，範本在 docs/recommend/fit-chart-template.csv。
+/// 資料在後台「尺寸對照表」（/admin/fit-chart）下載 Excel、填好再上傳；說明見 docs/recommend/README.md。
 model ProductFit {
   id        String @id @default(cuid())
   productId String

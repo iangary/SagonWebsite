@@ -126,7 +126,12 @@ export function ProductRecommender({ lineUrl }: { lineUrl: string | null }) {
   const loading = state.status === 'loading'
 
   return (
-    <section aria-labelledby={`${baseId}-title`} className="border-b border-cream-200 bg-cream-100/60">
+    <section
+      // 首頁 Hero 第一張的按鈕連到這裡；scroll-mt 讓開 sticky header（h-16／lg:h-[4.5rem]）
+      id="size-pick"
+      aria-labelledby={`${baseId}-title`}
+      className="scroll-mt-16 border-b border-cream-200 bg-cream-100/60 lg:scroll-mt-[4.5rem]"
+    >
       <div className="mx-auto max-w-7xl px-6 py-14 sm:py-20">
         <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-16">
           <div>

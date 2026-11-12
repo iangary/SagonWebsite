@@ -64,7 +64,8 @@
       "authTitle": "LUNALUZ 대만 공식 파트너",
       "authBody": "{shop}은(는) 한국 LUNALUZ의 대만 공식 공인 파트너입니다. 모든 제품은 정품입니다.",
       "authCta": "LUNALUZ 보러 가기",
-      "authAlt": "LUNALUZ KOREA가 {shop}을(를) 대만 공식 파트너로 인증한 증서"
+      "authAlt": "LUNALUZ KOREA가 {shop}을(를) 대만 공식 파트너로 인증한 증서",
+      "sizePickCta": "체형으로 맞는 사이즈 찾기"
     },
     "recommend": {
       "eyebrow": "Size Pick",
@@ -87,7 +88,7 @@
       "sizeLabel": "추천 사이즈 {size}",
       "freeSize": "프리 사이즈",
       "alsoFits": "{sizes}도 맞아요",
-      "allOk": "{dims} 모두 권장 범위 안이에요",
+      "allOk": "{dims} 권장 범위 안이에요",
       "low": "{dim}이(가) 권장 범위보다 작아요 ({range})",
       "high": "{dim}이(가) 권장 범위를 넘어요 ({range})",
       "noBustData": "이 제품은 가슴둘레 범위가 없어요",

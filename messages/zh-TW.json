@@ -64,7 +64,8 @@
       "authTitle": "LUNALUZ 台灣官方授權",
       "authBody": "{shop}是韓國 LUNALUZ 在台灣的官方授權經銷商，每一件都是正品。",
       "authCta": "逛 LUNALUZ",
-      "authAlt": "LUNALUZ KOREA 授權{shop}為台灣官方經銷商的授權證書"
+      "authAlt": "LUNALUZ KOREA 授權{shop}為台灣官方經銷商的授權證書",
+      "sizePickCta": "輸入身形，找合身的睡衣"
     },
     "recommend": {
       "eyebrow": "Size Pick",
@@ -87,7 +88,7 @@
       "sizeLabel": "建議尺寸 {size}",
       "freeSize": "單一尺寸",
       "alsoFits": "{sizes} 也合適",
-      "allOk": "{dims}都在建議範圍內",
+      "allOk": "{dims}在建議範圍內",
       "low": "{dim}低於建議範圍（{range}）",
       "high": "{dim}超出建議範圍（{range}）",
       "noBustData": "這件沒有提供胸圍範圍",
