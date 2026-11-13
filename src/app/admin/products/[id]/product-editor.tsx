@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input, Textarea, Select, Field } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
 import { DataTable, Td } from '@/components/admin/ui'
+import { submitWithoutReset } from '@/components/admin/submit-without-reset'
 import {
   updateProduct,
   updateVariant,
@@ -72,7 +73,10 @@ export function ProductEditor({
 
   return (
     <div className="space-y-6">
-      <form action={formAction} className="border border-cream-200 bg-white p-5">
+      <form
+        onSubmit={submitWithoutReset(formAction)}
+        className="border border-cream-200 bg-white p-5"
+      >
         <input type="hidden" name="id" value={product.id} />
 
         <h2 className="mb-5 text-sm tracking-[0.1em]">基本資料</h2>
