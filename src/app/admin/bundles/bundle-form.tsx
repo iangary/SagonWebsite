@@ -9,6 +9,8 @@ import { Field, Input, Select, Textarea } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
 import { formatTWD } from '@/lib/utils'
 import { saveBundle, type BundleFormState } from './actions'
+import { BundleJsonPanel } from './bundle-json-panel'
+import type { BundleJsonValues } from './bundle-json'
 import type { BundleProductOption } from './product-options'
 
 const INITIAL: BundleFormState = { ok: false }
@@ -30,9 +32,17 @@ type Row = { key: string; productId: string; variantId: string; qty: number }
 
 const STATUS_LABEL = { DRAFT: '草稿', ACTIVE: '', ARCHIVED: '已封存' } as const
 
-let rowSeq = 0
-const newKey = () => `row-${++rowSeq}`
+// 列的 key 也拿來組 label 的 htmlFor。不能用模組層級的計數器 —— 伺服器端每次請求都會累加，
+// 伺服器畫出 row-5、瀏覽器畫出 row-1，就是 hydration mismatch。初始列用索引、之後新增的列才遞增。
+const initialKey = (index: number) => `row-${index + 1}`
 
+/**
+ * 組合表單。外層只管「用 JSON 整份替換」：套用 JSON 時換一個 key 讓表單重新掛載，
+ * 名稱、說明這些非受控欄位才會換成新的預設值。
+ *
+ * JSON 面板放在外層、不跟著重新掛載 —— 套用之後貼上的 JSON 與展開狀態都還在，
+ * 對照著表單檢查、改一個字再套用一次都很方便。
+ */
 export function BundleForm({
   initial,
   products,
@@ -40,21 +50,110 @@ export function BundleForm({
   initial: BundleFormValues
   products: BundleProductOption[]
 }) {
+  const { toast } = useToast()
+  const [current, setCurrent] = React.useState({
+    values: initial,
+    version: 0,
+    autoSubmit: false,
+  })
+  // 內層表單把「讀目前的值」交上來，給 JSON 面板匯出用
+  const snapshotRef = React.useRef<(() => BundleJsonValues) | null>(null)
+
+  return (
+    <div className="space-y-8">
+      <BundleJsonPanel
+        products={products}
+        getCurrent={() => snapshotRef.current?.() ?? current.values}
+        submitLabel={initial.id ? '儲存' : '建立'}
+        onApply={(values, { submit }) => {
+          if (!submit) {
+            toast(`已套用 JSON，確認表單內容後再按「${initial.id ? '儲存' : '建立組合'}」`)
+          }
+          setCurrent((c) => ({
+            // 編輯中的組合：JSON 只換內容，不換是哪一個組合
+            values: { ...values, id: initial.id },
+            version: c.version + 1,
+            autoSubmit: submit,
+          }))
+        }}
+      />
+      <BundleFormFields
+        key={current.version}
+        initial={current.values}
+        autoSubmit={current.autoSubmit}
+        products={products}
+        snapshotRef={snapshotRef}
+      />
+    </div>
+  )
+}
+
+function BundleFormFields({
+  initial,
+  products,
+  autoSubmit,
+  snapshotRef,
+}: {
+  initial: BundleFormValues
+  products: BundleProductOption[]
+  /** JSON 面板按「套用並建立／儲存」時，重新掛載後直接送出 */
+  autoSubmit: boolean
+  snapshotRef: React.RefObject<(() => BundleJsonValues) | null>
+}) {
   const router = useRouter()
+  const formRef = React.useRef<HTMLFormElement>(null)
   const { toast } = useToast()
   const [state, formAction, pending] = useActionState(saveBundle, INITIAL)
   const [price, setPrice] = React.useState<number | ''>(initial.price)
   const [rows, setRows] = React.useState<Row[]>(() =>
     initial.items.length > 0
-      ? initial.items.map((item) => ({
-          key: newKey(),
+      ? initial.items.map((item, index) => ({
+          key: initialKey(index),
           productId: item.productId,
           variantId: item.variantId ?? '',
           qty: item.qty,
         }))
-      : [{ key: newKey(), productId: '', variantId: '', qty: 1 }],
+      : [{ key: initialKey(0), productId: '', variantId: '', qty: 1 }],
   )
   const [filter, setFilter] = React.useState('')
+  // 新增列的流水號，從初始列數之後接著編
+  const rowSeq = React.useRef(Math.max(1, initial.items.length))
+
+  // 「套用並建立」：等新的值都畫上去（隱藏欄位 items 也更新了）才送出
+  // 用 ref 擋重複送出：開發模式的 StrictMode 會把 mount 時的 effect 跑兩次，
+  // 沒擋的話同一份 JSON 會存兩次（稽核紀錄也會多一筆）。
+  const autoSubmitted = React.useRef(false)
+  React.useEffect(() => {
+    if (!autoSubmit || autoSubmitted.current) return
+    autoSubmitted.current = true
+    formRef.current?.requestSubmit()
+  }, [autoSubmit])
+
+  /** 目前表單上的值（含還沒存的修改），給 JSON 面板匯出 */
+  function snapshot(): BundleJsonValues {
+    const data = new FormData(formRef.current ?? undefined)
+    const text = (key: string) => String(data.get(key) ?? '').trim()
+    return {
+      name: text('name'),
+      nameEn: text('nameEn'),
+      slug: text('slug'),
+      description: text('description'),
+      descriptionEn: text('descriptionEn'),
+      price,
+      sortOrder: Number(text('sortOrder')) || 0,
+      isActive: data.get('isActive') === 'on',
+      items: rows
+        .filter((row) => row.productId)
+        .map((row) => ({
+          productId: row.productId,
+          variantId: row.variantId || null,
+          qty: row.qty,
+        })),
+    }
+  }
+  React.useEffect(() => {
+    snapshotRef.current = snapshot
+  })
 
   React.useEffect(() => {
     if (state.ok && state.message) {
@@ -107,7 +206,7 @@ export function BundleForm({
   const errors = state.fieldErrors ?? {}
 
   return (
-    <form action={formAction} className="space-y-8">
+    <form ref={formRef} action={formAction} className="space-y-8">
       {initial.id && <input type="hidden" name="id" value={initial.id} />}
       <input type="hidden" name="items" value={itemsJson} />
 
@@ -279,7 +378,7 @@ export function BundleForm({
           onClick={() =>
             setRows((current) => [
               ...current,
-              { key: newKey(), productId: '', variantId: '', qty: 1 },
+              { key: `row-${++rowSeq.current}`, productId: '', variantId: '', qty: 1 },
             ])
           }
         >

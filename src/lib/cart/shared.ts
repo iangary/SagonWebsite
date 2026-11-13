@@ -30,7 +30,9 @@ export type CartWithItems = Prisma.CartGetPayload<{
 
 export const CART_INCLUDE = {
   items: {
-    orderBy: { createdAt: 'asc' },
+    // 「整組加入購物車」在同一個交易裡建立好幾筆，createdAt 完全相同；
+    // 補上 id（cuid，大致遞增）當第二順位，順序才不會每次重整都跳動
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     include: {
       variant: {
         include: {

@@ -26,6 +26,8 @@ import {
   type BundleFormState,
 } from '@/app/admin/bundles/actions'
 import { deleteProduct, deleteVariant } from '@/app/admin/products/actions'
+import { parseBundleJson } from '@/app/admin/bundles/bundle-json'
+import { loadBundleProductOptions } from '@/app/admin/bundles/product-options'
 import { createTestCart, createTestCoupon, createTestProduct, createTestUser } from '../factories'
 import { getCookieJar, mockAuthUser, resetCookieJar } from './mocks'
 import { signedPaymentReturnParams } from './helpers/ecpay'
@@ -670,5 +672,57 @@ describe('後台組合管理', () => {
     const delProduct = await deleteProduct(a.product.id)
     expect(delProduct).toEqual({ ok: false, error: expect.stringContaining('擋刪組合') })
     expect(await db.product.count({ where: { id: a.product.id } })).toBe(1)
+  })
+})
+
+describe('後台：用 JSON 設定組合', () => {
+  beforeEach(async () => {
+    const admin = await createTestUser({ role: 'ADMIN' })
+    mockAuthUser({ id: admin.id, role: 'ADMIN' })
+  })
+
+  it('用 slug 與 SKU 寫的 JSON → 解析成表單值 → saveBundle 存進資料庫，前台算得出現省多少', async () => {
+    const top = await createTestProduct({ price: 1000, variantCount: 2 }) // 1000、1100
+    const pants = await createTestProduct({ price: 800 })
+
+    // 與後台頁面一樣，從 loadBundleProductOptions 取得商品清單來對 slug／SKU
+    const products = await loadBundleProductOptions()
+    const parsed = parseBundleJson(
+      JSON.stringify({
+        name: 'JSON 建立的組合',
+        price: 1500,
+        isActive: true,
+        items: [
+          { product: top.product.slug, variant: top.variants[1]!.sku, qty: 1 },
+          { product: pants.product.slug, variant: null, qty: 1 },
+        ],
+      }),
+      products,
+    )
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+
+    // 表單送出時的 FormData 形狀（bundle-form.tsx）
+    const fd = new FormData()
+    fd.append('name', parsed.values.name)
+    fd.append('price', String(parsed.values.price))
+    fd.append('sortOrder', String(parsed.values.sortOrder))
+    if (parsed.values.isActive) fd.append('isActive', 'on')
+    fd.append('items', JSON.stringify(parsed.values.items))
+
+    const result = await saveBundle({ ok: false }, fd)
+    expect(result.ok).toBe(true)
+
+    const saved = await db.bundle.findFirstOrThrow({
+      include: { items: { orderBy: { sortOrder: 'asc' } } },
+    })
+    expect(saved).toMatchObject({ name: 'JSON 建立的組合', price: 1500, isActive: true })
+    expect(saved.items.map((i) => [i.productId, i.variantId, i.qty])).toEqual([
+      [top.product.id, top.variants[1]!.id, 1],
+      [pants.product.id, null, 1],
+    ])
+
+    const [storefront] = await getStorefrontBundles('zh-TW')
+    expect(storefront).toMatchObject({ price: 1500, originalMin: 1900, saving: 400 })
   })
 })

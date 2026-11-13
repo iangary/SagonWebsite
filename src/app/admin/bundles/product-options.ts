@@ -3,9 +3,10 @@ import { db } from '@/lib/db'
 
 export interface BundleProductOption {
   id: string
+  slug: string
   name: string
   status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED'
-  variants: { id: string; name: string; price: number; isActive: boolean }[]
+  variants: { id: string; sku: string; name: string; price: number; isActive: boolean }[]
 }
 
 /**
@@ -21,11 +22,12 @@ export async function loadBundleProductOptions(
     orderBy: [{ status: 'asc' }, { name: 'asc' }],
     select: {
       id: true,
+      slug: true,
       name: true,
       status: true,
       variants: {
         orderBy: { sortOrder: 'asc' },
-        select: { id: true, name: true, price: true, isActive: true },
+        select: { id: true, sku: true, name: true, price: true, isActive: true },
       },
     },
   })

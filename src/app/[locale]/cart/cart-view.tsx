@@ -293,9 +293,14 @@ function Row({
   tone?: 'sale'
 }) {
   return (
-    <div className="flex justify-between">
+    <div className="flex justify-between gap-3">
       <dt className="text-ink-700">{label}</dt>
-      <dd className={`tabular-nums ${tone === 'sale' ? 'text-sale' : 'text-ink-900'}`}>{value}</dd>
+      {/* 長的組合名稱讓左邊換行，金額本身（含負號）不拆開 */}
+      <dd
+        className={`shrink-0 whitespace-nowrap tabular-nums ${tone === 'sale' ? 'text-sale' : 'text-ink-900'}`}
+      >
+        {value}
+      </dd>
     </div>
   )
 }
