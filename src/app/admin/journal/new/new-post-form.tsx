@@ -25,7 +25,7 @@ export function NewPostForm() {
   }, [state, toast, router])
 
   return (
-    <form action={formAction} className="max-w-xl border border-cream-200 bg-white p-5">
+    <form action={formAction}>
       <Field
         label="標題"
         htmlFor="title"

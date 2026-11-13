@@ -1,14 +1,12 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { db } from '@/lib/db'
 import { requireAdmin } from '@/lib/auth'
 import { audit } from '@/lib/audit'
-import { locales } from '@/i18n/config'
 import { slugify } from '@/lib/utils'
+import { missingEmbeds, missingEmbedWarning, revalidateJournal, slugTaken, uniquePostSlug } from '@/lib/journal/admin'
 import { savePostImages, deletePostImageDir, MAX_FILES_PER_UPLOAD } from '@/lib/uploads'
-import { extractProductSlugs } from '@/lib/journal/html'
 import { productCardHtml } from '@/lib/journal/render'
 import { PRODUCT_CARD_SELECT } from '@/lib/catalog/queries'
 import { TRANSLATION_LOCALES } from '@/lib/journal/queries'
@@ -30,45 +28,6 @@ function fieldErrorsFrom(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {}
   for (const issue of error.issues) out[String(issue.path[0] ?? '_')] ??= issue.message
   return out
-}
-
-/**
- * 前台文章頁都是動態渲染，這裡清的主要是後台列表；前台的內部路徑也一併清，
- * 日後若改成 ISR 才不會漏。localePrefix: never 的內部路徑仍帶語系前綴（見商品 actions 的說明）。
- */
-function revalidateJournal(slugs: (string | null | undefined)[] = []): void {
-  revalidatePath('/admin/journal')
-  for (const locale of locales) {
-    revalidatePath(`/${locale}/journal`)
-    for (const slug of slugs) if (slug) revalidatePath(`/${locale}/journal/${slug}`)
-  }
-}
-
-async function slugTaken(slug: string, exceptId?: string): Promise<boolean> {
-  const row = await db.post.findUnique({ where: { slug }, select: { id: true } })
-  return row !== null && row.id !== exceptId
-}
-
-/** 由標題產生還沒被用掉的 slug；撞名往後加 -2、-3。 */
-async function uniquePostSlug(title: string): Promise<string> {
-  const base = slugify(title) || `post-${Date.now().toString(36)}`
-  for (let n = 1; n <= 50; n++) {
-    const candidate = n === 1 ? base : `${base}-${n}`
-    if (!(await slugTaken(candidate))) return candidate
-  }
-  return `${base}-${Date.now().toString(36)}`
-}
-
-/** 內文嵌入的商品裡，找不到或沒上架的那些（存檔時提醒，前台會自動略過）。 */
-async function missingEmbeds(...htmls: string[]): Promise<string[]> {
-  const slugs = [...new Set(htmls.flatMap((h) => extractProductSlugs(h)))]
-  if (slugs.length === 0) return []
-  const found = await db.product.findMany({
-    where: { slug: { in: slugs }, status: 'ACTIVE' },
-    select: { slug: true },
-  })
-  const ok = new Set(found.map((p) => p.slug))
-  return slugs.filter((s) => !ok.has(s))
 }
 
 // ---------------------------------------------------------------------------
@@ -201,10 +160,7 @@ export async function updatePost(_prev: PostFormState, formData: FormData): Prom
     revalidateJournal([before.slug, slug])
 
     const warnings: string[] = []
-    const missing = await missingEmbeds(data.bodyHtml)
-    if (missing.length > 0) {
-      warnings.push(`內文嵌入的商品找不到或未上架，前台不會顯示：${missing.join('、')}`)
-    }
+    warnings.push(...missingEmbedWarning(await missingEmbeds(data.bodyHtml)))
     if (before.slug !== slug && before.status === 'PUBLISHED') {
       warnings.push('網址代稱改了，分享出去的舊連結會失效')
     }
@@ -288,10 +244,7 @@ export async function savePostTranslation(
     return {
       ok: true,
       message: '譯文已儲存',
-      warnings:
-        missing.length > 0
-          ? [`內文嵌入的商品找不到或未上架，前台不會顯示：${missing.join('、')}`]
-          : [],
+      warnings: missingEmbedWarning(missing),
     }
   } catch (error) {
     console.error('[admin] 儲存譯文失敗', error)

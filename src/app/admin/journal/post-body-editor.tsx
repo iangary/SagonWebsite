@@ -3,7 +3,6 @@
 import * as React from 'react'
 import {
   Bold,
-  FileCode,
   Heading2,
   Heading3,
   ImagePlus,
@@ -30,7 +29,7 @@ import {
 /**
  * 文章內文的 HTML 編輯器 + 即時預覽。
  *
- * 內文就是 HTML：可以直接打、貼上，或用「匯入 HTML 檔」把別處排好的文件整份載進來。
+ * 內文就是 HTML：可以直接打或貼上。要整篇（含標題、封面、譯文、圖片）一次匯入，用頁面上方的「用 HTML 檔匯入」。
  * 預覽跑的是和前台同一支 sanitizePostHtml 與同一組 CSS，被允許清單拔掉的東西
  * （script、iframe、<style>、不在清單的 inline style）在預覽裡一樣看不到 —— 看到什麼，前台就是什麼。
  *
@@ -56,7 +55,6 @@ export function PostBodyEditor({
   const { toast } = useToast()
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
   const imageRef = React.useRef<HTMLInputElement>(null)
-  const htmlFileRef = React.useRef<HTMLInputElement>(null)
   const [value, setValue] = React.useState(defaultValue)
   const [device, setDevice] = React.useState<Device>('desktop')
   const [uploading, setUploading] = React.useState(false)
@@ -150,49 +148,6 @@ export function PostBodyEditor({
     toast(`已插入 ${result.images.length} 張圖片，記得按「儲存」`)
   }
 
-  async function importHtmlFile(file: File) {
-    if (htmlFileRef.current) htmlFileRef.current.value = ''
-    if (file.size > 1024 * 1024) {
-      toast('HTML 檔超過 1 MB，請確認圖片不是直接內嵌在檔案裡', 'error')
-      return
-    }
-    const text = await file.text()
-    // DOMParser 只解析不執行（script 不會跑、圖片不會載入），用來取 <body> 與檢查圖片路徑
-    const doc = new DOMParser().parseFromString(text, 'text/html')
-    const body = doc.body.innerHTML.trim()
-    if (!body) {
-      toast('這個檔案裡沒有內容', 'error')
-      return
-    }
-
-    const el = textareaRef.current
-    if (el && el.value.trim() && !window.confirm('要用這個檔案取代目前的內文嗎？（之後仍可按 Ctrl+Z 還原）')) {
-      return
-    }
-
-    if (el) {
-      el.focus()
-      el.select()
-    }
-    replaceSelection(body)
-
-    const srcs = Array.from(doc.querySelectorAll('img')).map((img) => img.getAttribute('src') ?? '')
-    const local = srcs.filter((s) => s && !/^(https?:)?\/\//i.test(s) && !s.startsWith('/') && !s.startsWith('data:'))
-    const inline = srcs.filter((s) => s.startsWith('data:'))
-    const scripts = doc.querySelectorAll('script, iframe, style, form').length
-
-    toast(`已匯入「${file.name}」，記得按「儲存」`)
-    if (local.length + inline.length > 0) {
-      toast(
-        `有 ${local.length + inline.length} 張圖片是電腦上的檔案或內嵌圖，前台看不到 —— 請用「圖片」按鈕上傳後替換`,
-        'error',
-      )
-    }
-    if (scripts > 0) {
-      toast('檔案裡的 script、iframe、樣式表與表單在前台會被移除（預覽已經是移除後的樣子）')
-    }
-  }
-
   function insertProduct(product: EmbeddableProduct) {
     replaceSelection(`\n<p>{{product:${product.slug}}}</p>\n`, afterBlock)
     setPickerOpen(false)
@@ -235,10 +190,6 @@ export function PostBodyEditor({
             <ShoppingBag size={15} />
             <span className="text-xs">商品</span>
           </ToolButton>
-          <ToolButton label="匯入 HTML 檔（取代目前內文）" onClick={() => htmlFileRef.current?.click()}>
-            <FileCode size={15} />
-            <span className="text-xs">匯入 HTML 檔</span>
-          </ToolButton>
 
           <input
             ref={imageRef}
@@ -247,13 +198,6 @@ export function PostBodyEditor({
             multiple
             hidden
             onChange={(e) => e.target.files && uploadImages(e.target.files)}
-          />
-          <input
-            ref={htmlFileRef}
-            type="file"
-            accept=".html,.htm,text/html"
-            hidden
-            onChange={(e) => e.target.files?.[0] && importHtmlFile(e.target.files[0])}
           />
         </div>
 

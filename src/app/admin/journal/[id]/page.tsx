@@ -9,6 +9,7 @@ import { postStatusLabel } from '../status'
 import { PostEditor } from './post-editor'
 import { TranslationEditor } from './translation-editor'
 import { DeletePost } from './delete-post'
+import { ImportHtml, ImportWarnings } from '../import-html'
 
 export const dynamic = 'force-dynamic'
 
@@ -72,6 +73,17 @@ export default async function AdminPostDetail({ params }: { params: Promise<{ id
       </div>
 
       <div className="space-y-6">
+        <ImportWarnings />
+
+        <section className="border border-cream-200 bg-white p-5">
+          <h2 className="mb-2 text-sm tracking-[0.1em]">用 HTML 檔匯入</h2>
+          <p className="mb-4 text-xs leading-relaxed text-taupe-500">
+            一個 HTML 檔就是一整篇：標題、摘要、標籤、封面、內文、譯文都從檔案裡讀，圖片（網址或內嵌）會自動存到網站上。
+            格式見「下載範本」。
+          </p>
+          <ImportHtml postId={post.id} postTitle={post.title} />
+        </section>
+
         <PostEditor
           post={{
             id: post.id,
