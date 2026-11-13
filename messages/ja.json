@@ -3,6 +3,7 @@
     "home": "ホーム",
     "allProducts": "すべての商品",
     "about": "ショップについて",
+    "journal": "コラム",
     "cart": "カート",
     "account": "マイページ",
     "login": "ログイン",
@@ -836,5 +837,21 @@
   "seo": {
     "categoryDescription": "厳選した{name}{count}点。{shop}が正式ライセンスのもとで取り扱う韓国セレクトアイテムです。{threshold}以上で送料無料、7日間の検品期間あり。",
     "allProductsDescription": "{shop}の全商品一覧。正式ライセンスのもとで取り扱う韓国のパジャマ・寝具・インテリア雑貨です。{threshold}以上で送料無料、7日間の検品期間あり。"
+  },
+  "journal": {
+    "title": "コラム",
+    "description": "コーディネートのヒント、セレクトの裏話、パジャマのお手入れ —— Saganの日々のノート。",
+    "allTags": "すべて",
+    "tagTitle": "#{tag}",
+    "empty": "まだ記事がありません。お楽しみに。",
+    "emptyTag": "このタグの記事はまだありません。",
+    "readMore": "続きを読む",
+    "related": "関連記事",
+    "backToList": "コラム一覧へ",
+    "breadcrumb": "現在位置",
+    "viewProduct": "商品を見る",
+    "soldOut": "売り切れ",
+    "originalOnly": "この記事は現在、中国語版のみです。",
+    "tags": "タグ"
   }
 }

@@ -1141,3 +1141,70 @@ model Banner {
   @@index([placement, isActive, sortOrder])
   @@map("banners")
 }
+
+// ===========================================================================
+// 專欄文章（後台撰寫、前台 /journal）
+// ===========================================================================
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+}
+
+/// 專欄文章。內文是後台直接貼上 / 上傳的 HTML，**資料庫存的是原文**，
+/// 輸出到前台時才經過 src/lib/journal/render.ts 的允許清單消毒 ——
+/// 跟商品描述同一套做法：消毒規則日後放寬或收緊，不必回頭改資料。
+model Post {
+  id    String @id @default(cuid())
+  /// 對外網址 /journal/{slug}。建立後仍可改，但改了舊連結就會 404，後台有提醒。
+  slug  String @unique
+  title String
+
+  /// 列表卡片與 meta description 用；留白時前台從內文抽前 120 字。
+  excerpt  String? @db.Text
+  bodyHtml String  @db.Text
+
+  coverImageUrl String?
+
+  /// 自由標籤，例如「穿搭」「新品」。用陣列而不是另開資料表：
+  /// 標籤沒有自己的屬性（說明、排序、翻譯），開表只是多一層 join。
+  tags String[] @default([])
+
+  status PostStatus @default(DRAFT)
+
+  /// 前台只顯示 status = PUBLISHED 且 publishedAt <= 現在 的文章，
+  /// 所以填未來時間就是排程發布。發布時沒填會自動補上當下時間。
+  publishedAt DateTime?
+
+  seoTitle       String?
+  seoDescription String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  translations PostTranslation[]
+
+  @@index([status, publishedAt])
+  @@index([tags], type: Gin)
+  @@map("posts")
+}
+
+/// 文章譯文。一個語系一列；沒有譯文（或標題、內文任一為空）的語系顯示中文原文。
+model PostTranslation {
+  id     String @id @default(cuid())
+  postId String
+  /// en / ja / ko / fr（zh-TW 是 Post 本身，不會出現在這裡）
+  locale String
+
+  title    String
+  excerpt  String? @db.Text
+  bodyHtml String  @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, locale])
+  @@map("post_translations")
+}

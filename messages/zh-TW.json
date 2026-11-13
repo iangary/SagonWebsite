@@ -3,6 +3,7 @@
     "home": "首頁",
     "allProducts": "全部商品",
     "about": "關於",
+    "journal": "專欄",
     "cart": "購物車",
     "account": "會員中心",
     "login": "登入",
@@ -836,5 +837,21 @@
   "seo": {
     "categoryDescription": "精選 {count} 款{name}，{shop}正式授權引進的韓國選品。滿 {threshold} 免運，享七日鑑賞期。",
     "allProductsDescription": "{shop}全站商品一覽 —— 正式授權引進的韓國睡衣、寢具與家居飾品。滿 {threshold} 免運，享七日鑑賞期。"
+  },
+  "journal": {
+    "title": "專欄",
+    "description": "穿搭靈感、選品故事與睡衣保養 —— 莎岡的日常筆記。",
+    "allTags": "全部",
+    "tagTitle": "#{tag}",
+    "empty": "目前還沒有文章，敬請期待。",
+    "emptyTag": "這個標籤下還沒有文章。",
+    "readMore": "閱讀全文",
+    "related": "延伸閱讀",
+    "backToList": "回到專欄",
+    "breadcrumb": "頁面位置",
+    "viewProduct": "查看商品",
+    "soldOut": "已售完",
+    "originalOnly": "這篇文章目前只有中文版本。",
+    "tags": "標籤"
   }
 }

@@ -49,9 +49,10 @@ export async function SiteHeader() {
   }))
   const allProducts = { href: '/product/all', label: t('allProducts') }
   const about = { href: '/about', label: t('about') }
+  const journal = { href: '/journal', label: t('journal') }
 
   // 手機抽屜是一條直的清單，分類直接攤開；桌機把分類收進 DesktopNav 的展開面板
-  const navLinks = [{ href: '/', label: t('home') }, allProducts, about, ...categoryLinks]
+  const navLinks = [{ href: '/', label: t('home') }, allProducts, journal, about, ...categoryLinks]
 
   return (
     <header className="sticky top-0 z-50 border-b border-cream-200 bg-cream-50/95 backdrop-blur">
@@ -91,7 +92,7 @@ export async function SiteHeader() {
 
         <DesktopNav
           leading={[allProducts]}
-          trailing={[about]}
+          trailing={[journal, about]}
           categories={categoryLinks}
           labels={{
             nav: t('mainCategories'),

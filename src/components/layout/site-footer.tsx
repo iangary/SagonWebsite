@@ -17,6 +17,7 @@ export async function SiteFooter() {
 
   const serviceLinks = [
     { href: '/about', label: tNav('about') },
+    { href: '/journal', label: tNav('journal') },
     { href: '/contact', label: tNav('contact') },
     { href: '/order/query', label: tNav('orderQuery') },
     { href: '/faq', label: tNav('faq') },

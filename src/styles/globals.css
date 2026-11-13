@@ -214,6 +214,141 @@
     border-inline-start: 1px solid var(--color-cream-300);
     color: var(--color-taupe-600);
   }
+
+  /*
+    專欄文章內文：沿用 .prose-product 的字級與段距，再補上文章才會用到的元素。
+    內文經過 src/lib/journal/html.ts 的允許清單，這裡列的就是會出現的全部標籤。
+  */
+  .prose-journal h2 {
+    font-size: 1.25rem;
+  }
+  .prose-journal h3 {
+    font-size: 1.0625rem;
+  }
+  .prose-journal h4 {
+    margin-block: 2rem 0.75rem;
+    font-size: 1rem;
+  }
+  .prose-journal figure {
+    margin-block: 2rem;
+  }
+  .prose-journal figure img {
+    margin-block: 0;
+  }
+  .prose-journal figcaption {
+    margin-top: 0.75rem;
+    font-size: 0.8125rem;
+    text-align: center;
+    color: var(--color-taupe-500);
+  }
+  .prose-journal table {
+    width: 100%;
+    margin-block: 1.75rem;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .prose-journal th,
+  .prose-journal td {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-cream-200);
+    text-align: start;
+    vertical-align: top;
+  }
+  .prose-journal th {
+    background: var(--color-cream-100);
+    font-weight: 500;
+    color: var(--color-ink-900);
+  }
+  .prose-journal caption {
+    margin-bottom: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--color-taupe-500);
+  }
+  .prose-journal mark {
+    background: var(--color-cream-200);
+    color: inherit;
+    padding-inline: 0.15em;
+  }
+
+  /*
+    內文嵌入的商品卡片（{{product:slug}}）。HTML 由 src/lib/journal/render.ts 產生，
+    全是行內元素（放在 <p> 裡也不會被拆段），版面靠這裡把它撐成區塊。
+  */
+  .prose-journal .journal-product {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-block: 1.5rem;
+    padding: 0.875rem;
+    border: 1px solid var(--color-cream-200);
+    border-radius: var(--radius-card);
+    background: var(--color-cream-50);
+    color: inherit;
+    text-decoration: none;
+    transition: border-color 0.3s;
+  }
+  .prose-journal .journal-product:hover {
+    border-color: var(--color-taupe-400);
+    color: inherit;
+  }
+  .prose-journal p:has(> .journal-product:only-child) {
+    margin-block: 0;
+  }
+  .prose-journal .journal-product__image {
+    display: block;
+    flex-shrink: 0;
+    width: 6.5rem;
+    height: 6.5rem;
+    margin: 0;
+    object-fit: cover;
+    border-radius: var(--radius-card);
+    background: var(--color-cream-100);
+  }
+  .prose-journal .journal-product__body {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.25rem;
+    line-height: 1.6;
+  }
+  .prose-journal .journal-product__brand {
+    font-size: 0.6875rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-taupe-500);
+  }
+  .prose-journal .journal-product__name {
+    font-size: 0.9375rem;
+    color: var(--color-ink-900);
+  }
+  .prose-journal .journal-product__prices {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+  }
+  .prose-journal .journal-product__price.is-sale {
+    color: var(--color-sale);
+  }
+  .prose-journal .journal-product__compare {
+    font-size: 0.75rem;
+    color: var(--color-taupe-400);
+  }
+  .prose-journal .journal-product__cta {
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    color: var(--color-taupe-600);
+  }
+  .prose-journal .journal-product__cta.is-muted {
+    color: var(--color-taupe-400);
+  }
+  /* 後台預覽：找不到或未上架的商品 */
+  .prose-journal .journal-product.is-missing {
+    justify-content: center;
+    border-style: dashed;
+    font-size: 0.8125rem;
+    color: var(--color-sale);
+  }
 }
 
 /* 隱藏水平捲軸但保留捲動能力（品牌列、圖片縮圖列用） */

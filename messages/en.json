@@ -3,6 +3,7 @@
     "home": "Home",
     "allProducts": "All Products",
     "about": "About",
+    "journal": "Journal",
     "cart": "Cart",
     "account": "My Account",
     "login": "Sign in",
@@ -836,5 +837,21 @@
   "seo": {
     "categoryDescription": "Browse {count} {name} pieces at {shop} — officially licensed Korean selections. Free shipping over {threshold}, 7-day return window.",
     "allProductsDescription": "Every product at {shop} — officially licensed Korean sleepwear, bedding and home accessories. Free shipping over {threshold}, 7-day return window."
+  },
+  "journal": {
+    "title": "Journal",
+    "description": "Styling ideas, the stories behind our picks, and sleepwear care — notes from Sagan.",
+    "allTags": "All",
+    "tagTitle": "#{tag}",
+    "empty": "No articles yet — stay tuned.",
+    "emptyTag": "No articles with this tag yet.",
+    "readMore": "Read more",
+    "related": "You may also like",
+    "backToList": "Back to Journal",
+    "breadcrumb": "Breadcrumb",
+    "viewProduct": "View product",
+    "soldOut": "Sold out",
+    "originalOnly": "This article is currently only available in Chinese.",
+    "tags": "Tags"
   }
 }

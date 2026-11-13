@@ -3,6 +3,7 @@
     "home": "Accueil",
     "allProducts": "Tous les produits",
     "about": "À propos",
+    "journal": "Journal",
     "cart": "Panier",
     "account": "Mon compte",
     "login": "Connexion",
@@ -836,5 +837,21 @@
   "seo": {
     "categoryDescription": "Découvrez {count, plural, one {# article} other {# articles}} de la catégorie {name}, une sélection coréenne importée sous licence officielle par {shop}. Livraison offerte dès {threshold}, délai d’examen de 7 jours.",
     "allProductsDescription": "Tous les produits de {shop} : pyjamas, linge de lit et décoration coréens importés sous licence officielle. Livraison offerte dès {threshold}, délai d’examen de 7 jours."
+  },
+  "journal": {
+    "title": "Journal",
+    "description": "Idées de style, histoires de nos sélections et entretien des pyjamas — les carnets de Sagan.",
+    "allTags": "Tous",
+    "tagTitle": "#{tag}",
+    "empty": "Aucun article pour le moment — à bientôt.",
+    "emptyTag": "Aucun article avec ce tag pour le moment.",
+    "readMore": "Lire la suite",
+    "related": "À lire aussi",
+    "backToList": "Retour au journal",
+    "breadcrumb": "Fil d'Ariane",
+    "viewProduct": "Voir le produit",
+    "soldOut": "Épuisé",
+    "originalOnly": "Cet article n'est disponible qu'en chinois pour le moment.",
+    "tags": "Tags"
   }
 }

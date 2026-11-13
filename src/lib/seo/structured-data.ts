@@ -234,3 +234,40 @@ export function siteJsonLd(locale: string) {
     ],
   }
 }
+
+/** 專欄文章。發布者用全站的店家名稱（文章沒有個別作者欄位）。 */
+export function articleJsonLd({
+  locale,
+  slug,
+  title,
+  description,
+  image,
+  publishedAt,
+  updatedAt,
+  tags,
+}: {
+  locale: string
+  slug: string
+  title: string
+  description: string
+  image?: string | null
+  publishedAt: Date
+  updatedAt: Date
+  tags: string[]
+}) {
+  const shop = { '@type': 'Organization', name: shopName(locale), url: siteUrl() }
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: title,
+    description,
+    url: absoluteUrl(`/journal/${slug}`),
+    mainEntityOfPage: absoluteUrl(`/journal/${slug}`),
+    ...(image ? { image: [absoluteUrl(image)] } : {}),
+    datePublished: publishedAt.toISOString(),
+    dateModified: updatedAt.toISOString(),
+    ...(tags.length > 0 ? { keywords: tags.join(', ') } : {}),
+    author: shop,
+    publisher: shop,
+  }
+}

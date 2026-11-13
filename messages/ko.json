@@ -3,6 +3,7 @@
     "home": "홈",
     "allProducts": "전체 상품",
     "about": "브랜드 소개",
+    "journal": "매거진",
     "cart": "장바구니",
     "account": "마이페이지",
     "login": "로그인",
@@ -836,5 +837,21 @@
   "seo": {
     "categoryDescription": "{shop}에서 정식 라이선스로 들여온 한국 셀렉트 {name} {count}종을 만나 보세요. {threshold} 이상 구매 시 무료배송, 7일 검수 기간 보장.",
     "allProductsDescription": "{shop} 전체 상품 한눈에 보기 — 정식 라이선스로 들여온 한국 잠옷, 침구, 홈 데코. {threshold} 이상 구매 시 무료배송, 7일 검수 기간 보장."
+  },
+  "journal": {
+    "title": "매거진",
+    "description": "코디 아이디어, 셀렉션 이야기, 파자마 관리법 —— Sagan의 일상 노트.",
+    "allTags": "전체",
+    "tagTitle": "#{tag}",
+    "empty": "아직 글이 없습니다. 조금만 기다려 주세요.",
+    "emptyTag": "이 태그의 글이 아직 없습니다.",
+    "readMore": "자세히 보기",
+    "related": "함께 읽으면 좋은 글",
+    "backToList": "매거진 목록으로",
+    "breadcrumb": "현재 위치",
+    "viewProduct": "상품 보기",
+    "soldOut": "품절",
+    "originalOnly": "이 글은 현재 중국어 버전만 있습니다.",
+    "tags": "태그"
   }
 }

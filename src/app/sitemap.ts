@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { db } from '@/lib/db'
 import { env } from '@/lib/env'
+import { publishedWhere } from '@/lib/journal/queries'
 
 // 建置階段沒有資料庫（Docker 多階段建置），改成每次請求時產生。
 // 商品會上下架，sitemap 本來就該反映當下狀態。
@@ -30,6 +31,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     entry('/', 'daily', 1),
     entry('/product/all', 'daily', 0.9),
+    entry('/journal', 'weekly', 0.6),
     entry('/about', 'monthly', 0.5),
     entry('/faq', 'monthly', 0.5),
     entry('/contact', 'monthly', 0.4),
@@ -39,10 +41,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entry('/privacy', 'yearly', 0.2),
   ]
 
-  const [categories, products] = await Promise.all([
+  const [categories, products, posts] = await Promise.all([
     db.category.findMany({ select: { slug: true } }),
     db.product.findMany({
       where: { status: 'ACTIVE' },
+      select: { slug: true, updatedAt: true },
+    }),
+    // 只收已發布且發布時間已到的文章（排程中的不能先曝光）
+    db.post.findMany({
+      where: publishedWhere(),
       select: { slug: true, updatedAt: true },
     }),
   ])
@@ -51,5 +58,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...staticPages,
     ...categories.map((c) => entry(`/category/${c.slug}`, 'weekly', 0.7)),
     ...products.map((p) => entry(`/product/${p.slug}`, 'weekly', 0.8, p.updatedAt)),
+    ...posts.map((p) => entry(`/journal/${p.slug}`, 'monthly', 0.6, p.updatedAt)),
   ]
 }

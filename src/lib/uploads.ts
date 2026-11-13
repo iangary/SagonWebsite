@@ -62,17 +62,30 @@ export async function saveProductImages(
   productId: string,
   files: File[],
 ): Promise<UploadResult> {
+  return saveImagesUnder('products', productId, files)
+}
+
+/** 專欄文章的封面與內文圖片，放在 /uploads/posts/{postId}/，規則與商品圖相同。 */
+export async function savePostImages(postId: string, files: File[]): Promise<UploadResult> {
+  return saveImagesUnder('posts', postId, files)
+}
+
+async function saveImagesUnder(
+  folder: 'products' | 'posts',
+  ownerId: string,
+  files: File[],
+): Promise<UploadResult> {
   const saved: SavedImage[] = []
   const failed: UploadFailure[] = []
 
   const accepted = files.filter((f) => f.size > 0).slice(0, MAX_FILES_PER_UPLOAD)
   if (accepted.length === 0) return { saved, failed }
 
-  // 商品 id 來自資料庫（cuid），不會有路徑跳脫字元，但還是做一次防呆
-  const safeId = productId.replace(/[^a-zA-Z0-9_-]/g, '')
-  if (!safeId) return { saved, failed: [{ filename: '-', reason: '商品識別碼不正確' }] }
+  // id 來自資料庫（cuid），不會有路徑跳脫字元，但還是做一次防呆
+  const safeId = ownerId.replace(/[^a-zA-Z0-9_-]/g, '')
+  if (!safeId) return { saved, failed: [{ filename: '-', reason: '識別碼不正確' }] }
 
-  const dir = path.join(UPLOAD_ROOT, 'products', safeId)
+  const dir = path.join(UPLOAD_ROOT, folder, safeId)
   await mkdir(dir, { recursive: true })
 
   for (const file of accepted) {
@@ -111,7 +124,7 @@ export async function saveProductImages(
       await writeFile(path.join(dir, filename), output.data)
 
       saved.push({
-        url: `/uploads/products/${safeId}/${filename}`,
+        url: `/uploads/${folder}/${safeId}/${filename}`,
         width: output.info.width,
         height: output.info.height,
         bytes: output.data.length,
@@ -220,13 +233,22 @@ export async function deleteUploadedFile(url: string): Promise<void> {
  * productId 只允許英數與 - _，組出來的路徑一定在上傳目錄底下。
  */
 export async function deleteProductImageDir(productId: string): Promise<void> {
-  const safeId = productId.replace(/[^a-zA-Z0-9_-]/g, '')
+  await deleteImageDir('products', productId)
+}
+
+/** 刪除文章時把封面與內文圖片的資料夾一起移除。 */
+export async function deletePostImageDir(postId: string): Promise<void> {
+  await deleteImageDir('posts', postId)
+}
+
+async function deleteImageDir(folder: 'products' | 'posts', ownerId: string): Promise<void> {
+  const safeId = ownerId.replace(/[^a-zA-Z0-9_-]/g, '')
   if (!safeId) return
 
-  const dir = path.join(UPLOAD_ROOT, 'products', safeId)
+  const dir = path.join(UPLOAD_ROOT, folder, safeId)
   try {
     await rm(dir, { recursive: true, force: true })
   } catch (error) {
-    console.error('[upload] 刪除商品圖片目錄失敗', productId, error)
+    console.error('[upload] 刪除圖片目錄失敗', folder, ownerId, error)
   }
 }
