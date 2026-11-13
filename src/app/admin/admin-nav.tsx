@@ -8,6 +8,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import {
   LayoutDashboard,
   Package,
+  Boxes,
   Ruler,
   FolderTree,
   ShoppingCart,
@@ -31,6 +32,7 @@ const LINKS = [
   { href: '/admin/refunds', label: '退款', icon: Undo2 },
   { href: '/admin/chat', label: '客服訊息', icon: MessagesSquare, badge: 'chat' as const },
   { href: '/admin/products', label: '商品', icon: Package },
+  { href: '/admin/bundles', label: '組合商品', icon: Boxes },
   { href: '/admin/fit-chart', label: '尺寸對照表', icon: Ruler },
   { href: '/admin/taxonomy', label: '分類與品牌', icon: FolderTree },
   { href: '/admin/coupons', label: '優惠券', icon: Tag },

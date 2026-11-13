@@ -25,7 +25,8 @@
     "switchLanguage": "언어 변경",
     "memberFallback": "회원",
     "categories": "카테고리",
-    "viewAllProducts": "전체 상품 보기"
+    "viewAllProducts": "전체 상품 보기",
+    "bundles": "세트 할인"
   },
   "announcement": {
     "freeShipping": "{amount} 이상 구매 시 전 상품 무료배송"
@@ -202,7 +203,8 @@
     "pendingDetail": "주문 상세",
     "pendingViewPayment": "결제 정보 보기",
     "preorderTag": "예약",
-    "preorderNote": "예약 상품은 주문 확정 후 약 10–20 영업일 이내에 발송되며, 주문 상품이 모두 도착한 뒤 함께 발송됩니다."
+    "preorderNote": "예약 상품은 주문 확정 후 약 10–20 영업일 이내에 발송되며, 주문 상품이 모두 도착한 뒤 함께 발송됩니다.",
+    "bundleDiscountNamed": "세트 할인 · {name} ×{sets}"
   },
   "checkout": {
     "title": "주문/결제",
@@ -364,7 +366,8 @@
     "cancelOrderPaidWarning": "이미 이체 또는 결제를 하셨다면 취소하지 마세요. 입금 확인에는 시간이 걸리며, 취소 후 입금된 금액은 별도로 환불 처리해야 합니다.",
     "cancelOrderConfirm": "취소하기",
     "cancelOrderKeep": "주문 유지",
-    "cancelOrderNotPending": "이 주문은 이미 결제되었거나 취소되어 더 이상 취소할 수 없습니다. 페이지를 최신 상태로 업데이트했습니다."
+    "cancelOrderNotPending": "이 주문은 이미 결제되었거나 취소되어 더 이상 취소할 수 없습니다. 페이지를 최신 상태로 업데이트했습니다.",
+    "bundleDiscount": "세트 할인"
   },
   "account": {
     "title": "마이페이지",
@@ -723,7 +726,8 @@
     "purchaseNotFound": "해당 구매 내역이 없거나 주문이 아직 완료되지 않았습니다",
     "productMismatch": "상품 정보가 일치하지 않습니다",
     "alreadyReviewed": "이미 리뷰를 작성한 항목입니다",
-    "loginRequiredForCheckout": "주문하시려면 먼저 회원가입 또는 로그인해 주세요"
+    "loginRequiredForCheckout": "주문하시려면 먼저 회원가입 또는 로그인해 주세요",
+    "bundleUnavailable": "이 세트는 현재 구매할 수 없습니다"
   },
   "common": {
     "loading": "불러오는 중…",
@@ -836,5 +840,32 @@
   "seo": {
     "categoryDescription": "{shop}에서 정식 라이선스로 들여온 한국 셀렉트 {name} {count}종을 만나 보세요. {threshold} 이상 구매 시 무료배송, 7일 검수 기간 보장.",
     "allProductsDescription": "{shop} 전체 상품 한눈에 보기 — 정식 라이선스로 들여온 한국 잠옷, 침구, 홈 데코. {threshold} 이상 구매 시 무료배송, 7일 검수 기간 보장."
+  },
+  "bundles": {
+    "title": "세트 할인",
+    "metaDescription": "엄선한 상품을 세트 가격으로. 세트 구성품을 장바구니에 모두 담으면 자동으로 할인되며 쿠폰과 함께 사용할 수 있습니다.",
+    "intro": "이 상품들은 함께 구매하면 세트 가격이 적용됩니다. 세트 구성품을 장바구니에 담으면 자동으로 할인되며, 쿠폰 코드와 함께 사용할 수 있습니다.",
+    "empty": "현재 진행 중인 세트 할인이 없습니다",
+    "browseProducts": "전체 상품 보기",
+    "bundlePrice": "세트 가격",
+    "originalTotal": "정가 합계",
+    "saving": "{amount} 절약",
+    "savingFrom": "{amount} 이상 절약",
+    "contents": "세트 구성",
+    "itemQty": "× {count}",
+    "chooseVariant": "옵션을 선택하세요",
+    "chooseVariantFor": "「{name}」 옵션 선택",
+    "chooseVariantNth": "「{name}」 {n}번째 옵션 선택",
+    "fixedVariantLabel": "옵션: ",
+    "addBundle": "세트를 장바구니에 담기",
+    "addedBundle": "세트를 장바구니에 담았습니다. 결제 시 세트 가격이 적용됩니다",
+    "soldOut": "세트에 품절된 상품이 있습니다",
+    "outOfStockOption": " (품절)",
+    "preorderOption": " (예약 판매)",
+    "selectAll": "모든 상품의 옵션을 선택하세요",
+    "autoApplyNote": "세트 구성품이 장바구니에 모두 담기면 세트 가격이 자동으로 적용됩니다. 코드 입력이 필요 없으며 쿠폰과 함께 사용할 수 있습니다.",
+    "productHintTitle": "세트로 사면 더 저렴해요",
+    "productHintBody": "이 상품은 세트 할인 대상입니다. 함께 구매하면 더 절약할 수 있습니다.",
+    "withItems": "함께: {items}"
   }
 }

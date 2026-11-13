@@ -25,7 +25,8 @@
     "switchLanguage": "切換語言",
     "memberFallback": "會員",
     "categories": "選物分類",
-    "viewAllProducts": "瀏覽全部商品"
+    "viewAllProducts": "瀏覽全部商品",
+    "bundles": "組合優惠"
   },
   "announcement": {
     "freeShipping": "全站消費滿 {amount} 免運費"
@@ -202,7 +203,8 @@
     "pendingDetail": "訂單明細",
     "pendingViewPayment": "查看繳費資訊",
     "preorderTag": "預購",
-    "preorderNote": "預購商品約於訂單成立後 10–20 個工作天出貨；同一張訂單會等全部商品到齊後一併出貨。"
+    "preorderNote": "預購商品約於訂單成立後 10–20 個工作天出貨；同一張訂單會等全部商品到齊後一併出貨。",
+    "bundleDiscountNamed": "組合優惠・{name} ×{sets}"
   },
   "checkout": {
     "title": "結帳",
@@ -364,7 +366,8 @@
     "cancelOrderPaidWarning": "如果您已經轉帳或繳費，請不要取消 —— 款項入帳需要一點時間，取消後收到的款項要另外辦理退款。",
     "cancelOrderConfirm": "確定取消",
     "cancelOrderKeep": "保留訂單",
-    "cancelOrderNotPending": "這筆訂單已經付款或已取消，無法再取消。頁面已更新為最新狀態。"
+    "cancelOrderNotPending": "這筆訂單已經付款或已取消，無法再取消。頁面已更新為最新狀態。",
+    "bundleDiscount": "組合優惠"
   },
   "account": {
     "title": "會員中心",
@@ -723,7 +726,8 @@
     "purchaseNotFound": "找不到對應的購買紀錄，或訂單尚未完成",
     "productMismatch": "商品資料不符",
     "alreadyReviewed": "這個項目已經評論過了",
-    "loginRequiredForCheckout": "請先註冊或登入會員再結帳"
+    "loginRequiredForCheckout": "請先註冊或登入會員再結帳",
+    "bundleUnavailable": "這個組合目前無法購買"
   },
   "common": {
     "loading": "載入中…",
@@ -836,5 +840,32 @@
   "seo": {
     "categoryDescription": "精選 {count} 款{name}，{shop}正式授權引進的韓國選品。滿 {threshold} 免運，享七日鑑賞期。",
     "allProductsDescription": "{shop}全站商品一覽 —— 正式授權引進的韓國睡衣、寢具與家居飾品。滿 {threshold} 免運，享七日鑑賞期。"
+  },
+  "bundles": {
+    "title": "組合優惠",
+    "metaDescription": "精選商品組合，一起買享組合價。購物車湊齊組合內容就自動折價，可與折扣碼並用。",
+    "intro": "這些商品一起買享組合價。把組合內容放進購物車就會自動折價，也可以和折扣碼一起使用。",
+    "empty": "目前沒有組合優惠",
+    "browseProducts": "逛逛全部商品",
+    "bundlePrice": "組合價",
+    "originalTotal": "原價合計",
+    "saving": "現省 {amount}",
+    "savingFrom": "現省 {amount} 起",
+    "contents": "組合內容",
+    "itemQty": "× {count}",
+    "chooseVariant": "請選擇規格",
+    "chooseVariantFor": "選擇「{name}」的規格",
+    "chooseVariantNth": "選擇「{name}」第 {n} 件的規格",
+    "fixedVariantLabel": "規格：",
+    "addBundle": "整組加入購物車",
+    "addedBundle": "組合已加入購物車，結帳時自動套用組合價",
+    "soldOut": "組合內有商品已售完",
+    "outOfStockOption": "（已售完）",
+    "preorderOption": "（預購）",
+    "selectAll": "請為每件商品選擇規格",
+    "autoApplyNote": "購物車湊齊組合內容就會自動套用組合價，不必另外輸入代碼；可以和折扣碼並用。",
+    "productHintTitle": "組合購買更划算",
+    "productHintBody": "這件商品有組合優惠，搭配一起買更省。",
+    "withItems": "搭配：{items}"
   }
 }

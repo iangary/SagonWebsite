@@ -25,7 +25,8 @@
     "switchLanguage": "Changer de langue",
     "memberFallback": "Membre",
     "categories": "Catégories",
-    "viewAllProducts": "Voir tous les produits"
+    "viewAllProducts": "Voir tous les produits",
+    "bundles": "Offres groupées"
   },
   "announcement": {
     "freeShipping": "Livraison offerte dès {amount} d’achat"
@@ -202,7 +203,8 @@
     "pendingDetail": "Détails de la commande",
     "pendingViewPayment": "Voir les infos de paiement",
     "preorderTag": "Précommande",
-    "preorderNote": "Les articles en précommande sont expédiés environ 10 à 20 jours ouvrés après la confirmation ; la commande part en une seule fois, quand tout est arrivé."
+    "preorderNote": "Les articles en précommande sont expédiés environ 10 à 20 jours ouvrés après la confirmation ; la commande part en une seule fois, quand tout est arrivé.",
+    "bundleDiscountNamed": "Offre groupée · {name} ×{sets}"
   },
   "checkout": {
     "title": "Commande",
@@ -364,7 +366,8 @@
     "cancelOrderPaidWarning": "Si vous avez déjà effectué le virement ou le paiement, n'annulez pas : la réception du paiement prend un peu de temps, et toute somme reçue après l'annulation devra faire l'objet d'un remboursement séparé.",
     "cancelOrderConfirm": "Oui, annuler",
     "cancelOrderKeep": "Conserver la commande",
-    "cancelOrderNotPending": "Cette commande a déjà été payée ou annulée et ne peut plus être annulée. La page affiche maintenant son dernier statut."
+    "cancelOrderNotPending": "Cette commande a déjà été payée ou annulée et ne peut plus être annulée. La page affiche maintenant son dernier statut.",
+    "bundleDiscount": "Remise lot"
   },
   "account": {
     "title": "Mon compte",
@@ -723,7 +726,8 @@
     "purchaseNotFound": "Aucun achat correspondant trouvé, ou la commande n’est pas encore terminée",
     "productMismatch": "Les informations produit ne correspondent pas",
     "alreadyReviewed": "Vous avez déjà donné votre avis sur cet article",
-    "loginRequiredForCheckout": "Veuillez vous inscrire ou vous connecter avant de passer commande"
+    "loginRequiredForCheckout": "Veuillez vous inscrire ou vous connecter avant de passer commande",
+    "bundleUnavailable": "Ce lot n’est pas disponible pour le moment"
   },
   "common": {
     "loading": "Chargement…",
@@ -836,5 +840,32 @@
   "seo": {
     "categoryDescription": "Découvrez {count, plural, one {# article} other {# articles}} de la catégorie {name}, une sélection coréenne importée sous licence officielle par {shop}. Livraison offerte dès {threshold}, délai d’examen de 7 jours.",
     "allProductsDescription": "Tous les produits de {shop} : pyjamas, linge de lit et décoration coréens importés sous licence officielle. Livraison offerte dès {threshold}, délai d’examen de 7 jours."
+  },
+  "bundles": {
+    "title": "Offres groupées",
+    "metaDescription": "Des articles sélectionnés à prix groupé. Ajoutez tout le lot au panier : la remise s’applique automatiquement et se cumule avec les codes promo.",
+    "intro": "Achetez ces articles ensemble pour profiter du prix groupé. Dès que tout le lot est dans votre panier, la remise s’applique automatiquement, et vous pouvez toujours utiliser un code promo.",
+    "empty": "Aucune offre groupée pour le moment",
+    "browseProducts": "Voir tous les produits",
+    "bundlePrice": "Prix du lot",
+    "originalTotal": "Prix total habituel",
+    "saving": "Économisez {amount}",
+    "savingFrom": "Économisez dès {amount}",
+    "contents": "Contenu du lot",
+    "itemQty": "× {count}",
+    "chooseVariant": "Choisissez une option",
+    "chooseVariantFor": "Choisissez une option pour « {name} »",
+    "chooseVariantNth": "Choisissez une option pour « {name} » (article {n})",
+    "fixedVariantLabel": "Option : ",
+    "addBundle": "Ajouter le lot au panier",
+    "addedBundle": "Lot ajouté au panier. Le prix groupé s’applique au paiement",
+    "soldOut": "Un article de ce lot est épuisé",
+    "outOfStockOption": " (épuisé)",
+    "preorderOption": " (précommande)",
+    "selectAll": "Veuillez choisir une option pour chaque article",
+    "autoApplyNote": "Le prix groupé s’applique automatiquement dès que tout le lot est dans votre panier, sans code. Cumulable avec les codes promo.",
+    "productHintTitle": "Plus avantageux en lot",
+    "productHintBody": "Cet article fait partie d’une offre groupée. Achetez-le en lot et économisez.",
+    "withItems": "Avec : {items}"
   }
 }

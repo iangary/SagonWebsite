@@ -25,7 +25,8 @@
     "switchLanguage": "Switch language",
     "memberFallback": "Member",
     "categories": "Categories",
-    "viewAllProducts": "Browse all products"
+    "viewAllProducts": "Browse all products",
+    "bundles": "Bundle deals"
   },
   "announcement": {
     "freeShipping": "Free shipping on orders over {amount}"
@@ -202,7 +203,8 @@
     "pendingDetail": "Order details",
     "pendingViewPayment": "View payment info",
     "preorderTag": "Pre-order",
-    "preorderNote": "Pre-order items ship about 10–20 business days after the order is confirmed; the whole order ships together once everything has arrived."
+    "preorderNote": "Pre-order items ship about 10–20 business days after the order is confirmed; the whole order ships together once everything has arrived.",
+    "bundleDiscountNamed": "Bundle deal · {name} ×{sets}"
   },
   "checkout": {
     "title": "Checkout",
@@ -364,7 +366,8 @@
     "cancelOrderPaidWarning": "If you have already made the transfer or payment, please do not cancel. Payments take a while to arrive, and anything received after cancellation has to be refunded separately.",
     "cancelOrderConfirm": "Yes, cancel",
     "cancelOrderKeep": "Keep order",
-    "cancelOrderNotPending": "This order has already been paid or cancelled and can no longer be cancelled. The page now shows its latest status."
+    "cancelOrderNotPending": "This order has already been paid or cancelled and can no longer be cancelled. The page now shows its latest status.",
+    "bundleDiscount": "Bundle discount"
   },
   "account": {
     "title": "My Account",
@@ -723,7 +726,8 @@
     "purchaseNotFound": "No matching purchase found, or the order is not completed yet",
     "productMismatch": "Product details do not match",
     "alreadyReviewed": "You have already reviewed this item",
-    "loginRequiredForCheckout": "Please register or sign in before checking out."
+    "loginRequiredForCheckout": "Please register or sign in before checking out.",
+    "bundleUnavailable": "This bundle is currently unavailable"
   },
   "common": {
     "loading": "Loading…",
@@ -836,5 +840,32 @@
   "seo": {
     "categoryDescription": "Browse {count} {name} pieces at {shop} — officially licensed Korean selections. Free shipping over {threshold}, 7-day return window.",
     "allProductsDescription": "Every product at {shop} — officially licensed Korean sleepwear, bedding and home accessories. Free shipping over {threshold}, 7-day return window."
+  },
+  "bundles": {
+    "title": "Bundle deals",
+    "metaDescription": "Curated bundles at a special price. Add everything in a bundle to your cart and the bundle price applies automatically, together with any coupon code.",
+    "intro": "Buy these together for a bundle price. Once everything in a bundle is in your cart, the discount is applied automatically, and you can still use a coupon code.",
+    "empty": "No bundle deals right now",
+    "browseProducts": "Browse all products",
+    "bundlePrice": "Bundle price",
+    "originalTotal": "Regular total",
+    "saving": "Save {amount}",
+    "savingFrom": "Save {amount}+",
+    "contents": "What's included",
+    "itemQty": "× {count}",
+    "chooseVariant": "Select an option",
+    "chooseVariantFor": "Select an option for “{name}”",
+    "chooseVariantNth": "Select an option for “{name}” (item {n})",
+    "fixedVariantLabel": "Option: ",
+    "addBundle": "Add bundle to cart",
+    "addedBundle": "Bundle added to cart. The bundle price applies at checkout",
+    "soldOut": "An item in this bundle is sold out",
+    "outOfStockOption": " (sold out)",
+    "preorderOption": " (pre-order)",
+    "selectAll": "Please select an option for every item",
+    "autoApplyNote": "The bundle price applies automatically once everything in the bundle is in your cart, no code needed. Works together with coupon codes.",
+    "productHintTitle": "Save more with a bundle",
+    "productHintBody": "This item is part of a bundle deal. Buy it together and save.",
+    "withItems": "With: {items}"
   }
 }

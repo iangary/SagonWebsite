@@ -56,6 +56,7 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
         invoice: true,
         receipt: true,
         coupon: true,
+        bundles: { orderBy: { discount: 'desc' } },
         user: {
           select: { id: true, name: true, email: true, role: true, purchaseBlockedAt: true },
         },
@@ -210,6 +211,13 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
 
             <dl className="mt-4 ml-auto max-w-xs space-y-1.5 text-sm">
               <Row label="小計" value={formatTWD(order.subtotal)} />
+              {order.bundles.map((bundle) => (
+                <Row
+                  key={bundle.id}
+                  label={`組合優惠（${bundle.name}${bundle.sets > 1 ? ` ×${bundle.sets}` : ''}）`}
+                  value={`-${formatTWD(bundle.discount)}`}
+                />
+              ))}
               {order.discountTotal > 0 && (
                 <Row
                   label={`折扣${order.coupon ? `（${order.coupon.code}）` : ''}`}

@@ -32,9 +32,12 @@ type CartItemView = {
   imageUrl: string | null
 }
 
+type AppliedBundleView = { id: string; name: string; sets: number; discount: number }
+
 export function CartView({
   items,
   pricing,
+  bundles,
   couponCode,
   freeShippingThreshold,
   isMember,
@@ -42,6 +45,8 @@ export function CartView({
 }: {
   items: CartItemView[]
   pricing: PricingResult
+  /** 車上湊齊、自動套用的組合優惠 */
+  bundles: AppliedBundleView[]
   couponCode: string | null
   freeShippingThreshold: number
   /** 訪客也有購物車，但結帳需要會員 —— 決定結帳鈕要去結帳頁還是註冊頁 */
@@ -98,7 +103,10 @@ export function CartView({
     )
   }
 
-  const shortfall = Math.max(0, freeShippingThreshold - (pricing.subtotal - pricing.discountTotal))
+  const shortfall = Math.max(
+    0,
+    freeShippingThreshold - (pricing.subtotal - pricing.bundleDiscount - pricing.discountTotal),
+  )
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-12">
@@ -208,6 +216,14 @@ export function CartView({
 
             <dl className="mt-6 space-y-2.5 border-t border-cream-200 pt-5 text-sm">
               <Row label={t('subtotal')} value={formatTWD(pricing.subtotal)} />
+              {bundles.map((bundle) => (
+                <Row
+                  key={bundle.id}
+                  label={t('bundleDiscountNamed', { name: bundle.name, sets: bundle.sets })}
+                  value={`-${formatTWD(bundle.discount)}`}
+                  tone="sale"
+                />
+              ))}
               {pricing.discountTotal > 0 && (
                 <Row
                   label={t('discount')}

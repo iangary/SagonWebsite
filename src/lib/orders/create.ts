@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth'
 import { getOrCreateCart } from '@/lib/cart'
 import { enqueue } from '@/lib/queue'
 import { generateMerchantTradeNo } from '@/lib/ecpay/aio'
+import { matchCartBundles } from '@/lib/bundles'
 import {
   availableShippingMethods,
   getPaymentSettings,
@@ -106,9 +107,13 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
     ? await db.coupon.findUnique({ where: { code: input.couponCode.trim().toUpperCase() } })
     : null
 
+  // 組合優惠由伺服器依資料庫的售價與目前上架的組合重算 —— 購物車頁顯示的數字只是預覽
+  const bundles = await matchCartBundles(cart.items)
+
   const subtotal = lines.reduce((s, l) => s + l.unitPrice * l.qty, 0)
   if (coupon) {
-    const couponError = validateCoupon(coupon, subtotal)
+    // 折扣碼與組合價並用：門檻看套完組合價後的金額（與 calculatePricing 一致）
+    const couponError = validateCoupon(coupon, subtotal - bundles.discount)
     if (couponError) return { ok: false, error: couponError }
 
     const used = await db.couponRedemption.count({
@@ -135,6 +140,7 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
     shippingFees: shippingFeesOf(shipping),
     freeShippingThreshold: shipping.freeShippingThreshold,
     coupon,
+    bundleDiscount: bundles.discount,
     codFee: isCod ? settings.codFee : 0,
   })
   if (pricing.couponError) return { ok: false, error: pricing.couponError }
@@ -187,6 +193,7 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
           // 貨到付款不等錢進來，直接進備貨；線上付款要等綠界的通知
           status: isCod ? 'PROCESSING' : 'PENDING_PAYMENT',
           subtotal: pricing.subtotal,
+          bundleDiscount: pricing.bundleDiscount,
           discountTotal: pricing.discountTotal,
           shippingFee: pricing.shippingFee,
           codFee: pricing.codFee,
@@ -214,6 +221,18 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Crea
               qty: item.qty,
               lineTotal: item.variant.price * item.qty,
               isPreorder: preorderItemIds.has(item.id),
+            })),
+          },
+
+          // 組合優惠的快照：之後組合改價或刪除，這張訂單的明細都不會變
+          bundles: {
+            create: bundles.applied.map((b) => ({
+              bundleId: b.bundleId,
+              name: b.name,
+              sets: b.sets,
+              price: b.price,
+              originalTotal: b.originalTotal,
+              discount: b.discount,
             })),
           },
 
