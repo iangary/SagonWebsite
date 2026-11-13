@@ -96,62 +96,95 @@ export async function enqueue<N extends JobName>(
 }
 
 /**
+ * 定期工作的排程。key 就是 BullMQ Job Scheduler 的 id，固定不變，
+ * 重啟 worker 時 upsert 同一個 id 只會更新、不會多出第二個排程。
+ */
+const SCHEDULES: {
+  id: string
+  name: JobName
+  pattern: string
+  opts: Pick<JobsOptions, 'attempts' | 'removeOnComplete'>
+}[] = [
+  {
+    id: 'cron:release-expired-reservations',
+    name: 'release-expired-reservations',
+    pattern: '*/5 * * * *', // 每 5 分鐘
+    opts: { removeOnComplete: { count: 20 } },
+  },
+  {
+    id: 'cron:reconcile-payments',
+    name: 'reconcile-payments',
+    // 每 15 分鐘查一批（一批最多 20 筆，同一筆至少隔 30 分鐘才再查）。
+    // 綠界對 API 有限速，太密會收到 403。
+    pattern: '*/15 * * * *',
+    opts: { attempts: 1, removeOnComplete: { count: 20 } },
+  },
+  {
+    id: 'cron:poll-tcat-status',
+    name: 'poll-tcat-status',
+    // 每 30 分鐘一批（每批最多 10 張單）。黑貓限制同一張單 2 小時只能查一次，
+    // 而且每日總量上限 3,000 次，這個頻率離上限還很遠。
+    // 查貨態失敗就等下一輪，不需要重試堆積
+    pattern: '*/30 * * * *',
+    opts: { attempts: 1, removeOnComplete: { count: 20 } },
+  },
+  {
+    id: 'cron:send-review-invites',
+    name: 'send-review-invites',
+    /*
+     * 每天早上 10 點寄一批。
+     *
+     * 刻意不在半夜寄 —— 收件匣裡凌晨三點的行銷信被標垃圾的機率高得多，
+     * 而且這封信本來就沒有時效性。時區跟著容器的 TZ 走。
+     * 寄失敗的個別訂單會自己解除標記等下一輪，不需要整批重試。
+     */
+    pattern: '0 10 * * *',
+    opts: { attempts: 1, removeOnComplete: { count: 20 } },
+  },
+]
+
+/**
+ * 清掉 BullMQ 5 舊式 repeatable job 留在 Redis 的排程。
+ *
+ * BullMQ 6 移除了舊的 `queue.add(..., { repeat })` 寫法（改用 Job Scheduler），也拿掉了
+ * 清除舊排程用的 API。舊排程和新的 Job Scheduler 共用 `bull:<queue>:repeat` 這個 sorted set：
+ * 舊的成員是一串 32 字元的雜湊、新的是上面 SCHEDULES 的 id，所以可以準確分辨。
+ * 不清的話，舊排程已經排好的下一次工作還會跑一次，和新排程重複（工作都是冪等的，不會出錯，
+ * 但多跑一次沒有意義），Redis 也會留著用不到的資料。
+ *
+ * 每次 worker 啟動都會跑，清完之後就是空操作。
+ */
+async function removeLegacyRepeatables(): Promise<number> {
+  const queue = getQueue()
+  const schedulerIds = new Set(SCHEDULES.map((s) => s.id))
+  const members = await getRedis().zrange(`bull:${QUEUE_NAME}:repeat`, 0, -1)
+  const legacy = members.filter((m) => !schedulerIds.has(m) && /^[0-9a-f]{32}$/.test(m))
+
+  // 舊排程在 Redis 裡的形狀和 Job Scheduler 一樣（repeat:<id> 的 hash ＋ 下一次的
+  // repeat:<id>:<時間戳> 工作），所以直接用 BullMQ 自己的 removeJobScheduler 一起刪掉。
+  // 不能用 job.remove() 刪那筆排好的工作 —— BullMQ 6 會拒絕（屬於排程的工作不能單獨刪）。
+  for (const id of legacy) await queue.removeJobScheduler(id)
+  return legacy.length
+}
+
+/**
  * 註冊定期工作。worker 啟動時呼叫一次即可，
- * BullMQ 會用 jobId 去重，重啟不會產生第二個排程。
+ * 用固定 id 的 Job Scheduler，重啟不會產生第二個排程。
  */
 export async function registerRepeatableJobs(): Promise<void> {
-  await getQueue().add(
-    'release-expired-reservations',
-    {},
-    {
-      repeat: { pattern: '*/5 * * * *' }, // 每 5 分鐘
-      jobId: 'cron:release-expired-reservations',
-      removeOnComplete: { count: 20 },
-    },
-  )
+  // 清舊排程失敗不能擋住 worker 啟動 —— 最壞情況只是舊排程多跑一次（工作都是冪等的）
+  try {
+    const removed = await removeLegacyRepeatables()
+    if (removed > 0) console.info(`[queue] 已清除 ${removed} 個舊式 repeatable 排程`)
+  } catch (error) {
+    console.error('[queue] 清除舊式 repeatable 排程失敗，略過：', error)
+  }
 
-  await getQueue().add(
-    'reconcile-payments',
-    {},
-    {
-      // 每 15 分鐘查一批（一批最多 20 筆，同一筆至少隔 30 分鐘才再查）。
-      // 綠界對 API 有限速，太密會收到 403。
-      repeat: { pattern: '*/15 * * * *' },
-      jobId: 'cron:reconcile-payments',
-      attempts: 1,
-      removeOnComplete: { count: 20 },
-    },
-  )
-
-  await getQueue().add(
-    'poll-tcat-status',
-    {},
-    {
-      // 每 30 分鐘一批（每批最多 10 張單）。黑貓限制同一張單 2 小時只能查一次，
-      // 而且每日總量上限 3,000 次，這個頻率離上限還很遠。
-      repeat: { pattern: '*/30 * * * *' },
-      jobId: 'cron:poll-tcat-status',
-      // 查貨態失敗就等下一輪，不需要重試堆積
-      attempts: 1,
-      removeOnComplete: { count: 20 },
-    },
-  )
-
-  await getQueue().add(
-    'send-review-invites',
-    {},
-    {
-      /*
-       * 每天早上 10 點寄一批。
-       *
-       * 刻意不在半夜寄 —— 收件匣裡凌晨三點的行銷信被標垃圾的機率高得多，
-       * 而且這封信本來就沒有時效性。時區跟著容器的 TZ 走。
-       */
-      repeat: { pattern: '0 10 * * *' },
-      jobId: 'cron:send-review-invites',
-      // 寄失敗的個別訂單會自己解除標記等下一輪，不需要整批重試
-      attempts: 1,
-      removeOnComplete: { count: 20 },
-    },
-  )
+  for (const schedule of SCHEDULES) {
+    await getQueue().upsertJobScheduler(
+      schedule.id,
+      { pattern: schedule.pattern },
+      { name: schedule.name, data: {}, opts: schedule.opts },
+    )
+  }
 }

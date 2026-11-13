@@ -6,19 +6,28 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
  * 只驗證 enqueue 的參數傳遞與「失敗時落 AuditLog、絕不 throw」的契約。
  */
 
-const { addMock, auditCreateMock } = vi.hoisted(() => ({
-  addMock: vi.fn(),
-  auditCreateMock: vi.fn(),
-}))
+const { addMock, auditCreateMock, upsertMock, removeSchedulerMock, zrangeMock } = vi.hoisted(
+  () => ({
+    addMock: vi.fn(),
+    auditCreateMock: vi.fn(),
+    upsertMock: vi.fn(),
+    removeSchedulerMock: vi.fn(),
+    zrangeMock: vi.fn(),
+  }),
+)
 
 vi.mock('bullmq', () => ({
   Queue: class MockQueue {
     add = addMock
+    upsertJobScheduler = upsertMock
+    removeJobScheduler = removeSchedulerMock
   },
 }))
 
 vi.mock('ioredis', () => ({
-  default: class MockRedis {},
+  default: class MockRedis {
+    zrange = zrangeMock
+  },
 }))
 
 vi.mock('@/lib/db', () => ({
@@ -37,6 +46,9 @@ beforeEach(() => {
   delete globalForQueue.queue
   addMock.mockReset()
   auditCreateMock.mockReset()
+  upsertMock.mockReset()
+  removeSchedulerMock.mockReset()
+  zrangeMock.mockReset().mockResolvedValue([])
   consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
@@ -104,47 +116,63 @@ describe('enqueue', () => {
 })
 
 describe('registerRepeatableJobs', () => {
-  it('註冊四個 cron job，jobId 穩定以便 BullMQ 去重', async () => {
-    addMock.mockResolvedValue(undefined)
+  it('用固定 id 的 Job Scheduler 註冊四個定期工作，重啟不會多出排程', async () => {
+    await registerRepeatableJobs()
+
+    expect(upsertMock).toHaveBeenCalledTimes(4)
+    expect(upsertMock).toHaveBeenCalledWith(
+      'cron:release-expired-reservations',
+      { pattern: '*/5 * * * *' },
+      { name: 'release-expired-reservations', data: {}, opts: { removeOnComplete: { count: 20 } } },
+    )
+    expect(upsertMock).toHaveBeenCalledWith(
+      'cron:reconcile-payments',
+      { pattern: '*/15 * * * *' },
+      expect.objectContaining({
+        name: 'reconcile-payments',
+        opts: expect.objectContaining({ attempts: 1 }),
+      }),
+    )
+    expect(upsertMock).toHaveBeenCalledWith(
+      'cron:poll-tcat-status',
+      { pattern: '*/30 * * * *' },
+      expect.objectContaining({
+        name: 'poll-tcat-status',
+        opts: expect.objectContaining({ attempts: 1 }),
+      }),
+    )
+    expect(upsertMock).toHaveBeenCalledWith(
+      'cron:send-review-invites',
+      // 每天早上 10 點 —— 凌晨寄行銷信被標垃圾的機率高得多
+      { pattern: '0 10 * * *' },
+      expect.objectContaining({
+        name: 'send-review-invites',
+        opts: expect.objectContaining({ attempts: 1 }),
+      }),
+    )
+    // 舊的 queue.add(..., { repeat }) 寫法在 BullMQ 6 已移除
+    expect(addMock).not.toHaveBeenCalled()
+  })
+
+  it('清掉 BullMQ 5 留下的舊式排程（32 字元雜湊），不動新的 Job Scheduler', async () => {
+    const legacy = 'da4ae745a70edcf90fd640f93d091fd7'
+    zrangeMock.mockResolvedValue([legacy, 'cron:reconcile-payments', 'not-a-hash'])
 
     await registerRepeatableJobs()
 
-    expect(addMock).toHaveBeenCalledTimes(4)
-    expect(addMock).toHaveBeenCalledWith(
-      'release-expired-reservations',
-      {},
-      expect.objectContaining({
-        jobId: 'cron:release-expired-reservations',
-        repeat: { pattern: '*/5 * * * *' },
-      }),
-    )
-    expect(addMock).toHaveBeenCalledWith(
-      'reconcile-payments',
-      {},
-      expect.objectContaining({
-        jobId: 'cron:reconcile-payments',
-        repeat: { pattern: '*/15 * * * *' },
-        attempts: 1,
-      }),
-    )
-    expect(addMock).toHaveBeenCalledWith(
-      'poll-tcat-status',
-      {},
-      expect.objectContaining({
-        jobId: 'cron:poll-tcat-status',
-        repeat: { pattern: '*/30 * * * *' },
-        attempts: 1,
-      }),
-    )
-    expect(addMock).toHaveBeenCalledWith(
-      'send-review-invites',
-      {},
-      expect.objectContaining({
-        jobId: 'cron:send-review-invites',
-        // 每天早上 10 點 —— 凌晨寄行銷信被標垃圾的機率高得多
-        repeat: { pattern: '0 10 * * *' },
-        attempts: 1,
-      }),
+    expect(removeSchedulerMock).toHaveBeenCalledTimes(1)
+    expect(removeSchedulerMock).toHaveBeenCalledWith(legacy)
+    expect(upsertMock).toHaveBeenCalledTimes(4)
+  })
+
+  it('清舊排程失敗不會擋住新排程註冊（worker 照常啟動）', async () => {
+    zrangeMock.mockRejectedValue(new Error('redis down'))
+
+    await expect(registerRepeatableJobs()).resolves.toBeUndefined()
+    expect(upsertMock).toHaveBeenCalledTimes(4)
+    expect(consoleError).toHaveBeenCalledWith(
+      '[queue] 清除舊式 repeatable 排程失敗，略過：',
+      expect.any(Error),
     )
   })
 })

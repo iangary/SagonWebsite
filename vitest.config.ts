@@ -37,9 +37,11 @@ export default defineConfig({
           setupFiles: ['./test/integration/setup.ts'],
           // 每條測試前會 TRUNCATE 全部資料表（AccessExclusiveLock），
           // 測試檔一旦平行跑就會和別檔的查詢鎖死（Postgres 40P01）。
-          // 全部塞進同一個 fork 依序執行 —— 注意 fileParallelism 放在
-          // 頂層對 project 不生效，一定要用 poolOptions 指定。
-          poolOptions: { forks: { singleFork: true } },
+          // 所以測試檔要一個接一個跑。Vitest 4 起拿掉了 poolOptions（以前用 singleFork），
+          // 改成在 project 裡設 fileParallelism: false。
+          // 不用遷移指南寫的 isolate: false —— 每個測試檔各自 vi.mock 不同模組，
+          // 不隔離的話 mock 會從上一個檔漏到下一個檔。
+          fileParallelism: false,
           testTimeout: 20_000,
           hookTimeout: 60_000,
         },

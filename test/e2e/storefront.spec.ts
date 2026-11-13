@@ -52,11 +52,20 @@ test('商品詳情頁有價格、加入購物車與結構化資料', async ({ pa
   await expect(page.getByRole('button', { name: '加入購物車' })).toBeVisible()
   await expect(page.getByText(/NT\$[\d,]+/).first()).toBeVisible()
 
-  // JSON-LD 讓 Google 認得這是商品頁
-  const jsonLd = await page.locator('script[type="application/ld+json"]').first().textContent()
-  const parsed = JSON.parse(jsonLd ?? '{}')
-  expect(parsed['@type']).toBe('Product')
-  expect(parsed.offers.priceCurrency).toBe('TWD')
+  // JSON-LD 讓 Google 認得這是商品頁。
+  // layout 在 <body> 最前面還有一段全站的 @graph（Organization／WebSite），
+  // 商品頁自己那段則是 [Product, BreadcrumbList] 陣列，
+  // 所以不能拿第一段，要全部攤平後找 @type 是 Product 的那一筆。
+  const blocks = (await page.locator('script[type="application/ld+json"]').allTextContents())
+    .flatMap((text) => [JSON.parse(text)].flat())
+    .flatMap((ld) => (Array.isArray(ld['@graph']) ? ld['@graph'] : [ld]))
+  const product = blocks.find((ld) => ld['@type'] === 'Product')
+  expect(product).toBeDefined()
+  // offers 是每個變體一筆 Offer 的陣列
+  expect(product.offers.length).toBeGreaterThan(0)
+  for (const offer of product.offers) {
+    expect(offer.priceCurrency).toBe('TWD')
+  }
 })
 
 test('加入購物車後購物車頁看得到商品，未登入按結帳會被帶去註冊', async ({ page }) => {
