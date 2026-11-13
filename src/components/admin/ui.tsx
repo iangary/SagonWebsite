@@ -62,10 +62,17 @@ export function DataTable({
   headers,
   children,
   empty,
+  scroll,
 }: {
   headers: string[]
   children: React.ReactNode
   empty?: boolean
+  /**
+   * 欄位多、一頁又很長的表（例如會員）用：表格高度限制在視窗內、表頭固定，
+   * 橫向捲軸就一直在畫面底部看得到 —— 不然捲軸在第 50 列底下，等於沒有。
+   * 手機（< 40rem）是卡片排版，不套用。
+   */
+  scroll?: boolean
 }) {
   const columnLabels = Object.fromEntries(
     headers.map((header, index) => [
@@ -76,14 +83,23 @@ export function DataTable({
   ) as React.CSSProperties
 
   return (
-    <div className="overflow-x-auto border border-cream-200 bg-white">
+    <div
+      className={cn(
+        'overflow-x-auto border border-cream-200 bg-white',
+        scroll && 'sm:max-h-[calc(100dvh-8rem)] sm:overflow-y-auto',
+      )}
+    >
       <table style={columnLabels} className="admin-table w-full min-w-[640px] text-sm">
         <thead>
           <tr className="border-b border-cream-200 bg-cream-100 text-left">
             {headers.map((header, index) => (
               <th
                 key={`${header}-${index}`}
-                className="whitespace-nowrap px-4 py-3 text-xs font-medium tracking-wide text-taupe-600"
+                className={cn(
+                  'whitespace-nowrap px-4 py-3 text-xs font-medium tracking-wide text-taupe-600',
+                  // 捲動時表頭留在上方；底色要寫在 th 上，不然內容會從底下透出來
+                  scroll && 'sticky top-0 z-10 bg-cream-100 shadow-[inset_0_-1px_0_var(--color-cream-200)]',
+                )}
               >
                 {header}
               </th>

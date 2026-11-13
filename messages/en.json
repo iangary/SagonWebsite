@@ -2,6 +2,7 @@
   "nav": {
     "home": "Home",
     "allProducts": "All Products",
+    "sizePick": "Find My Size",
     "about": "About",
     "cart": "Cart",
     "account": "My Account",
@@ -64,8 +65,7 @@
       "authTitle": "Official LUNALUZ partner in Taiwan",
       "authBody": "{shop} is the official authorized partner of LUNALUZ Korea in Taiwan. Every piece is genuine.",
       "authCta": "Shop LUNALUZ",
-      "authAlt": "Certificate from LUNALUZ Korea naming {shop} its official authorized partner in Taiwan",
-      "sizePickCta": "Find your fit"
+      "authAlt": "Certificate from LUNALUZ Korea naming {shop} its official authorized partner in Taiwan"
     },
     "recommend": {
       "eyebrow": "Size Pick",

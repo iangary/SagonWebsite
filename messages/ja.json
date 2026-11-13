@@ -2,6 +2,7 @@
   "nav": {
     "home": "ホーム",
     "allProducts": "すべての商品",
+    "sizePick": "サイズ診断",
     "about": "ショップについて",
     "cart": "カート",
     "account": "マイページ",
@@ -64,8 +65,7 @@
       "authTitle": "LUNALUZ 台湾正規代理店",
       "authBody": "{shop}は韓国 LUNALUZ の台湾における正規代理店です。すべて正規品をお届けします。",
       "authCta": "LUNALUZ を見る",
-      "authAlt": "LUNALUZ KOREA が{shop}を台湾の正規代理店に認定した証明書",
-      "sizePickCta": "体型から合うサイズを探す"
+      "authAlt": "LUNALUZ KOREA が{shop}を台湾の正規代理店に認定した証明書"
     },
     "recommend": {
       "eyebrow": "Size Pick",

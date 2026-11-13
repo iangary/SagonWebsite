@@ -2,6 +2,7 @@
   "nav": {
     "home": "首頁",
     "allProducts": "全部商品",
+    "sizePick": "尺寸推薦",
     "about": "關於",
     "cart": "購物車",
     "account": "會員中心",
@@ -64,8 +65,7 @@
       "authTitle": "LUNALUZ 台灣官方授權",
       "authBody": "{shop}是韓國 LUNALUZ 在台灣的官方授權經銷商，每一件都是正品。",
       "authCta": "逛 LUNALUZ",
-      "authAlt": "LUNALUZ KOREA 授權{shop}為台灣官方經銷商的授權證書",
-      "sizePickCta": "輸入身形，找合身的睡衣"
+      "authAlt": "LUNALUZ KOREA 授權{shop}為台灣官方經銷商的授權證書"
     },
     "recommend": {
       "eyebrow": "Size Pick",

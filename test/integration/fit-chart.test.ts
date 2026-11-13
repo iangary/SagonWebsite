@@ -144,7 +144,7 @@ describe('上傳：預覽 → 確認寫入', () => {
 
     const log = await db.auditLog.findFirstOrThrow({ where: { action: 'fit-chart.import' } })
     expect(log).toMatchObject({ userId: admin.id, entity: 'ProductFit' })
-    expect(revalidatePathMock).toHaveBeenCalledWith('/[locale]', 'page')
+    expect(revalidatePathMock).toHaveBeenCalledWith('/[locale]', 'layout')
   })
 
   it('重複下載再原樣上傳：沒有任何變更', async () => {
