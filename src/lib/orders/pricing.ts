@@ -20,6 +20,11 @@ export interface PricingInput {
   freeShippingThreshold: number
   coupon?: Coupon | null
   /**
+   * 組合優惠折掉的金額（src/lib/bundles/match.ts 的 matchBundles 算出來的）。
+   * 組合價先套，折扣碼的門檻、百分比與免運門檻都以扣掉組合優惠後的金額為準。
+   */
+  bundleDiscount?: number
+  /**
    * 貨到付款手續費。只有選貨到付款時才傳。
    * 刻意與運費分開 —— 免運門檻不該把手續費也免掉（那是代收的成本，不是運費）。
    */
@@ -27,7 +32,11 @@ export interface PricingInput {
 }
 
 export interface PricingResult {
+  /** 商品原價合計 */
   subtotal: number
+  /** 組合優惠折掉的金額 */
+  bundleDiscount: number
+  /** 折扣碼折抵的金額 */
   discountTotal: number
   shippingFee: number
   codFee: number
@@ -61,6 +70,10 @@ export function validateCoupon(coupon: Coupon, subtotal: number, now = new Date(
 
 export function calculatePricing(input: PricingInput): PricingResult {
   const subtotal = calculateSubtotal(input.lines)
+  // 防呆：組合優惠不可能超過商品合計，也不會是負的
+  const bundleDiscount = Math.min(subtotal, Math.max(0, Math.floor(input.bundleDiscount ?? 0)))
+  // 套完組合價之後的商品金額 —— 折扣碼與免運門檻都看這個數字
+  const merchandise = subtotal - bundleDiscount
   const baseShipping = input.shippingFees[input.shippingMethod] ?? 0
 
   let discountTotal = 0
@@ -68,17 +81,17 @@ export function calculatePricing(input: PricingInput): PricingResult {
   let couponError: string | null = null
 
   if (input.coupon) {
-    couponError = validateCoupon(input.coupon, subtotal)
+    couponError = validateCoupon(input.coupon, merchandise)
 
     if (!couponError) {
       switch (input.coupon.type) {
         case 'PERCENT':
           // 無條件捨去到元，避免出現小數金額（綠界只收整數）
-          discountTotal = Math.floor((subtotal * input.coupon.value) / 100)
+          discountTotal = Math.floor((merchandise * input.coupon.value) / 100)
           break
         case 'FIXED':
           // 折抵金額不能超過商品小計，否則會算出負數總額
-          discountTotal = Math.min(input.coupon.value, subtotal)
+          discountTotal = Math.min(input.coupon.value, merchandise)
           break
         case 'FREE_SHIPPING':
           couponFreeShipping = true
@@ -87,7 +100,7 @@ export function calculatePricing(input: PricingInput): PricingResult {
     }
   }
 
-  const reachedThreshold = subtotal - discountTotal >= input.freeShippingThreshold
+  const reachedThreshold = merchandise - discountTotal >= input.freeShippingThreshold
   const shippingFee = reachedThreshold || couponFreeShipping ? 0 : baseShipping
 
   const freeShippingReason = reachedThreshold
@@ -100,10 +113,11 @@ export function calculatePricing(input: PricingInput): PricingResult {
 
   return {
     subtotal,
+    bundleDiscount,
     discountTotal,
     shippingFee,
     codFee,
-    grandTotal: Math.max(0, subtotal - discountTotal + shippingFee + codFee),
+    grandTotal: Math.max(0, merchandise - discountTotal + shippingFee + codFee),
     freeShippingReason: shippingFee === 0 ? freeShippingReason : null,
     couponError,
   }

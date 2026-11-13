@@ -104,6 +104,7 @@ function itemsTable(
 
 function summary(order: {
   subtotal: number
+  bundleDiscount: number
   discountTotal: number
   shippingFee: number
   grandTotal: number
@@ -111,6 +112,7 @@ function summary(order: {
   return `
   <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;">
     <tr><td style="padding:3px 0;color:#4a423c;">小計</td><td style="text-align:right;">${formatTWD(order.subtotal)}</td></tr>
+    ${order.bundleDiscount > 0 ? `<tr><td style="padding:3px 0;color:#4a423c;">組合優惠</td><td style="text-align:right;color:#b4524a;">-${formatTWD(order.bundleDiscount)}</td></tr>` : ''}
     ${order.discountTotal > 0 ? `<tr><td style="padding:3px 0;color:#4a423c;">折扣</td><td style="text-align:right;color:#b4524a;">-${formatTWD(order.discountTotal)}</td></tr>` : ''}
     <tr><td style="padding:3px 0;color:#4a423c;">運費</td><td style="text-align:right;">${order.shippingFee === 0 ? '免運費' : formatTWD(order.shippingFee)}</td></tr>
     <tr><td style="padding:10px 0 0;border-top:1px solid #e9e2d8;font-size:15px;">總計</td>

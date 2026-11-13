@@ -16,6 +16,7 @@ export async function SiteFooter() {
   const shop = shopName(locale)
 
   const serviceLinks = [
+    { href: '/bundles', label: tNav('bundles') },
     { href: '/about', label: tNav('about') },
     { href: '/journal', label: tNav('journal') },
     { href: '/contact', label: tNav('contact') },

@@ -27,7 +27,8 @@
     "switchLanguage": "言語を切り替える",
     "memberFallback": "会員",
     "categories": "カテゴリー",
-    "viewAllProducts": "すべての商品を見る"
+    "viewAllProducts": "すべての商品を見る",
+    "bundles": "セット割"
   },
   "announcement": {
     "freeShipping": "{amount}以上のお買い上げで送料無料"
@@ -203,7 +204,8 @@
     "pendingDetail": "注文詳細",
     "pendingViewPayment": "お支払い情報を見る",
     "preorderTag": "予約",
-    "preorderNote": "予約商品はご注文確定後、約 10〜20 営業日で発送します。ご注文の商品がすべてそろってからまとめて発送します。"
+    "preorderNote": "予約商品はご注文確定後、約 10〜20 営業日で発送します。ご注文の商品がすべてそろってからまとめて発送します。",
+    "bundleDiscountNamed": "セット割・{name} ×{sets}"
   },
   "checkout": {
     "title": "ご購入手続き",
@@ -365,7 +367,8 @@
     "cancelOrderPaidWarning": "すでに振込・お支払いがお済みの場合はキャンセルしないでください。入金の反映には時間がかかり、キャンセル後に届いたお支払いは別途返金手続きとなります。",
     "cancelOrderConfirm": "キャンセルする",
     "cancelOrderKeep": "注文を保持",
-    "cancelOrderNotPending": "このご注文はすでにお支払い済みまたはキャンセル済みのため、キャンセルできません。ページを最新の状態に更新しました。"
+    "cancelOrderNotPending": "このご注文はすでにお支払い済みまたはキャンセル済みのため、キャンセルできません。ページを最新の状態に更新しました。",
+    "bundleDiscount": "セット割引"
   },
   "account": {
     "title": "マイページ",
@@ -724,7 +727,8 @@
     "purchaseNotFound": "該当する購入履歴が見つからないか、ご注文がまだ完了していません",
     "productMismatch": "商品情報が一致しません",
     "alreadyReviewed": "この項目はすでにレビュー済みです",
-    "loginRequiredForCheckout": "ご購入の前に会員登録またはログインしてください"
+    "loginRequiredForCheckout": "ご購入の前に会員登録またはログインしてください",
+    "bundleUnavailable": "このセットは現在ご購入いただけません"
   },
   "common": {
     "loading": "読み込み中…",
@@ -853,5 +857,32 @@
     "soldOut": "売り切れ",
     "originalOnly": "この記事は現在、中国語版のみです。",
     "tags": "タグ"
+  },
+  "bundles": {
+    "title": "セット割",
+    "metaDescription": "厳選アイテムのセット割。セットの内容をカートに揃えると自動でセット価格になり、クーポンとも併用できます。",
+    "intro": "これらのアイテムはまとめて買うとセット価格になります。セットの内容をカートに入れると自動で割引され、クーポンコードとも併用できます。",
+    "empty": "現在セット割はありません",
+    "browseProducts": "すべての商品を見る",
+    "bundlePrice": "セット価格",
+    "originalTotal": "通常価格の合計",
+    "saving": "{amount} お得",
+    "savingFrom": "{amount} 以上お得",
+    "contents": "セット内容",
+    "itemQty": "× {count}",
+    "chooseVariant": "仕様を選択してください",
+    "chooseVariantFor": "「{name}」の仕様を選択",
+    "chooseVariantNth": "「{name}」{n} 点目の仕様を選択",
+    "fixedVariantLabel": "仕様：",
+    "addBundle": "セットをカートに入れる",
+    "addedBundle": "セットをカートに追加しました。ご注文時にセット価格が適用されます",
+    "soldOut": "セット内に売り切れの商品があります",
+    "outOfStockOption": "（売り切れ）",
+    "preorderOption": "（予約）",
+    "selectAll": "すべての商品の仕様を選択してください",
+    "autoApplyNote": "セットの内容がカートに揃うと自動でセット価格が適用されます。コード入力は不要で、クーポンとも併用できます。",
+    "productHintTitle": "セットで買うとお得",
+    "productHintBody": "この商品はセット割の対象です。一緒に買うとさらにお得です。",
+    "withItems": "組み合わせ：{items}"
   }
 }

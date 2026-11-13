@@ -397,6 +397,15 @@ export async function deleteProduct(
       return { ok: false, error: '仍有未付款訂單佔用庫存，請等訂單結束後再刪除' }
     }
 
+    // 組合項目用 Restrict 綁著商品：直接刪會被資料庫擋下，先講清楚要去哪裡改
+    const inBundles = await bundleNamesUsing({ productId })
+    if (inBundles.length > 0) {
+      return {
+        ok: false,
+        error: `這件商品在組合「${inBundles.join('」、「')}」裡，請先從組合移除，或改用封存`,
+      }
+    }
+
     await db.product.delete({ where: { id: productId } })
     // 整個資料夾一起移除，不要留下空目錄
     await deleteProductImageDir(productId)
@@ -531,6 +540,14 @@ export async function deleteVariant(
       })
       await revalidateProduct(variant.productId)
       return { ok: true, message: `規格「${variant.name}」已有銷售紀錄，已改為停用` }
+    }
+
+    const inBundles = await bundleNamesUsing({ variantId })
+    if (inBundles.length > 0) {
+      return {
+        ok: false,
+        error: `這個規格在組合「${inBundles.join('」、「')}」裡被指定，請先修改組合，或改用「停用」`,
+      }
     }
 
     await db.productVariant.delete({ where: { id: variantId } })
@@ -811,4 +828,16 @@ export async function setProductCategories(
     console.error('[admin] 設定商品分類失敗', error)
     return { ok: false, error: (error as Error).message }
   }
+}
+
+/** 哪些組合用到這件商品／這個規格（刪除前的檢查用）。 */
+async function bundleNamesUsing(
+  where: { productId: string } | { variantId: string },
+): Promise<string[]> {
+  const bundles = await db.bundle.findMany({
+    where: { items: { some: where } },
+    select: { name: true },
+    orderBy: { sortOrder: 'asc' },
+  })
+  return bundles.map((b) => b.name)
 }

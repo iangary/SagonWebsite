@@ -163,3 +163,53 @@ describe('amountToFreeShipping', () => {
     expect(amountToFreeShipping(1800, 1500)).toBe(0)
   })
 })
+
+describe('calculatePricing — 組合優惠', () => {
+  it('組合優惠從商品合計扣掉，小計仍是原價', () => {
+    const r = price([{ unitPrice: 800, qty: 2 }], { bundleDiscount: 300 })
+    expect(r.subtotal).toBe(1600)
+    expect(r.bundleDiscount).toBe(300)
+    // 1300 未達 1500 免運門檻，要加運費
+    expect(r.shippingFee).toBe(60)
+    expect(r.grandTotal).toBe(1600 - 300 + 60)
+  })
+
+  it('免運門檻看扣掉組合優惠後的金額', () => {
+    expect(price([{ unitPrice: 1600, qty: 1 }]).shippingFee).toBe(0)
+    expect(price([{ unitPrice: 1600, qty: 1 }], { bundleDiscount: 200 }).shippingFee).toBe(60)
+  })
+
+  it('折扣碼與組合價並用：百分比折扣以組合價後的金額計算', () => {
+    const r = price([{ unitPrice: 1000, qty: 2 }], {
+      bundleDiscount: 400,
+      coupon: coupon({ type: 'PERCENT', value: 10 }),
+    })
+    expect(r.discountTotal).toBe(160) // (2000 - 400) × 10%
+    // 1440 未達 1500 免運門檻，加超商運費 60
+    expect(r.grandTotal).toBe(2000 - 400 - 160 + 60)
+  })
+
+  it('折扣碼的最低消費以組合價後的金額判斷', () => {
+    const r = price([{ unitPrice: 1000, qty: 2 }], {
+      bundleDiscount: 400,
+      coupon: coupon({ type: 'FIXED', value: 100, minSubtotal: 1800 }),
+    })
+    expect(r.couponError).toMatch(/消費滿/)
+    expect(r.discountTotal).toBe(0)
+  })
+
+  it('固定折抵不會讓總額變成負數', () => {
+    const r = price([{ unitPrice: 500, qty: 1 }], {
+      bundleDiscount: 300,
+      coupon: coupon({ type: 'FIXED', value: 999 }),
+      freeShippingThreshold: 0,
+    })
+    expect(r.discountTotal).toBe(200)
+    expect(r.grandTotal).toBe(0)
+  })
+
+  it('組合優惠不會超過商品合計，負數當 0', () => {
+    expect(price([{ unitPrice: 100, qty: 1 }], { bundleDiscount: 999 }).bundleDiscount).toBe(100)
+    expect(price([{ unitPrice: 100, qty: 1 }], { bundleDiscount: -50 }).bundleDiscount).toBe(0)
+  })
+})

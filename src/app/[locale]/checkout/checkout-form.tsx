@@ -93,6 +93,7 @@ const INITIAL: CheckoutState = { ok: false }
 export function CheckoutForm({
   items,
   couponCode,
+  bundles,
   prefill,
   shippingMethods,
   shippingFees,
@@ -101,6 +102,8 @@ export function CheckoutForm({
 }: {
   items: Item[]
   couponCode: string | null
+  /** 伺服器算好的組合優惠（湊齊才有） */
+  bundles: { id: string; name: string; sets: number; discount: number }[]
   /** 回購會員從上一筆訂單與地址簿帶入的值，第一次買的會員大多是空的 */
   prefill: CheckoutPrefill
   /** 後台開放的配送方式（超商取貨可以整個關掉），至少一種 */
@@ -206,6 +209,7 @@ export function CheckoutForm({
   }
 
   const lines = items.map((i) => ({ variantId: i.id, unitPrice: i.unitPrice, qty: i.qty }))
+  const bundleDiscount = bundles.reduce((sum, b) => sum + b.discount, 0)
 
   // 先算一份不含貨到付款手續費的金額，用來判斷貨到付款能不能選 ——
   // 拿含手續費的金額去比上限，臨界金額的訂單會因為手續費而自己把選項關掉。
@@ -214,6 +218,7 @@ export function CheckoutForm({
     shippingMethod,
     shippingFees,
     freeShippingThreshold,
+    bundleDiscount,
   })
 
   const codLimit =
@@ -249,6 +254,7 @@ export function CheckoutForm({
           shippingMethod,
           shippingFees,
           freeShippingThreshold,
+          bundleDiscount,
           codFee: payment.codFee,
         })
       : basePricing
@@ -681,6 +687,14 @@ export function CheckoutForm({
               <dt className="text-ink-700">{tCart('subtotal')}</dt>
               <dd className="tabular-nums">{formatTWD(pricing.subtotal)}</dd>
             </div>
+            {bundles.map((bundle) => (
+              <div key={bundle.id} className="flex justify-between gap-3">
+                <dt className="text-ink-700">
+                  {tCart('bundleDiscountNamed', { name: bundle.name, sets: bundle.sets })}
+                </dt>
+                <dd className="shrink-0 tabular-nums text-sale">-{formatTWD(bundle.discount)}</dd>
+              </div>
+            ))}
             <div className="flex justify-between">
               <dt className="text-ink-700">{tCart('shipping')}</dt>
               <dd className="tabular-nums">

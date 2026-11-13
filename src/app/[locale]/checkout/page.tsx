@@ -14,6 +14,7 @@ import {
 } from '@/lib/shop-settings'
 import { CHECKOUT_LOGIN_REDIRECT } from '@/lib/auth/checkout-gate'
 import { getCheckoutPrefill } from '@/lib/orders/checkout-prefill'
+import { matchCartBundles } from '@/lib/bundles'
 import { isPurchaseBlocked } from '@/lib/orders/purchase-block'
 import { lineSupport } from '@/lib/shop-config'
 import { CheckoutForm } from './checkout-form'
@@ -67,11 +68,13 @@ export default async function CheckoutPage({ params }: { params: Promise<{ local
   }
 
   // 回購會員：收件人、門市、地址、付款與發票都從上一筆訂單與地址簿帶入
-  const [t, paymentSettings, shipping, prefill] = await Promise.all([
+  const [t, paymentSettings, shipping, prefill, bundles] = await Promise.all([
     getTranslations('checkout'),
     getPaymentSettings(),
     getShippingSettings(),
     getCheckoutPrefill(session.user.id, session.user.email),
+    // 組合優惠只在伺服器算：結帳表單拿到的是算好的金額，送單時 createOrderFromCart 會再重算
+    matchCartBundles(cart.items, { locale }),
   ])
 
   const items = cart.items.map((item) => ({
@@ -115,6 +118,12 @@ export default async function CheckoutPage({ params }: { params: Promise<{ local
       <CheckoutForm
         items={items}
         couponCode={cart.couponCode}
+        bundles={bundles.applied.map((b) => ({
+          id: b.bundleId,
+          name: b.name,
+          sets: b.sets,
+          discount: b.discount,
+        }))}
         prefill={prefill}
         shippingMethods={availableShippingMethods(shipping)}
         shippingFees={shippingFeesOf(shipping)}

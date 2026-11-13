@@ -318,11 +318,18 @@ async function seedProducts(
   // 已成立的訂單不受影響（OrderItem 是快照，variantId 設成 null）；
   // 有顧客評論的改成下架 —— 刪商品會連評論一起刪掉。
   const gone = { sourceId: { startsWith: PRODUCT_SOURCE_PREFIX, notIn: seen } }
+  // 被組合用到的也改成下架：組合項目綁著商品（Restrict），刪掉會讓組合少一件
   const archived = await db.product.updateMany({
-    where: { ...gone, reviews: { some: {} }, status: { not: 'ARCHIVED' } },
+    where: {
+      ...gone,
+      OR: [{ reviews: { some: {} } }, { bundleItems: { some: {} } }],
+      status: { not: 'ARCHIVED' },
+    },
     data: { status: 'ARCHIVED' },
   })
-  const deleted = await db.product.deleteMany({ where: { ...gone, reviews: { none: {} } } })
+  const deleted = await db.product.deleteMany({
+    where: { ...gone, reviews: { none: {} }, bundleItems: { none: {} } },
+  })
 
   // 商品刪光的品牌也刪掉，否則首頁與關於頁會列出「0 件」的品牌。後台上過封面圖的品牌保留
   const emptyBrands = await db.brand.deleteMany({ where: { products: { none: {} }, imageUrl: null } })

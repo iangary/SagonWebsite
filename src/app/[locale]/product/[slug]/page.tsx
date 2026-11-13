@@ -18,6 +18,8 @@ import { AddToCart } from '@/components/product/add-to-cart'
 import { ProductGrid } from '@/components/product/product-card'
 import { ProductDescription } from '@/components/product/product-description'
 import { ProductReviews } from '@/components/product/product-reviews'
+import { ProductBundleHint } from '@/components/bundle/product-bundle-hint'
+import { getStorefrontBundles } from '@/lib/bundles'
 import { Badge } from '@/components/ui/badge'
 import { lineSupport } from '@/lib/shop-config'
 import { ArrowRight } from 'lucide-react'
@@ -72,13 +74,14 @@ export default async function ProductPage({
   const product = await getProductBySlug(decodeURIComponent(slug))
   if (!product) notFound()
 
-  const [t, tNav, tCommon, related, reviewStats, shipping] = await Promise.all([
+  const [t, tNav, tCommon, related, reviewStats, shipping, bundles] = await Promise.all([
     getTranslations('product'),
     getTranslations('nav'),
     getTranslations('common'),
     getRelatedProducts(product),
     getProductReviewStats(product.id),
     getShippingSettings(),
+    getStorefrontBundles(locale, { productId: product.id }),
   ])
 
   const name = localizedName(locale, product)
@@ -185,6 +188,8 @@ export default async function ProductPage({
             <hr className="my-7 border-cream-200" />
 
             <AddToCart variants={variants} />
+
+            <ProductBundleHint bundles={bundles} productId={product.id} />
 
             <dl className="mt-8 space-y-2 border-t border-cream-200 pt-6 text-xs text-taupe-600">
               <div>

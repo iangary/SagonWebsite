@@ -33,6 +33,9 @@ export async function issueReceiptForOrder(orderId: string): Promise<void> {
   if (order.shippingFee > 0) {
     items.push({ name: '運費', count: 1, price: order.shippingFee })
   }
+  if (order.bundleDiscount > 0) {
+    items.push({ name: '組合優惠', count: 1, price: -order.bundleDiscount })
+  }
   if (order.discountTotal > 0) {
     items.push({ name: '折扣', count: 1, price: -order.discountTotal })
   }

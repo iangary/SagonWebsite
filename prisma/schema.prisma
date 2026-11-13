@@ -242,12 +242,13 @@ model Product {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  brand      Brand?            @relation(fields: [brandId], references: [id], onDelete: SetNull)
-  categories ProductCategory[]
-  images     ProductImage[]
-  variants   ProductVariant[]
-  reviews    Review[]
-  fits       ProductFit[]
+  brand       Brand?            @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  categories  ProductCategory[]
+  images      ProductImage[]
+  variants    ProductVariant[]
+  reviews     Review[]
+  fits        ProductFit[]
+  bundleItems BundleItem[]
 
   @@index([status, publishedAt])
   @@index([brandId])
@@ -351,6 +352,7 @@ model ProductVariant {
   cartItems    CartItem[]
   orderItems   OrderItem[]
   reservations StockReservation[]
+  bundleItems  BundleItem[]
 
   @@index([productId])
   @@map("product_variants")
@@ -447,6 +449,65 @@ model CouponRedemption {
 }
 
 // ===========================================================================
+// 組合優惠
+// ===========================================================================
+
+/// 組合商品：「這幾件一起買只要 NT$X」。
+///
+/// 組合**不是**購物車裡的一個品項 —— 購物車裡永遠是一般規格，
+/// 只要車上湊齊組合內容，計價時就自動把那幾件折成組合價（src/lib/bundles/match.ts）。
+/// 這樣庫存、預購、退款都沿用逐規格的原本流程，組合只影響金額。
+///
+/// 組合頁的「加入購物車」只是一次把每個規格放進車裡的捷徑。
+/// 可以和折扣碼並用：先套組合價，折扣碼再依折後的小計計算。
+model Bundle {
+  id            String  @id @default(cuid())
+  slug          String  @unique
+  name          String
+  nameEn        String?
+  description   String? @db.Text
+  descriptionEn String? @db.Text
+
+  /// 一組的售價（整數元）。必須低於組合內容的原價合計，否則不會套用。
+  price Int
+
+  /// 新建的組合預設下架，內容確認無誤再上架
+  isActive  Boolean @default(false)
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items        BundleItem[]
+  orderBundles OrderBundle[]
+
+  @@index([isActive, sortOrder])
+  @@map("bundles")
+}
+
+/// 組合裡的一項：哪件商品、幾件；variantId 有值代表指定規格，null 代表該商品任一規格都算。
+///
+/// 商品與規格都用 Restrict：刪掉組合裡的商品會讓組合「少一件卻還是那個價」，
+/// 寧可擋下來要管理員先改組合（後台刪除商品／規格時會先給明確的訊息）。
+model BundleItem {
+  id        String  @id @default(cuid())
+  bundleId  String
+  productId String
+  variantId String?
+  qty       Int     @default(1)
+  sortOrder Int     @default(0)
+
+  bundle  Bundle          @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  product Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
+  @@index([bundleId])
+  @@index([productId])
+  @@index([variantId])
+  @@map("bundle_items")
+}
+
+// ===========================================================================
 // 訂單
 // ===========================================================================
 
@@ -477,12 +538,17 @@ model Order {
 
   status OrderStatus @default(PENDING_PAYMENT)
 
-  subtotal      Int
-  discountTotal Int @default(0)
-  shippingFee   Int @default(0)
+  /// 商品原價合計（= 各品項 lineTotal 加總），組合優惠與折扣碼都還沒扣
+  subtotal       Int
+  /// 組合優惠折掉的金額，明細在 bundles。與折扣碼（discountTotal）分開記，
+  /// 收據、通知信與後台才分得出「組合省的」和「折扣碼折的」。
+  bundleDiscount Int @default(0)
+  /// 折扣碼折抵的金額
+  discountTotal  Int @default(0)
+  shippingFee    Int @default(0)
   /// 貨到付款手續費。與運費分開記，免運門檻不該把代收手續費也免掉。
-  codFee        Int @default(0)
-  grandTotal    Int
+  codFee         Int @default(0)
+  grandTotal     Int
 
   couponId String?
 
@@ -519,6 +585,7 @@ model Order {
   reservations StockReservation[]
   redemption   CouponRedemption?
   refunds      RefundRequest[]
+  bundles      OrderBundle[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -551,6 +618,30 @@ model OrderItem {
 
   @@index([orderId])
   @@map("order_items")
+}
+
+/// 這張訂單套到的組合優惠（下單當下的快照，之後組合改價、改名或刪除都不影響）。
+/// 同一個組合湊了兩組就是一列、sets = 2。
+model OrderBundle {
+  id       String  @id @default(cuid())
+  orderId  String
+  bundleId String?
+
+  name          String
+  sets          Int
+  /// 一組的組合價
+  price         Int
+  /// 被這幾組吃掉的品項原價合計（「任一規格」的品項各規格價格可能不同，所以記實際值）
+  originalTotal Int
+  /// = originalTotal - price × sets
+  discount      Int
+
+  order  Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  bundle Bundle? @relation(fields: [bundleId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([bundleId])
+  @@map("order_bundles")
 }
 
 /// 未付款期間先佔住庫存，逾期由 worker 釋放。
@@ -626,9 +717,9 @@ model Payment {
 
   /// 消費者改用其他付款方式時填入。有值就代表這組帳號／代碼已作廢，
   /// 但仍要留著比對逾期入帳。
-  supersededAt DateTime?
+  supersededAt   DateTime?
   /// 最後一次主動向綠界查詢付款狀態的時間（QueryTradeInfo），對帳排程用它節流
-  syncedAt     DateTime?
+  syncedAt       DateTime?
   /// 第一次把這組 MerchantTradeNo 送去綠界收銀台的時間。
   /// 綠界同一組單號只收一次（10300028 訂單編號重複），有值就代表下次「前往付款」要換一組新的。
   checkoutSentAt DateTime?

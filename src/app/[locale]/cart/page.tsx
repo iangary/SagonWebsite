@@ -6,6 +6,7 @@ import { getCart, availableStock, isPreorderLine } from '@/lib/cart'
 import { availableShippingMethods, getShippingSettings, shippingFeesOf } from '@/lib/shop-settings'
 import { localizedName } from '@/lib/i18n/localized'
 import { calculatePricing } from '@/lib/orders/pricing'
+import { matchCartBundles } from '@/lib/bundles'
 import { currentPaymentInclude } from '@/lib/orders/payment'
 import { CartView } from './cart-view'
 import { PendingOrders } from './pending-orders'
@@ -29,8 +30,10 @@ export default async function CartPage({ params }: { params: Promise<{ locale: s
   const [cart, session, shipping] = await Promise.all([getCart(), auth(), getShippingSettings()])
 
   const now = new Date()
-  const [coupon, pendingOrders] = await Promise.all([
+  const [coupon, bundles, pendingOrders] = await Promise.all([
     cart.couponCode ? db.coupon.findUnique({ where: { code: cart.couponCode } }) : null,
+    // 車上湊齊的組合自動折價；結帳時伺服器會再算一次，這裡是預覽
+    matchCartBundles(cart.items, { locale }),
     // 下單就清空購物車了，還沒付款的單要在這裡提醒，不然回來只看到空車
     session?.user?.id
       ? db.order.findMany({
@@ -64,6 +67,7 @@ export default async function CartPage({ params }: { params: Promise<{ locale: s
     shippingFees: shippingFeesOf(shipping),
     freeShippingThreshold: shipping.freeShippingThreshold,
     coupon,
+    bundleDiscount: bundles.discount,
   })
 
   const items = cart.items.map((item) => ({
@@ -85,6 +89,12 @@ export default async function CartPage({ params }: { params: Promise<{ locale: s
     <CartView
       items={items}
       pricing={pricing}
+      bundles={bundles.applied.map((b) => ({
+        id: b.bundleId,
+        name: b.name,
+        sets: b.sets,
+        discount: b.discount,
+      }))}
       couponCode={cart.couponCode}
       freeShippingThreshold={shipping.freeShippingThreshold}
       isMember={Boolean(session?.user?.id)}

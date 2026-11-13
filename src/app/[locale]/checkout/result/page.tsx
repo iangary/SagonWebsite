@@ -306,6 +306,13 @@ export default async function CheckoutResultPage({
 
         <dl className="mt-4 space-y-2 border-t border-cream-200 pt-4 text-sm">
           <SummaryRow label={t('subtotal')} value={formatTWD(order.subtotal)} />
+          {order.bundleDiscount > 0 && (
+            <SummaryRow
+              label={t('bundleDiscount')}
+              value={`-${formatTWD(order.bundleDiscount)}`}
+              tone="sale"
+            />
+          )}
           {order.discountTotal > 0 && (
             <SummaryRow
               label={t('discount')}
