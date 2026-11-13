@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Input, Textarea, Select, Field } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
 import { updatePost, uploadPostImages, type PostFormState } from '../actions'
-import { PostBodyEditor, submitWithoutReset } from '../post-body-editor'
+import { submitWithoutReset } from '@/components/admin/submit-without-reset'
+import { PostBodyEditor } from '../post-body-editor'
 
 const INITIAL: PostFormState = { ok: false }
 

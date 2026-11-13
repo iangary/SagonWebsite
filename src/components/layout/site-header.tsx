@@ -7,6 +7,7 @@ import Image from 'next/image'
 import { shopName } from '@/lib/shop-config'
 import logoImg from '@/assets/brand/sagan-logo.png'
 import { getShippingSettings } from '@/lib/shop-settings'
+import { hasFitData } from '@/lib/recommend/candidates'
 import { HeaderActions } from './header-actions'
 import { MobileNav } from './mobile-nav'
 import { DesktopNav } from './desktop-nav'
@@ -34,13 +35,27 @@ async function getNavCategories() {
   }
 }
 
+/**
+ * 首頁的尺寸推薦區（ProductRecommender，#size-pick）只在對照表有資料時才存在，
+ * 導覽的連結跟著它出現，免得點了落在沒有那一區的首頁。查詢失敗時當作沒有。
+ */
+async function getShowSizePick() {
+  try {
+    return await hasFitData()
+  } catch (error) {
+    console.error('[header] 查詢尺寸對照表失敗', error)
+    return false
+  }
+}
+
 export async function SiteHeader() {
-  const [t, tAnnouncement, locale, categories, shipping] = await Promise.all([
+  const [t, tAnnouncement, locale, categories, shipping, showSizePick] = await Promise.all([
     getTranslations('nav'),
     getTranslations('announcement'),
     getLocale(),
     getNavCategories(),
     getShippingSettings(),
+    getShowSizePick(),
   ])
 
   const categoryLinks = categories.map((c) => ({
@@ -50,9 +65,10 @@ export async function SiteHeader() {
   const allProducts = { href: '/product/all', label: t('allProducts') }
   const about = { href: '/about', label: t('about') }
   const journal = { href: '/journal', label: t('journal') }
+  const sizePick = showSizePick ? [{ href: '/#size-pick', label: t('sizePick') }] : []
 
   // 手機抽屜是一條直的清單，分類直接攤開；桌機把分類收進 DesktopNav 的展開面板
-  const navLinks = [{ href: '/', label: t('home') }, allProducts, journal, about, ...categoryLinks]
+  const navLinks = [{ href: '/', label: t('home') }, ...sizePick, allProducts, journal, about, ...categoryLinks]
 
   return (
     <header className="sticky top-0 z-50 border-b border-cream-200 bg-cream-50/95 backdrop-blur">
@@ -91,7 +107,7 @@ export async function SiteHeader() {
         </div>
 
         <DesktopNav
-          leading={[allProducts]}
+          leading={[...sizePick, allProducts]}
           trailing={[journal, about]}
           categories={categoryLinks}
           labels={{

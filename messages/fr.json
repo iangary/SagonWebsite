@@ -2,6 +2,7 @@
   "nav": {
     "home": "Accueil",
     "allProducts": "Tous les produits",
+    "sizePick": "Ma taille",
     "about": "À propos",
     "journal": "Journal",
     "cart": "Panier",
@@ -65,8 +66,7 @@
       "authTitle": "Partenaire officiel LUNALUZ à Taïwan",
       "authBody": "{shop} est le partenaire officiel agréé de LUNALUZ Korea à Taïwan : chaque pièce est authentique.",
       "authCta": "Découvrir LUNALUZ",
-      "authAlt": "Certificat de LUNALUZ Korea désignant {shop} comme partenaire officiel agréé à Taïwan",
-      "sizePickCta": "Trouver ma taille"
+      "authAlt": "Certificat de LUNALUZ Korea désignant {shop} comme partenaire officiel agréé à Taïwan"
     },
     "recommend": {
       "eyebrow": "Size Pick",

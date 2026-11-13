@@ -8,6 +8,7 @@ import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea, Select, Field } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
+import { submitWithoutReset } from '@/components/admin/submit-without-reset'
 import { createProduct, type ProductFormState } from '../actions'
 import { formatTWD } from '@/lib/utils'
 import { DescriptionEditor } from '../description-editor'
@@ -45,7 +46,7 @@ export function NewProductForm({
   }
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form onSubmit={submitWithoutReset(formAction)} className="space-y-6">
       <input type="hidden" name="categoryIds" value={selectedCategories.join(',')} />
 
       <section className="border border-cream-200 bg-white p-5">

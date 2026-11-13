@@ -37,19 +37,6 @@ import {
  * 工具列插入走 execCommand('insertText')，保留 Ctrl+Z 的復原紀錄（直接改 value 會清掉）。
  */
 
-/**
- * 用 onSubmit 送出而不是 `<form action>`：React 19 的表單 action 成功後會自動 reset 表單，
- * `<select>` 會跳回頁面載入時的 defaultValue（剛發布的文章，狀態欄又顯示「草稿」），
- * 下一次存檔就會把文章改回草稿。自己送出就不會 reset，畫面上的值永遠是剛存進去的值。
- */
-export function submitWithoutReset(action: (formData: FormData) => void) {
-  return (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const formData = new FormData(event.currentTarget)
-    React.startTransition(() => action(formData))
-  }
-}
-
 type Device = 'desktop' | 'mobile'
 const PREVIEW_WIDTH: Record<Device, string> = { desktop: '45rem', mobile: '327px' }
 

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input, Select, Field } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
 import { DataTable, Td } from '@/components/admin/ui'
+import { submitWithoutReset } from '@/components/admin/submit-without-reset'
 import { saveCategory, deleteCategory, type TaxonomyState } from './actions'
 
 type Category = {
@@ -143,7 +144,10 @@ function CategoryForm({
   const parentOptions = categories.filter((c) => c.id !== category?.id)
 
   return (
-    <form action={formAction} className="mb-5 border border-cream-300 bg-white p-5">
+    <form
+      onSubmit={submitWithoutReset(formAction)}
+      className="mb-5 border border-cream-300 bg-white p-5"
+    >
       <input type="hidden" name="id" value={category?.id ?? ''} />
       <h3 className="mb-4 text-sm tracking-[0.1em]">
         {category ? `編輯分類：${category.name}` : '新增分類'}

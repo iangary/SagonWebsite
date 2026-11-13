@@ -127,7 +127,7 @@ export function ProductRecommender({ lineUrl }: { lineUrl: string | null }) {
 
   return (
     <section
-      // 首頁 Hero 第一張的按鈕連到這裡；scroll-mt 讓開 sticky header（h-16／lg:h-[4.5rem]）
+      // 頂端導覽列的「尺寸推薦」（/#size-pick）連到這裡；scroll-mt 讓開 sticky header（h-16／lg:h-[4.5rem]）
       id="size-pick"
       aria-labelledby={`${baseId}-title`}
       className="scroll-mt-16 border-b border-cream-200 bg-cream-100/60 lg:scroll-mt-[4.5rem]"

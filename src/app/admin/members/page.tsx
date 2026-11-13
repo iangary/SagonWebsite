@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client'
+import { Download } from 'lucide-react'
 import { db } from '@/lib/db'
 import { currentUser } from '@/lib/auth'
 import { formatTWD } from '@/lib/utils'
@@ -11,6 +11,14 @@ import {
   FilterChips,
 } from '@/components/admin/ui'
 import { Badge } from '@/components/ui/badge'
+import {
+  MEMBER_SELECT,
+  loginMethods,
+  memberFilterQuery,
+  memberWhere,
+  parseMemberFilter,
+  totalSpent,
+} from '@/lib/admin/members'
 import { MemberRoleButton } from './member-role'
 import { PurchaseBlockButton } from './purchase-block'
 
@@ -33,21 +41,9 @@ export default async function AdminMembersPage({
 }) {
   const sp = await searchParams
   const page = Math.max(1, Number.parseInt(sp.page ?? '1', 10) || 1)
-  // 「已停止購買」跟權限篩選共用同一排 chip，所以也走 role 這個參數
-  const roleFilter =
-    sp.role === 'ADMIN' || sp.role === 'CUSTOMER' || sp.role === 'BLOCKED' ? sp.role : ''
-
-  const where: Prisma.UserWhereInput = {}
-  if (roleFilter === 'BLOCKED') where.purchaseBlockedAt = { not: null }
-  else if (roleFilter) where.role = roleFilter
-  if (sp.q?.trim()) {
-    const q = sp.q.trim()
-    where.OR = [
-      { name: { contains: q, mode: 'insensitive' } },
-      { email: { contains: q, mode: 'insensitive' } },
-      { phone: { contains: q } },
-    ]
-  }
+  const filter = parseMemberFilter(sp)
+  const roleFilter = filter.role
+  const where = memberWhere(filter)
 
   const [me, users, total, adminCount] = await Promise.all([
     currentUser(),
@@ -56,38 +52,33 @@ export default async function AdminMembersPage({
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * PER_PAGE,
       take: PER_PAGE,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        passwordHash: true,
-        purchaseBlockedAt: true,
-        purchaseBlockReason: true,
-        createdAt: true,
-        accounts: { select: { provider: true } },
-        orders: {
-          where: { status: { notIn: ['CANCELLED', 'PENDING_PAYMENT'] } },
-          select: { grandTotal: true },
-        },
-      },
+      select: MEMBER_SELECT,
     }),
     db.user.count({ where }),
     db.user.count({ where: { role: 'ADMIN' } }),
   ])
 
-  function hrefWithRole(value: string) {
-    const params = new URLSearchParams()
-    if (sp.q?.trim()) params.set('q', sp.q.trim())
-    if (value) params.set('role', value)
-    const qs = params.toString()
-    return qs ? `/admin/members?${qs}` : '/admin/members'
-  }
+  const hrefWithRole = (value: string) =>
+    `/admin/members${memberFilterQuery(filter, { role: parseMemberFilter({ role: value }).role })}`
 
   return (
-    <>
-      <PageHeader title="會員" description={`共 ${total} 位，其中 ${adminCount} 位是管理員`} />
+    // data-admin-wide：後台 layout 的 <main> 看到它就放寬到 max-w-[100rem]（欄位多，6xl 塞不下）
+    <div data-admin-wide>
+      <PageHeader
+        title="會員"
+        description={`共 ${total} 位，其中 ${adminCount} 位是管理員`}
+        action={
+          // 匯出與畫面同一組篩選（搜尋、權限），不分頁
+          <a
+            href={`/api/admin/members/export${memberFilterQuery(filter)}`}
+            download
+            className="inline-flex h-10 items-center gap-2 border border-ink-900 px-4 text-sm tracking-wide text-ink-900 transition-colors hover:bg-ink-900 hover:text-cream-50"
+          >
+            <Download size={16} aria-hidden />
+            匯出 Excel
+          </a>
+        }
+      />
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <FilterChips
@@ -109,6 +100,7 @@ export default async function AdminMembersPage({
       </p>
 
       <DataTable
+        scroll
         headers={[
           '姓名',
           'Email',
@@ -123,14 +115,8 @@ export default async function AdminMembersPage({
         empty={users.length === 0}
       >
         {users.map((user) => {
-          // 三種登入方式可以並存，這裡把實際綁定的都列出來
-          const methods = [
-            ...user.accounts.map((a) => a.provider),
-            user.passwordHash ? '密碼' : null,
-            user.phone ? '手機' : null,
-          ].filter(Boolean) as string[]
-
-          const spent = user.orders.reduce((sum, o) => sum + o.grandTotal, 0)
+          const methods = loginMethods(user)
+          const spent = totalSpent(user)
           const isAdmin = user.role === 'ADMIN'
 
           // 兩種擋法對應 lib/auth/roles.ts 的規則，先在畫面上講清楚而不是按下去才報錯
@@ -143,7 +129,7 @@ export default async function AdminMembersPage({
 
           return (
             <tr key={user.id}>
-              <Td>
+              <Td className="whitespace-nowrap">
                 {user.name ?? '—'}
                 {isAdmin && (
                   <Badge tone="dark" className="ml-2">
@@ -151,17 +137,17 @@ export default async function AdminMembersPage({
                   </Badge>
                 )}
               </Td>
-              <Td className="text-taupe-600">{user.email ?? '—'}</Td>
-              <Td className="tabular-nums text-taupe-600">{user.phone ?? '—'}</Td>
-              <Td className="text-xs text-taupe-600">{methods.join('、') || '—'}</Td>
+              <Td className="whitespace-nowrap text-taupe-600">{user.email ?? '—'}</Td>
+              <Td className="whitespace-nowrap tabular-nums text-taupe-600">{user.phone ?? '—'}</Td>
+              <Td className="whitespace-nowrap text-xs text-taupe-600">{methods.join('、') || '—'}</Td>
               <Td className="tabular-nums">{user.orders.length}</Td>
-              <Td className="tabular-nums">{formatTWD(spent)}</Td>
+              <Td className="whitespace-nowrap tabular-nums">{formatTWD(spent)}</Td>
               <Td className="whitespace-nowrap text-xs text-taupe-500">
                 {user.createdAt.toLocaleDateString('zh-TW')}
               </Td>
-              <Td>
+              <Td className="whitespace-nowrap">
                 {user.purchaseBlockedAt && (
-                  <p className="mb-1.5 text-xs text-sale">
+                  <p className="mb-1.5 max-w-56 whitespace-normal text-xs text-sale">
                     已停止（{user.purchaseBlockedAt.toLocaleDateString('zh-TW')}）
                     {user.purchaseBlockReason && (
                       <span className="block text-taupe-600">{user.purchaseBlockReason}</span>
@@ -177,7 +163,7 @@ export default async function AdminMembersPage({
                   />
                 )}
               </Td>
-              <Td>
+              <Td className="whitespace-nowrap">
                 <MemberRoleButton
                   userId={user.id}
                   label={user.name ?? user.email ?? user.phone ?? '這位會員'}
@@ -196,6 +182,6 @@ export default async function AdminMembersPage({
         basePath="/admin/members"
         searchParams={sp}
       />
-    </>
+    </div>
   )
 }

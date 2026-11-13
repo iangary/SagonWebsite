@@ -116,7 +116,8 @@ export async function applyFitChartAction(formData: FormData): Promise<ApplyResu
   })
 
   revalidatePath('/admin/fit-chart')
-  // 首頁的「尺寸推薦」區塊要不要顯示，取決於有沒有適穿資料（hasFitData）
-  revalidatePath('/[locale]', 'page')
+  // 首頁的「尺寸推薦」區塊與每一頁頂端導覽的「尺寸推薦」連結，都取決於有沒有適穿資料（hasFitData）；
+  // 導覽在 layout 的 SiteHeader 裡，所以整個前台都要重新產生
+  revalidatePath('/[locale]', 'layout')
   return { ok: true, counts: plan.counts }
 }

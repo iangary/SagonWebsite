@@ -9,7 +9,8 @@ import { Input, Textarea, Field } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 import { savePostTranslation, type PostFormState } from '../actions'
-import { PostBodyEditor, submitWithoutReset } from '../post-body-editor'
+import { submitWithoutReset } from '@/components/admin/submit-without-reset'
+import { PostBodyEditor } from '../post-body-editor'
 
 const LOCALE_LABEL: Record<string, string> = {
   en: 'English',

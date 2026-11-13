@@ -38,7 +38,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               chatUnread={chatUnread}
             />
             <div className="min-w-0 flex-1">
-              <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
+              {/* 欄位多的頁面（會員）在最外層加 data-admin-wide，就放寬到 100rem */}
+              <main className="mx-auto max-w-6xl px-4 py-6 has-[[data-admin-wide]]:max-w-[100rem] sm:px-6 sm:py-8">
+                {children}
+              </main>
             </div>
           </div>
         </ToastProvider>
