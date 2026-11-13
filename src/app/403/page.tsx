@@ -1,9 +1,8 @@
 import Link from 'next/link'
-import '@/styles/globals.css'
 
 export const metadata = { title: '沒有權限', robots: { index: false } }
 
-/** proxy.ts 在非管理員嘗試進入 /admin 時 rewrite 到這裡。html/body 由 Next 的 DefaultLayout 提供。 */
+/** proxy.ts 在非管理員嘗試進入 /admin 時 rewrite 到這裡。html/body 在同目錄的 layout.tsx。 */
 export default function ForbiddenPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-cream-50 text-ink-900">
