@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { PRODUCT_CARD, loginAsCustomer } from './helpers/checkout'
+import { addFirstProductToCart, loginAsCustomer } from './helpers/checkout'
 
 /**
  * 「訪客加購物車 → 登入」的接續。
@@ -13,36 +13,6 @@ import { PRODUCT_CARD, loginAsCustomer } from './helpers/checkout'
  */
 
 const REMOVE = '移除'
-
-/**
- * 加一件買得到的商品進購物車。
- *
- * 不用 helpers 的 addFirstProductToCart —— 它固定挑第一件，而開發用的資料庫
- * 常常有商品被測試買到缺貨，挑到就會卡在「已售完」。這裡逐件試到找得到為止。
- */
-async function addAnyAvailableProductToCart(page: Page): Promise<void> {
-  await page.goto('/product/all')
-  const hrefs = await page.locator(PRODUCT_CARD).evaluateAll((nodes) =>
-    nodes.map((n) => (n as HTMLAnchorElement).getAttribute('href')!).slice(0, 12),
-  )
-  expect(hrefs.length).toBeGreaterThan(0)
-
-  for (const href of hrefs) {
-    await page.goto(href)
-
-    const variants = page.getByTestId('variant-selector').locator('button:not([disabled])')
-    if ((await variants.count()) > 0) await variants.first().click()
-
-    const addToCart = page.getByRole('button', { name: '加入購物車' })
-    if ((await addToCart.count()) === 0) continue // 整件售完
-
-    await addToCart.click()
-    await expect(page.getByText('已加入購物車')).toBeVisible()
-    return
-  }
-
-  throw new Error('資料庫裡沒有任何買得到的商品，先跑 npm run seed 補庫存')
-}
 
 /** 清空目前這台車，但保留 Cart 那一列 —— 這就是災情的前置條件 */
 async function emptyTheCart(page: Page): Promise<void> {
@@ -60,14 +30,14 @@ async function emptyTheCart(page: Page): Promise<void> {
 test('未登入加入購物車，登入後東西還在（會員先前留著一台空車）', async ({ page }) => {
   // 1. 先讓這個會員留下一台「存在但是空的」車
   await loginAsCustomer(page)
-  await addAnyAvailableProductToCart(page)
+  await addFirstProductToCart(page)
   await emptyTheCart(page)
 
   // 2. 變回訪客（session 與 sagon_cart 都丟掉，等於換一台新裝置）
   await page.context().clearCookies()
 
   // 3. 訪客把東西放進購物車
-  await addAnyAvailableProductToCart(page)
+  await addFirstProductToCart(page)
   await page.goto('/cart')
   await expect(page.getByRole('button', { name: REMOVE })).toHaveCount(1)
 
@@ -80,7 +50,8 @@ test('未登入加入購物車，登入後東西還在（會員先前留著一�
   await expect(page.getByRole('button', { name: REMOVE })).toHaveCount(1)
 
   // 6. 而且 CartItem 的 id 沒有換過：第一下就能改數量，不會吃到「找不到這個項目」
-  await page.getByRole('button', { name: '增加數量' }).first().click()
+  // 用「移除」而不是「增加數量」驗：挑到只剩 1 件的商品時 + 本來就是停用的
+  await page.getByRole('button', { name: REMOVE }).first().click()
+  await expect(page.getByText('購物車是空的')).toBeVisible()
   await expect(page.getByText('找不到這個項目')).toBeHidden()
-  await expect(page.getByRole('button', { name: REMOVE })).toHaveCount(1)
 })

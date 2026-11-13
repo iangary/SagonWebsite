@@ -21,7 +21,8 @@ async function createDraftProduct(page: Page, name: string): Promise<string> {
   await page.locator('#price').fill('990')
   await page.locator('#stock').fill('5')
   await page.locator('#variantName').fill('單一規格')
-  await page.getByRole('button', { name: '建立商品' }).click()
+  // exact：編輯器裡停用中的「建立商品後才能插入圖片」也含這四個字
+  await page.getByRole('button', { name: '建立商品', exact: true }).click()
   await page.waitForURL(/\/admin\/products\/(?!new$)[a-z0-9]+$/)
   return page.url()
 }

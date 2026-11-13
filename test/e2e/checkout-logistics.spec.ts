@@ -5,6 +5,7 @@ import {
   startMemberCheckout,
   stubCvsStoreSelection,
 } from './helpers/checkout'
+import { requireCvsPickup } from './helpers/admin'
 
 /**
  * 物流相關的結帳行為：選店結果的接收合約（postMessage / sessionStorage /
@@ -17,6 +18,8 @@ import {
 
 test.describe('結帳物流', () => {
   test.describe.configure({ timeout: 180_000 })
+  // 選 7-11／全家門市的測試：商店設定預設關閉超商取貨，整組先打開、結束後還原
+  requireCvsPickup()
 
   test.beforeEach(async ({ page }) => {
     await startMemberCheckout(page)
@@ -90,7 +93,12 @@ test.describe('結帳物流', () => {
 
     // zod schema：zip 要 3~5 碼數字、詳細地址必填
     await expect(page.getByText(/郵遞區號/)).toBeVisible()
-    await expect(page.locator('#addressLine ~ p, [id="addressLine"] + p').or(page.getByText(/請填寫.*地址|地址.*必填/)).first()).toBeVisible()
+    await expect(
+      page
+        .locator('#addressLine ~ p, [id="addressLine"] + p')
+        .or(page.getByText(/請填寫.*地址|地址.*必填/))
+        .first(),
+    ).toBeVisible()
     await expect(page).toHaveURL(/\/checkout/)
   })
 

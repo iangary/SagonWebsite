@@ -16,6 +16,7 @@ import {
   stubCvsStoreSelection,
   submitAndCaptureOrderNo,
 } from './helpers/checkout'
+import { requireCvsPickup, requirePaymentMethods } from './helpers/admin'
 
 /**
  * 金流 E2E：真的走一次「加購物車 → 結帳 → 模擬綠界回拋 → 結果頁」。
@@ -43,6 +44,10 @@ async function placeOrder(page: Page, payment: 'Credit' | 'ATM' | 'CVS'): Promis
 }
 
 test.describe('結帳與付款回拋', () => {
+  // 這組用超商取貨下單，商店設定預設關閉超商取貨，整組先打開、結束後還原
+  requireCvsPickup()
+  // ATM 取號、超商代碼兩個測試要的付款方式，商店設定目前關閉，同樣先打開、結束後還原
+  requirePaymentMethods(['ATM 虛擬帳號', '超商代碼繳費'])
   // dev 模式每個路由都要即時編譯，放寬單條時限
   test.describe.configure({ timeout: 240_000 })
 
@@ -80,7 +85,10 @@ test.describe('結帳與付款回拋', () => {
 
     // 簽章竄改：直接被驗簽擋下
     const badMac = buildPaymentReturn(orderNo, amount)
-    badMac.CheckMacValue = badMac.CheckMacValue.replace(/^./, badMac.CheckMacValue[0] === 'A' ? 'B' : 'A')
+    badMac.CheckMacValue = badMac.CheckMacValue.replace(
+      /^./,
+      badMac.CheckMacValue[0] === 'A' ? 'B' : 'A',
+    )
     const badMacRes = await postCallback(request, '/api/ecpay/payment/return', badMac)
     expect(badMacRes.body.startsWith('0|')).toBeTruthy()
     expect((await orderStatus(request, orderNo)).status).toBe('PENDING_PAYMENT')

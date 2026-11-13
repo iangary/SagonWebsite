@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test'
+import Redis from 'ioredis'
 
 /**
  * 結帳流程的共用步驟。金額計算、門市選擇等細節見 checkout-form.tsx。
@@ -7,17 +8,34 @@ import { expect, type Page } from '@playwright/test'
 /** 商品卡片連結（排除導覽列的 /product/all） */
 export const PRODUCT_CARD = 'main a[href^="/product/"]:not([href="/product/all"])'
 
-/** 從列表頁點進第一件商品並加入購物車（多規格商品自動選第一個可選規格） */
-export async function addFirstProductToCart(page: Page): Promise<void> {
+/**
+ * 打開一件買得到的商品頁，並選好第一個可選規格。
+ *
+ * 不固定挑列表第一件：前面的測試下單會把它的庫存預扣掉，整件變成「已售完」、
+ * 沒有加入購物車按鈕，後面每個測試就跟著卡住。這裡逐件試到找得到為止。
+ */
+export async function openAvailableProduct(page: Page): Promise<void> {
   await page.goto('/product/all')
-  await page.locator(PRODUCT_CARD).first().click()
-  await page.waitForURL(/\/product\/(?!all)/)
+  const hrefs = await page
+    .locator(PRODUCT_CARD)
+    .evaluateAll((nodes) =>
+      nodes.map((n) => (n as HTMLAnchorElement).getAttribute('href')!).slice(0, 24),
+    )
+  expect(hrefs.length).toBeGreaterThan(0)
 
-  const variantButtons = page.getByTestId('variant-selector').locator('button:not([disabled])')
-  if ((await variantButtons.count()) > 0) {
-    await variantButtons.first().click()
+  for (const href of hrefs) {
+    await page.goto(href)
+    const variants = page.getByTestId('variant-selector').locator('button:not([disabled])')
+    if ((await variants.count()) > 0) await variants.first().click()
+    if ((await page.getByRole('button', { name: '加入購物車' }).count()) > 0) return
   }
 
+  throw new Error('資料庫裡沒有任何買得到的商品，先跑 npm run seed 補庫存')
+}
+
+/** 加一件買得到的商品進購物車 */
+export async function addFirstProductToCart(page: Page): Promise<void> {
+  await openAvailableProduct(page)
   await page.getByRole('button', { name: '加入購物車' }).click()
   await expect(page.getByText('已加入購物車')).toBeVisible()
 }
@@ -138,7 +156,30 @@ export async function loginAsCustomer(page: Page): Promise<void> {
  * 每個測試都開自己的會員，而不是共用種子帳號 —— 購物車現在掛在會員身上，
  * 共用一個帳號的話上一個測試沒結完的車會影響下一個測試的金額。
  */
+/**
+ * 清掉「同 IP 每小時最多註冊 10 次」的計數（src/app/[locale]/(auth)/register/actions.ts）。
+ *
+ * 整套 e2e 會開好幾十個新會員，本機又沒有 Caddy 帶 X-Real-IP，全部擠在 'unknown' 這個桶，
+ * 跑到第 11 個就被擋在註冊頁。只清註冊的計數，登入失敗、簡訊等其他節流不動；
+ * 節流本身在網站上照常運作，這裡只是讓測試能一直開新帳號。
+ */
+async function resetSignupThrottle(): Promise<void> {
+  const url = process.env.REDIS_URL
+  if (!url) return
+  const redis = new Redis(url, { lazyConnect: true, maxRetriesPerRequest: 1 })
+  try {
+    await redis.connect()
+    const keys = await redis.keys('rl:register:ip:*')
+    if (keys.length > 0) await redis.del(...keys)
+  } catch {
+    // 連不到 Redis（例如對遠端環境跑 e2e）就不清，最多是多開幾個帳號後被擋
+  } finally {
+    redis.disconnect()
+  }
+}
+
 export async function registerNewMember(page: Page): Promise<{ email: string; password: string }> {
+  await resetSignupThrottle()
   const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6)}`
   const email = `e2e+${stamp}@sagon.local`
   const password = 'e2e-Pass-1234'

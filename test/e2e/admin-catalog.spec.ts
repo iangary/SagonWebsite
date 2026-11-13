@@ -84,7 +84,8 @@ test.describe('後台商品維護', () => {
     await page.locator('#price').fill('1234')
     await page.locator('#stock').fill('5')
     await page.locator('#variantName').fill('M')
-    await page.getByRole('button', { name: '建立商品' }).click()
+    // exact：編輯器裡停用中的「建立商品後才能插入圖片」也含這四個字
+    await page.getByRole('button', { name: '建立商品', exact: true }).click()
 
     // 建立後會導到編輯頁。要排除 new —— 否則這個 regex 會立刻在
     // /admin/products/new 上就成立，後面全部跑在錯的頁面上還一路通過。

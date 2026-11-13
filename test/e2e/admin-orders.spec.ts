@@ -9,7 +9,7 @@ import {
   stubCvsStoreSelection,
   submitAndCaptureOrderNo,
 } from './helpers/checkout'
-import { loginAsAdmin, openAdminOrder } from './helpers/admin'
+import { loginAsAdmin, openAdminOrder, requireCvsPickup } from './helpers/admin'
 
 /**
  * 後台訂單操作。刻意不按「建立物流訂單」—— 那會 enqueue 真的
@@ -30,6 +30,8 @@ async function placeCvsOrder(page: Page): Promise<string> {
 
 test.describe('後台訂單操作', () => {
   test.describe.configure({ timeout: 240_000 })
+  // 這組用超商取貨下單，商店設定預設關閉超商取貨，整組先打開、結束後還原
+  requireCvsPickup()
 
   test('付款成功的訂單出現在後台且手動狀態流轉正常', async ({ page, request }) => {
     const orderNo = await placeCvsOrder(page)
@@ -53,7 +55,7 @@ test.describe('後台訂單操作', () => {
     await expect(page.locator('header').getByText('已完成')).toBeVisible()
   })
 
-  test('待付款訂單可取消，取消後結果頁顯示付款未完成', async ({ page }) => {
+  test('待付款訂單可取消，取消後結果頁顯示訂單已取消', async ({ page }) => {
     const orderNo = await placeCvsOrder(page)
 
     await loginAsAdmin(page)
@@ -66,9 +68,9 @@ test.describe('後台訂單操作', () => {
     await page.getByRole('button', { name: '取消訂單' }).click()
     await expect(page.locator('header').getByText('已取消')).toBeVisible()
 
-    // 客人看到的結果頁
+    // 客人看到的結果頁：取消的訂單有自己的「訂單已取消」畫面，不再顯示成「付款未完成」
     await gotoResult(page, orderNo)
-    await expect(page.getByRole('heading', { name: '付款未完成' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '訂單已取消', level: 1 })).toBeVisible()
   })
 
   test('宅配訂單可回填黑貓托運單號，格式錯誤會被擋', async ({ page, request }) => {

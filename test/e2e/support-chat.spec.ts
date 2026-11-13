@@ -88,7 +88,9 @@ test.describe('站內客服聊天', () => {
   test.beforeAll(cleanupTestConversations)
   test.afterAll(cleanupTestConversations)
 
-  test('訪客發問 → 客服回覆 → 訪客不重整就收到 → 結案', async ({ browser }) => {
+  // 前台右下角的客服聊天按鈕已在 b3492fc 改成 LINE 官方帳號入口，訪客開不了聊天視窗。
+  // 後台收件匣還在；決定要不要整個拿掉之前先跳過，不刪測試。
+  test.skip('訪客發問 → 客服回覆 → 訪客不重整就收到 → 結案', async ({ browser }) => {
     const token = uniqueToken()
     const question = `${MARKER} ${token} — 請問這件外套有 M 號嗎？`
     const answer = `${MARKER} ${token} — 有的，M 號還有 3 件`
@@ -181,7 +183,9 @@ test.describe('站內客服聊天', () => {
     }
   })
 
-  test('另一位訪客看不到別人的對話', async ({ browser }) => {
+  // 前台右下角的客服聊天按鈕已在 b3492fc 改成 LINE 官方帳號入口，訪客開不了聊天視窗。
+  // 後台收件匣還在；決定要不要整個拿掉之前先跳過，不刪測試。
+  test.skip('另一位訪客看不到別人的對話', async ({ browser }) => {
     const token = uniqueToken()
     const secret = `${MARKER} ${token} — 我的收件地址是台北市中山區`
 

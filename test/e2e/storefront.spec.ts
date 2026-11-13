@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { useEnglish } from './helpers/locale'
+import { addFirstProductToCart, openAvailableProduct } from './helpers/checkout'
 
 /**
  * 前台的瀏覽動線。不依賴特定商品，從首頁一路點進去，
@@ -46,8 +47,7 @@ test('搜尋會把關鍵字帶進網址並顯示結果', async ({ page }) => {
 })
 
 test('商品詳情頁有價格、加入購物車與結構化資料', async ({ page }) => {
-  await page.goto('/product/all')
-  await page.locator(PRODUCT_CARD).first().click()
+  await openAvailableProduct(page)
 
   await expect(page.getByRole('button', { name: '加入購物車' })).toBeVisible()
   await expect(page.getByText(/NT\$[\d,]+/).first()).toBeVisible()
@@ -69,19 +69,7 @@ test('商品詳情頁有價格、加入購物車與結構化資料', async ({ pa
 })
 
 test('加入購物車後購物車頁看得到商品，未登入按結帳會被帶去註冊', async ({ page }) => {
-  await page.goto('/product/all')
-  await page.locator(PRODUCT_CARD).first().click()
-  // 等真的離開列表頁再繼續，否則後面的選擇器會打到列表頁的篩選器
-  await page.waitForURL(/\/product\/(?!all)/)
-
-  // 有多規格的商品要先選規格。用 testid 鎖定，避免選到列表頁的價格區間按鈕。
-  const variantButtons = page.getByTestId('variant-selector').locator('button:not([disabled])')
-  if ((await variantButtons.count()) > 0) {
-    await variantButtons.first().click()
-  }
-
-  await page.getByRole('button', { name: '加入購物車' }).click()
-  await expect(page.getByText('已加入購物車')).toBeVisible()
+  await addFirstProductToCart(page)
 
   await page.goto('/cart')
   await expect(page.getByRole('heading', { name: '購物車' })).toBeVisible()
