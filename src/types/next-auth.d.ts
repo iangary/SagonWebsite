@@ -20,6 +20,7 @@ declare module 'next-auth' {
     phone?: string | null
     locale?: 'zh-TW' | 'en' | 'ja' | 'ko' | 'fr' | null
     needsPassword?: boolean
+    sessionVersion?: number
   }
 }
 
@@ -37,6 +38,8 @@ declare module 'next-auth/jwt' {
      * —— 節流邏輯在 src/lib/auth/index.ts 的 jwt callback。
      */
     roleCheckedAt?: number
+    /** 登入當下的 users.sessionVersion。改過密碼之後對不上，session 就作廢。 */
+    sessionVersion?: number
   }
 }
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { currentUser } from '@/lib/auth'
+import { requireAdmin } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { readLabel } from '@/lib/tcat/labels'
 
@@ -13,8 +13,10 @@ export const dynamic = 'force-dynamic'
  * 這裡必須自己驗身分 —— 與 /api/chat/admin 的做法一致。
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ orderId: string }> }) {
-  const user = await currentUser()
-  if (!user || user.role !== 'ADMIN') {
+  // requireAdmin 會再問一次資料庫：token 上的 role 最多舊 5 分鐘，撤權要當下生效
+  try {
+    await requireAdmin()
+  } catch {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   }
 

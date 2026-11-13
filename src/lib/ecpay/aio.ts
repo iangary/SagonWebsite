@@ -1,4 +1,5 @@
 import 'server-only'
+import { randomInt } from 'node:crypto'
 import { generateCheckMacValue, verifyCheckMacValue } from './checkmac'
 import { callbackUrl, ecpayEndpoints, paymentConfig } from './config'
 
@@ -46,10 +47,13 @@ export function buildItemName(items: AioOrderInput['items']): string {
 /**
  * MerchantTradeNo：僅英數、最長 20 碼、全站唯一。
  * 用「時間戳 base36 + 隨機碼」，短、單調遞增、看得出先後順序。
+ *
+ * 隨機碼用 CSPRNG（randomInt）而不是 Math.random：訂單編號是訪客查單與付款頁的鑰匙之一，
+ * Math.random 的輸出可以從幾個樣本推回內部狀態，進而猜出其他人的編號。
  */
 export function generateMerchantTradeNo(prefix = 'SG'): string {
   const ts = Date.now().toString(36).toUpperCase()
-  const rand = Math.random().toString(36).slice(2, 8).toUpperCase()
+  const rand = randomInt(0, 36 ** 6).toString(36).padStart(6, '0').toUpperCase()
   return `${prefix}${ts}${rand}`.slice(0, 20)
 }
 

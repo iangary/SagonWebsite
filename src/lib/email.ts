@@ -1,5 +1,5 @@
 import 'server-only'
-import nodemailer from 'nodemailer'
+import nodemailer, { type Mail } from 'nodemailer'
 import { env } from '@/lib/env'
 import { db } from '@/lib/db'
 import { formatTWD } from '@/lib/utils'
@@ -9,9 +9,9 @@ import { bankAccountOf } from '@/lib/orders/bank-transfer'
 import { reviewPageUrl } from '@/lib/orders/review-invite'
 import { getPaymentSettings } from '@/lib/shop-settings'
 
-let transporter: nodemailer.Transporter | null = null
+let transporter: Mail | null = null
 
-function getTransporter(): nodemailer.Transporter {
+function getTransporter(): Mail {
   transporter ??= nodemailer.createTransport({
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,

@@ -63,7 +63,7 @@ export function LoginForm({
 
     setPending(false)
     if (res?.error) {
-      setError(t('invalidCredentials'))
+      setError(t(res.code === 'rate_limited' ? 'loginRateLimited' : 'invalidCredentials'))
       return
     }
     // 登入時匿名購物車會併進會員車（見 src/lib/auth 的 signIn event），

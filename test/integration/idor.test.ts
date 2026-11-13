@@ -74,6 +74,7 @@ import { GET as labelGet } from '@/app/api/admin/labels/[orderId]/route'
 import { GET as orderStatusGet } from '@/app/api/orders/[orderNo]/status/route'
 import { GET as orderAmountGet } from '@/app/api/orders/[orderNo]/amount/route'
 import OrderQueryPage from '@/app/[locale]/order/query/page'
+import { queryOrder } from '@/app/[locale]/order/query/actions'
 import WriteReviewPage from '@/app/[locale]/account/orders/[id]/review/page'
 import { createTestCart, createTestOrder, createTestProduct, createTestUser } from '../factories'
 import { MemoryCookieJar, mockAuthUser, resetCookieJar } from './mocks'
@@ -529,11 +530,19 @@ function findRenderedOrder(node: unknown): { orderNo?: string } | null {
 }
 
 describe('訪客訂單查詢：訂單編號 + 聯絡方式的雙因素', () => {
+  /**
+   * 模擬一位全新的訪客：送出查詢（POST Server Action），再 render 頁面看有沒有交出訂單。
+   * 每次先清空 cookie —— 查詢成功會把條件記在 cookie 上，不清的話上一筆成功的結果
+   * 會讓下一筆失敗的查詢看起來也「查得到」。
+   */
   async function query(orderNo: string, contact: string) {
-    const element = await OrderQueryPage({
-      params: Promise.resolve({ locale: 'zh-TW' }),
-      searchParams: Promise.resolve({ orderNo, contact }),
-    })
+    resetCookieJar()
+    const form = new FormData()
+    form.set('orderNo', orderNo)
+    form.set('contact', contact)
+    await queryOrder({}, form)
+
+    const element = await OrderQueryPage({ params: Promise.resolve({ locale: 'zh-TW' }) })
     return findRenderedOrder(element)
   }
 

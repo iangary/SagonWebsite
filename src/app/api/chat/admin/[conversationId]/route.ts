@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { currentUser } from '@/lib/auth'
+import { requireAdmin } from '@/lib/auth'
 import { chatEventStream } from '@/lib/chat/stream'
 
 export const dynamic = 'force-dynamic'
@@ -14,8 +14,10 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ conversationId: string }> },
 ) {
-  const user = await currentUser()
-  if (!user || user.role !== 'ADMIN') {
+  // requireAdmin 會再問一次資料庫：token 上的 role 最多舊 5 分鐘，撤權要當下生效
+  try {
+    await requireAdmin()
+  } catch {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   }
 

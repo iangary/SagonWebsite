@@ -15,6 +15,12 @@ describe('signInErrorKey', () => {
     expect(signInErrorKey('AccountNotLinked')).toBe('ssoAccountTaken')
   })
 
+  it('登入頁（未登入）撞到同 Email 時，叫他用原本的方式登入再綁，而不是說帳號被別人綁走', () => {
+    expect(signInErrorKey('OAuthAccountNotLinked', 'login')).toBe('ssoEmailTaken')
+    expect(signInErrorKey('AccountNotLinked', 'login')).toBe('ssoEmailTaken')
+    expect(signInErrorKey('CredentialsSignin', 'login')).toBe('invalidCredentials')
+  })
+
   it('帳密登入失敗仍然是帳號或密碼錯誤', () => {
     expect(signInErrorKey('CredentialsSignin')).toBe('invalidCredentials')
   })
@@ -42,6 +48,7 @@ describe('signInErrorKey', () => {
       }
       for (const code of codes) {
         expect(messages.auth[signInErrorKey(code)], `${locale} / ${code}`).toBeTruthy()
+        expect(messages.auth[signInErrorKey(code, 'login')], `${locale} / login / ${code}`).toBeTruthy()
       }
     }
   })

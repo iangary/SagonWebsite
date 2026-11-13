@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
+import { cookies } from 'next/headers'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { db } from '@/lib/db'
-import { normalizeTwMobile } from '@/lib/sms/provider'
 import { OrderSummaryCard } from '@/components/order/order-summary-card'
 import { OrderQueryForm } from './query-form'
+import { findGuestOrder, ORDER_QUERY_COOKIE, readSavedQuery } from '@/lib/orders/guest-query'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,47 +18,20 @@ export async function generateMetadata({
 }
 
 /**
- * 訪客訂單查詢。
- *
- * 用訂單編號 + 手機（或 Email）雙因素比對 —— 只有訂單編號的話，
- * 任何人拿到出貨單就能看到別人的收件資訊。
+ * 訪客訂單查詢。查詢條件走 POST（見 actions.ts），這一頁只負責顯示 cookie 記住的那筆。
+ * cookie 裡的條件每次都重新比對，不是查過一次就放行。
  */
 export default async function OrderQueryPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ locale: string }>
-  searchParams: Promise<{ orderNo?: string; contact?: string }>
 }) {
   const { locale } = await params
   setRequestLocale(locale)
-  const [t, sp] = await Promise.all([getTranslations('orderQuery'), searchParams])
+  const [t, cookieStore] = await Promise.all([getTranslations('orderQuery'), cookies()])
 
-  let order = null
-  let notFound = false
-
-  if (sp.orderNo?.trim() && sp.contact?.trim()) {
-    const orderNo = sp.orderNo.trim().toUpperCase()
-    const contact = sp.contact.trim()
-    const phone = normalizeTwMobile(contact)
-
-    order = await db.order.findFirst({
-      where: {
-        orderNo,
-        OR: [
-          { email: contact.toLowerCase() },
-          ...(phone ? [{ phone }, { recipientPhone: phone }] : []),
-        ],
-      },
-      include: {
-        items: true,
-        payments: { orderBy: { createdAt: 'desc' } },
-        shipment: true,
-        invoice: true,
-      },
-    })
-    notFound = order === null
-  }
+  const saved = readSavedQuery(cookieStore.get(ORDER_QUERY_COOKIE)?.value)
+  const order = saved ? await findGuestOrder(saved.orderNo, saved.contact) : null
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-16">
@@ -66,13 +39,10 @@ export default async function OrderQueryPage({
       <h1 className="mt-4 text-3xl">{t('title')}</h1>
       <p className="mt-4 text-sm leading-loose text-ink-700">{t('intro')}</p>
 
-      <OrderQueryForm defaultOrderNo={sp.orderNo ?? ''} defaultContact={sp.contact ?? ''} />
-
-      {notFound && (
-        <p className="mt-8 border border-sale/30 bg-sale/5 px-4 py-3 text-sm text-sale">
-          {t('notFound')}
-        </p>
-      )}
+      <OrderQueryForm
+        defaultOrderNo={order && saved ? saved.orderNo : ''}
+        defaultContact={order && saved ? saved.contact : ''}
+      />
 
       {order && (
         <div className="mt-10">

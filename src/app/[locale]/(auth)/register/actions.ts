@@ -1,11 +1,16 @@
 'use server'
 
+import { headers } from 'next/headers'
 import { getTranslations } from 'next-intl/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
 import { hashPassword } from '@/lib/auth/password'
 import { maskEmail, requestEmailVerification } from '@/lib/auth/email-verification'
 import { normalizeTwMobile } from '@/lib/sms/provider'
+import { clientIp, consumeRateLimit } from '@/lib/rate-limit'
+
+/** 同一個 IP 每小時最多送出幾次註冊（每次都可能寄一封驗證信，也能拿來探測哪些 Email 是會員） */
+const REGISTER_PER_IP_HOURLY = 10
 
 const schema = z
   .object({
@@ -53,6 +58,13 @@ export async function registerAction(
     return { ok: false, fieldErrors }
   }
 
+  const limited = await consumeRateLimit(
+    `register:ip:${clientIp(await headers())}`,
+    REGISTER_PER_IP_HOURLY,
+    3600,
+  )
+  if (!limited.ok) return { ok: false, error: (await getTranslations('errors'))('tooManyRequests') }
+
   const { name, email, password } = parsed.data
 
   let phone: string | null = null
@@ -73,22 +85,21 @@ export async function registerAction(
     return { ok: false, fieldErrors: { email: (await getTranslations('errors'))('emailTaken') } }
   }
 
-  const passwordHash = await hashPassword(password)
-
+  /**
+   * 這個 Email 已經用 Google／LINE／Facebook 登入過、但沒設過密碼。
+   *
+   * 這裡**絕對不能**順手把密碼寫進去：註冊頁不需要登入，填表的人不一定是信箱主人。
+   * 以前就是這樣寫的，結果只要知道別人的 Gmail，就能替那個帳號設一組自己的密碼、
+   * 直接登進去看訂單與地址（驗證信是事後才寄，密碼登入也不看 emailVerified）。
+   *
+   * 本人想加一組密碼，正確的路是用原本的方式登入，再到「帳號安全」設定 ——
+   * 那裡有 session 證明身分（見 account/actions.ts 的 setPassword）。
+   */
   if (existing) {
-    // 這個 Email 已經用 Google 登入過。補上密碼，等於把兩種登入方式綁在同一個帳號，
-    // 而不是另開一個重複的會員。
-    await db.user.update({
-      where: { id: existing.id },
-      data: {
-        passwordHash,
-        name: existing.name ?? name,
-        ...(phone ? { phone } : {}),
-      },
-    })
-    await sendVerification(email)
-    return { ok: true }
+    return { ok: false, fieldErrors: { email: (await getTranslations('errors'))('emailTakenSso') } }
   }
+
+  const passwordHash = await hashPassword(password)
 
   await db.user.create({
     data: { name, email, passwordHash, phone },
