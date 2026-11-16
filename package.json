@@ -72,7 +72,7 @@
     "@types/node": "^24.5.2",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@types/sanitize-html": "^2.16.1",
+    "@types/sanitize-html": "^2.16.2",
     "@types/three": "^0.185.4",
     "cheerio": "^1.1.2",
     "eslint": "^9.36.0",
