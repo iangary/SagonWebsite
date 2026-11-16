@@ -75,7 +75,7 @@
     "@types/sanitize-html": "^2.16.1",
     "@types/three": "^0.185.4",
     "cheerio": "^1.1.2",
-    "eslint": "^9.36.0",
+    "eslint": "^10.14.0",
     "eslint-config-next": "^16.3.8",
     "fflate": "^0.8.3",
     "prisma": "^6.16.2",
