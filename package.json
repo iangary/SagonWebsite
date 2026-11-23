@@ -67,7 +67,7 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.1",
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/postcss": "^4.3.5",
     "@types/node": "^24.5.2",
     "@types/react": "^19.2.0",
@@ -82,7 +82,7 @@
     "tailwindcss": "^4.1.13",
     "tsx": "^4.23.15",
     "typescript": "^5.9.2",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   },
   "overrides": {
     "nodemailer": "$nodemailer",
